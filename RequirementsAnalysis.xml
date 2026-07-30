@@ -27,6 +27,54 @@
         </ACTOR>
     </ACTORS>
 
+    <SYSTEM_BOUNDARY id="SB-PRODUCT-3D-WIDGET">
+        <ROLE>
+            product-3d-widget является управляющей оболочкой между хост-страницей, пользователем, средством 3D-просмотра и средствами AR-размещения.
+        </ROLE>
+
+        <COMPONENT_RESPONSIBILITIES>
+            <RESPONSIBILITY id="RESP-CONFIGURATION">
+                Принимать, проверять и применять конфигурацию товара.
+            </RESPONSIBILITY>
+            <RESPONSIBILITY id="RESP-3D-ADAPTER">
+                Настраивать средство 3D-просмотра, передавать ему модель, выбранные параметры и команды пользователя.
+            </RESPONSIBILITY>
+            <RESPONSIBILITY id="RESP-AR-ADAPTER">
+                Подготавливать подходящую GLB- или USDZ-модель и передавать её доступному средству AR-размещения.
+            </RESPONSIBILITY>
+            <RESPONSIBILITY id="RESP-USER-CONTROLS">
+                Формировать элементы управления цветами, вариантами конфигурации, анимациями, пошаговыми сценариями и запуском AR.
+            </RESPONSIBILITY>
+            <RESPONSIBILITY id="RESP-STATE-SYNCHRONIZATION">
+                Согласовывать состояние элементов управления с текущим выбором пользователя и результатами работы средств 3D-просмотра и AR-размещения.
+            </RESPONSIBILITY>
+            <RESPONSIBILITY id="RESP-STATUS-AND-ERRORS">
+                Отображать состояния загрузки, доступности возможностей и понятные сообщения об ошибках.
+            </RESPONSIBILITY>
+            <RESPONSIBILITY id="RESP-RECONFIGURATION-AND-CLEANUP">
+                Обрабатывать смену товара без перезагрузки страницы и освобождать связанные ресурсы при перенастройке или отключении компонента.
+            </RESPONSIBILITY>
+        </COMPONENT_RESPONSIBILITIES>
+
+        <DELEGATED_CAPABILITIES>
+            <CAPABILITY id="CAP-3D-PRESENTATION">
+                Средство 3D-просмотра выполняет непосредственное отображение GLB-модели, управление камерой, воспроизведение анимаций и применение выбранного цвета к определённым элементам модели.
+            </CAPABILITY>
+            <CAPABILITY id="CAP-AR-PLACEMENT">
+                Средство AR-размещения выполняет обнаружение поверхностей, размещение модели в реальном пространстве, а также её перемещение, вращение и масштабирование в пределах возможностей выбранного AR-режима.
+            </CAPABILITY>
+        </DELEGATED_CAPABILITIES>
+
+        <OUT_OF_SCOPE>
+            <EXCLUSION id="EXCL-OWN-3D-ENGINE">
+                Компонент не реализует собственный механизм 3D-рендеринга, управления камерой или воспроизведения анимаций.
+            </EXCLUSION>
+            <EXCLUSION id="EXCL-OWN-AR-ENGINE">
+                Компонент не реализует собственный механизм распознавания поверхностей или непосредственного AR-размещения.
+            </EXCLUSION>
+        </OUT_OF_SCOPE>
+    </SYSTEM_BOUNDARY>
+
     <USE_CASES>
         <USE_CASE id="UC-SITE-OWNER-CONFIGURE-PRODUCT">
             <ACTOR ref="ACTOR-SITE-OWNER" />
