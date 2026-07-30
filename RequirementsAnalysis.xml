@@ -37,5 +37,65 @@
                 Получить на веб-странице настроенную интерактивную 3D-карточку этого товара, отображающую предусмотренные для него модели, варианты, материалы, детали, анимации, сценарии и возможность AR-размещения.
             </GOAL>
         </USE_CASE>
+
+        <USE_CASE id="UC-HOST-PAGE-INITIALIZE-WIDGET">
+            <ACTOR ref="ACTOR-HOST-PAGE" />
+            <ACTION>
+                Создаёт product-3d-widget и передаёт ему конфигурацию конкретного товара.
+            </ACTION>
+            <GOAL>
+                Инициализировать на странице интерактивную 3D-карточку переданного товара.
+            </GOAL>
+        </USE_CASE>
+
+        <USE_CASE id="UC-HOST-PAGE-CHANGE-PRODUCT">
+            <ACTOR ref="ACTOR-HOST-PAGE" />
+            <ACTION>
+                Передаёт компоненту конфигурацию другого товара.
+            </ACTION>
+            <GOAL>
+                Сменить отображаемый товар без перезагрузки веб-страницы.
+            </GOAL>
+        </USE_CASE>
+
+        <USE_CASE id="UC-END-USER-EXPLORE-PRODUCT">
+            <ACTOR ref="ACTOR-END-USER" />
+            <ACTION>
+                Рассматривает и настраивает интерактивную 3D-модель товара.
+            </ACTION>
+            <GOAL>
+                Изучить внешний вид, устройство и доступные варианты товара.
+            </GOAL>
+        </USE_CASE>
+
+        <USE_CASE id="UC-END-USER-PLAY-ANIMATION">
+            <ACTOR ref="ACTOR-END-USER" />
+            <ACTION>
+                Запускает предусмотренную для товара анимацию.
+            </ACTION>
+            <GOAL>
+                Увидеть движение, трансформацию или работу товара.
+            </GOAL>
+        </USE_CASE>
+
+        <USE_CASE id="UC-END-USER-FOLLOW-SCENARIO">
+            <ACTOR ref="ACTOR-END-USER" />
+            <ACTION>
+                Последовательно проходит шаги настроенного сценария с анимациями и описаниями.
+            </ACTION>
+            <GOAL>
+                Изучить инструкцию или предусмотренный процесс.
+            </GOAL>
+        </USE_CASE>
+
+        <USE_CASE id="UC-END-USER-PLACE-IN-AR">
+            <ACTOR ref="ACTOR-END-USER" />
+            <ACTION>
+                Размещает товар в реальном пространстве через AR-режим.
+            </ACTION>
+            <GOAL>
+                Оценить расположение и размеры товара в окружающем пространстве.
+            </GOAL>
+        </USE_CASE>
     </USE_CASES>
 </REQUIREMENTS_ANALYSIS>
