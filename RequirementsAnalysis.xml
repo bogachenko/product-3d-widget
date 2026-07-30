@@ -26,4 +26,16 @@
             </DESCRIPTION>
         </ACTOR>
     </ACTORS>
+
+    <USE_CASES>
+        <USE_CASE id="UC-SITE-OWNER-CONFIGURE-PRODUCT">
+            <ACTOR ref="ACTOR-SITE-OWNER" />
+            <ACTION>
+                Задаёт конфигурацию конкретного товара для product-3d-widget.
+            </ACTION>
+            <GOAL>
+                Получить на веб-странице настроенную интерактивную 3D-карточку этого товара, отображающую предусмотренные для него модели, варианты, материалы, детали, анимации, сценарии и возможность AR-размещения.
+            </GOAL>
+        </USE_CASE>
+    </USE_CASES>
 </REQUIREMENTS_ANALYSIS>
