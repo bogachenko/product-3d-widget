@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET">
+    <PROJECT_GOAL id="GOAL-P3D-001">
+        Создать настраиваемый Web Component product-3d-widget для встраивания на веб-страницу интерактивной 3D-карточки товара, позволяющей просматривать и настраивать 3D-модель товара на странице, запускать её анимации и пошаговые сценарии, а также размещать товар в реальном пространстве в AR-режиме.
+    </PROJECT_GOAL>
+
+    <ACTORS>
+        <ACTOR id="ACTOR-SITE-OWNER">
+            <NAME>Владелец сайта</NAME>
+            <DESCRIPTION>
+                Встраивает product-3d-widget на веб-страницу и определяет конфигурацию конкретного товара.
+            </DESCRIPTION>
+        </ACTOR>
+
+        <ACTOR id="ACTOR-HOST-PAGE">
+            <NAME>Хост-страница</NAME>
+            <DESCRIPTION>
+                Создаёт компонент, передаёт ему конфигурацию и может инициировать смену товара без перезагрузки страницы.
+            </DESCRIPTION>
+        </ACTOR>
+
+        <ACTOR id="ACTOR-END-USER">
+            <NAME>Пользователь сайта</NAME>
+            <DESCRIPTION>
+                Просматривает и настраивает 3D-модель товара, запускает анимации и пошаговые сценарии, а также использует AR-размещение.
+            </DESCRIPTION>
+        </ACTOR>
+    </ACTORS>
+</REQUIREMENTS_ANALYSIS>
