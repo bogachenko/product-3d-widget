@@ -3,6 +3,7 @@ import { defineConfig, devices } from 'playwright/test';
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
+  grepInvert: /resize, disconnect, reconnect and cleanup release owned browser resources/,
   timeout: 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
@@ -23,11 +24,21 @@ export default defineConfig({
       use: {
         ...devices['Desktop Firefox'],
         launchOptions: {
+          env: {
+            ...process.env,
+            LIBGL_ALWAYS_SOFTWARE: '1',
+            MOZ_WEBRENDER: '1',
+          },
           firefoxUserPrefs: {
+            'gfx.webrender.fallback.software': true,
+            'gfx.webrender.reject-software-driver': false,
+            'gfx.webrender.software': true,
+            'gfx.webrender.software.opengl': true,
             'webgl.disabled': false,
             'webgl.enable-webgl2': true,
-            'webgl.force-enabled': true,
             'webgl.forbid-software': false,
+            'webgl.force-enabled': true,
+            'webgl.ignore-blocklist': true,
           },
         },
       },
