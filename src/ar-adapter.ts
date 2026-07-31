@@ -27,24 +27,31 @@ const arError = (
 
 // <SEMANTIC_BLOCK id="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER">
 // <INTENT>Use one hidden model-viewer through public mode-neutral AR APIs only.</INTENT>
-// <LINKS><MODULE ref="MOD-AR-ADAPTER"/><MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER"/><FUNCTION_CONTRACT ref="CFC-FN-AR-INITIALIZE"/></LINKS>
+// <LINKS><MODULE ref="MOD-AR-ADAPTER"/><MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER"/><FUNCTION_CONTRACT ref="CFC-FN-AR-INITIALIZE"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/></LINKS>
 export class ModelViewerArAdapter {
   readonly #hiddenHost: HTMLElement;
   readonly #callbacks: ArCallbacks;
   #element: ModelViewerElement | null = null;
   #config: NormalizedProductConfiguration | null = null;
-  #selection: ConfirmedSelection | null = null;
   #webxrObserved = false;
   #disposed = false;
   #available = false;
   #loaded: Promise<void> | null = null;
+  #resolveLoaded: (() => void) | null = null;
+  #rejectLoaded: ((reason: Error) => void) | null = null;
   readonly #baseColors = new Map<string, readonly number[]>();
 
   readonly #handleLoad = (): void => {
+    this.#resolveLoaded?.();
+    this.#resolveLoaded = null;
+    this.#rejectLoaded = null;
     this.#updateAvailability();
   };
 
   readonly #handleError = (): void => {
+    this.#rejectLoaded?.(new Error('model-viewer could not load the AR source.'));
+    this.#resolveLoaded = null;
+    this.#rejectLoaded = null;
     this.#updateAvailability();
   };
 
@@ -58,6 +65,8 @@ export class ModelViewerArAdapter {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-AR-INITIALIZE">
+  // <INTENT>Create one hidden model-viewer, configure mode-neutral public AR inputs and observe public availability.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><MODULE ref="MOD-AR-ADAPTER"/><MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER"/><FUNCTION_CONTRACT ref="CFC-FN-AR-INITIALIZE"/></LINKS>
   async initialize(config: NormalizedProductConfiguration): Promise<ArInitializationResult> {
     if (this.#disposed || this.#element !== null || !config.arEnabled) {
       return Object.freeze({
@@ -87,7 +96,7 @@ export class ModelViewerArAdapter {
           element.iosSrc = config.usdzUrl;
         } catch {
           element.iosSrc = null;
-          localErrors.push(arError('USDZ_UNUSABLE', 'The optional USDZ URL is unusable; Quick Look will use GLB conversion fallback.'));
+          localErrors.push(arError('USDZ_UNUSABLE', 'The optional USDZ URL is unusable; the primary GLB remains configured for platform fallback.'));
         }
       }
 
@@ -95,16 +104,8 @@ export class ModelViewerArAdapter {
       element.addEventListener('error', this.#handleError);
       element.addEventListener('ar-status', this.#handleArStatusEvent);
       this.#loaded = new Promise<void>((resolve, reject) => {
-        const loaded = (): void => {
-          element.removeEventListener('error', failed);
-          resolve();
-        };
-        const failed = (): void => {
-          element.removeEventListener('load', loaded);
-          reject(new Error('model-viewer could not load the AR source.'));
-        };
-        element.addEventListener('load', loaded, { once: true });
-        element.addEventListener('error', failed, { once: true });
+        this.#resolveLoaded = resolve;
+        this.#rejectLoaded = reject;
       });
       void this.#loaded.catch(() => undefined);
       this.#element = element;
@@ -132,13 +133,14 @@ export class ModelViewerArAdapter {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-AR-SYNC-SELECTION">
+  // <INTENT>Apply the current confirmed color and structural selection only through model-viewer public supported capabilities.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><MODULE ref="MOD-AR-ADAPTER"/><MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER"/><FUNCTION_CONTRACT ref="CFC-FN-AR-SYNC-SELECTION"/></LINKS>
   async syncSelection(selection: ConfirmedSelection): Promise<ArSyncResult> {
     if (this.#disposed || this.#element === null || this.#config === null || this.#loaded === null) {
       return Object.freeze({ ok: false, error: arError('AR_SYNC_FAILED', 'AR selection cannot be synchronized before initialization.') });
     }
     try {
       await this.#loaded;
-      this.#selection = Object.freeze({ ...selection });
       const model = this.#element.model;
       if (model !== undefined) {
         if (this.#baseColors.size === 0) {
@@ -175,6 +177,8 @@ export class ModelViewerArAdapter {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-AR-LAUNCH">
+  // <INTENT>Call public activateAR() once from the host user activation and report only initiation or an observable generic failure.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-AR-LAUNCH"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><MODULE ref="MOD-AR-ADAPTER"/><MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER"/><FUNCTION_CONTRACT ref="CFC-FN-AR-LAUNCH"/></LINKS>
   async launch(): Promise<ArRequestResult> {
     if (this.#disposed || this.#element === null) {
       return Object.freeze({ ok: false, error: arError('AR_REQUEST_FAILED', 'AR is not initialized.') });
@@ -192,6 +196,8 @@ export class ModelViewerArAdapter {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-AR-HANDLE-STATUS">
+  // <INTENT>Translate only public model-viewer WebXR status evidence into one start/end pair.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><MODULE ref="MOD-AR-ADAPTER"/><MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER"/><FUNCTION_CONTRACT ref="CFC-FN-AR-HANDLE-STATUS"/></LINKS>
   #handleArStatus(event: Event): void {
     const status = (event as ArStatusEvent).detail?.status;
     this.#updateAvailability();
@@ -216,6 +222,8 @@ export class ModelViewerArAdapter {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-AR-DISPOSE">
+  // <INTENT>Idempotently remove owned public listeners, hidden model-viewer and retained asset/selection references.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><MODULE ref="MOD-AR-ADAPTER"/><MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER"/><FUNCTION_CONTRACT ref="CFC-FN-AR-DISPOSE"/></LINKS>
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
@@ -228,7 +236,9 @@ export class ModelViewerArAdapter {
     }
     this.#element = null;
     this.#config = null;
-    this.#selection = null;
+    this.#rejectLoaded?.(new Error('AR adapter disposed before its source became ready.'));
+    this.#resolveLoaded = null;
+    this.#rejectLoaded = null;
     this.#loaded = null;
     this.#available = false;
     this.#webxrObserved = false;
