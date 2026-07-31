@@ -209,9 +209,7 @@
                 <TECH_REF ref="TECH-PRINCIPLE-EXACT-VERSIONS" />
             </TECHNOLOGIES>
             <DEPENDS_ON />
-            <COLLABORATES_WITH>
-                <MODULE ref="MOD-THREE-VIEWER" />
-            </COLLABORATES_WITH>
+            <COLLABORATES_WITH />
         </MODULE>
         <MODULE id="MOD-THREE-VIEWER">
             <NAME>Основной Three.js viewer</NAME>
@@ -279,9 +277,7 @@
                 <TECH_REF ref="FORMAT-GLB" />
             </TECHNOLOGIES>
             <DEPENDS_ON />
-            <COLLABORATES_WITH>
-                <MODULE ref="MOD-CONFIGURATION" />
-            </COLLABORATES_WITH>
+            <COLLABORATES_WITH />
         </MODULE>
         <MODULE id="MOD-AR-ADAPTER">
             <NAME>Режим-нейтральный AR adapter</NAME>
@@ -465,7 +461,7 @@
             <SCOPE>
                 <ITEM>Реализовать минимальную чистую проверку и нормализацию конфигурации.</ITEM>
                 <ITEM>Создать Custom Element shell, Shadow DOM и явные lifecycle states.</ITEM>
-                <ITEM>Обеспечить single-product immutability, pre-ready rejection и reconnect rules.</ITEM>
+                <ITEM>Обеспечить single-product immutability, внутренний lifecycle gate для pre-ready rejection и свежую повторную инициализацию после нетерминального disconnect.</ITEM>
                 <ITEM>Не создавать заглушки viewer, animation или AR, если lifecycle shell можно проверить без них.</ITEM>
             </SCOPE>
             <OUTPUTS>
@@ -487,14 +483,14 @@
                 <CRITERION>Обязательная ошибка не запускает загрузку GLB.</CRITERION>
                 <CRITERION>Локальная ошибка optional capability отключает только её.</CRITERION>
                 <CRITERION>Команды до ready немедленно отклоняются и не ставятся в очередь.</CRITERION>
-                <CRITERION>Повторное подключение начинает свежую инициализацию, кроме terminal primary GLB failure.</CRITERION>
+                <CRITERION>Повторное подключение после нетерминального disconnect начинает свежую инициализацию с исходным выбором.</CRITERION>
                 <CRITERION>Нет абстракций сверх четырёх утверждённых runtime-модулей.</CRITERION>
             </COMPLETION_CRITERIA>
             <LAZY_REVIEW>
                 <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
                 <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
             </LAZY_REVIEW>
-            <MINIMUM_RUNNABLE_CHECK>Самый маленький Vitest check покрывает каждое отдельное нетривиальное правило конфигурации; один Playwright check доказывает lifecycle shell и pre-ready rejection.</MINIMUM_RUNNABLE_CHECK>
+            <MINIMUM_RUNNABLE_CHECK>Самый маленький Vitest check покрывает каждое отдельное нетривиальное правило конфигурации и внутренний lifecycle gate; один Playwright check доказывает lifecycle shell и свежий reconnect без создания заглушек будущих публичных операций.</MINIMUM_RUNNABLE_CHECK>
         </STAGE>
         <STAGE id="DP-STAGE-03-THREE-VIEWER-CORE" order="3">
             <NAME>Основной Three.js viewer</NAME>
@@ -526,7 +522,7 @@
             <COMPLETION_CRITERIA>
                 <CRITERION>Primary GLB-only configuration reaches READY and renders.</CRITERION>
                 <CRITERION>WebGL 2 absence creates blocking 3D-unavailable error.</CRITERION>
-                <CRITERION>Primary GLB failure is terminal for the instance.</CRITERION>
+                <CRITERION>Primary GLB failure is terminal for the instance: повторное подключение того же DOM-элемента не запускает новую инициализацию и требует нового экземпляра.</CRITERION>
                 <CRITERION>Resize preserves available-container behavior and fallback aspect ratio.</CRITERION>
                 <CRITERION>Second context-loss failure does not start another automatic recovery.</CRITERION>
             </COMPLETION_CRITERIA>
@@ -604,6 +600,7 @@
             <COMPLETION_CRITERIA>
                 <CRITERION>Host never observes an intermediate contradictory state.</CRITERION>
                 <CRITERION>Rejected command has no state change and no error event.</CRITERION>
+                <CRITERION>Каждый публичный метод, вызванный до STATE-READY, немедленно отклоняется, не ставится в очередь и не выполняется позднее.</CRITERION>
                 <CRITERION>Accepted execution failure is distinguishable from rejection when observable.</CRITERION>
                 <CRITERION>Notification order is deterministic.</CRITERION>
                 <CRITERION>Disconnect leaves no owned active operations or listeners.</CRITERION>
@@ -612,7 +609,7 @@
                 <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
                 <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
             </LAZY_REVIEW>
-            <MINIMUM_RUNNABLE_CHECK>Один Playwright check records event order and Promise resolution; отдельный cleanup check используется потому, что ресурсная утечка является независимым риском.</MINIMUM_RUNNABLE_CHECK>
+            <MINIMUM_RUNNABLE_CHECK>Один Playwright check доказывает pre-ready rejection всех публичных методов, порядок событий и Promise resolution; отдельный cleanup check используется потому, что ресурсная утечка является независимым риском.</MINIMUM_RUNNABLE_CHECK>
         </STAGE>
         <STAGE id="DP-STAGE-06-AR" order="6">
             <NAME>Режим-нейтральный AR adapter</NAME>
@@ -731,7 +728,7 @@
         </MENTAL_CHECK>
         <MENTAL_CHECK id="DP-MENTAL-WEBXR">
             <INPUT>Публично наблюдается WebXR start и затем end.</INPUT>
-            <EXPECTED_PATH>READY → AR-ACTIVE → READY; launched/returned формируются только на этих событиях.</EXPECTED_PATH>
+            <EXPECTED_PATH>STATE-READY → STATE-AR-ACTIVE → STATE-READY; launched/returned формируются только на этих событиях.</EXPECTED_PATH>
             <ARCHITECTURAL_CONCLUSION>Та же модель не применяется к внешним каналам.</ARCHITECTURAL_CONCLUSION>
         </MENTAL_CHECK>
         <MENTAL_CHECK id="DP-MENTAL-RECONNECT">
