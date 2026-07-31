@@ -133,4 +133,4 @@ Running 24 tests using 1 worker
     [chromium] › tests/resource-cleanup.spec.ts:32:1 › owned browser resources are released across resize and reconnect cycles 
     [firefox] › tests/resource-cleanup.spec.ts:32:1 › owned browser resources are released across resize and reconnect cycles 
     [webkit] › tests/resource-cleanup.spec.ts:32:1 › owned browser resources are released across resize and reconnect cycles 
-  21 passed (1.5m)
+  21 passed (1.4m)
