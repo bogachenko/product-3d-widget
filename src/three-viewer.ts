@@ -1,19 +1,24 @@
 import {
-  AmbientLight,
+  ACESFilmicToneMapping,
   AnimationAction,
   AnimationClip,
   AnimationMixer,
   Box3,
   Color,
   DirectionalLight,
+  HemisphereLight,
   LoopOnce,
   Material,
   Mesh,
   MeshStandardMaterial,
   Object3D,
+  PCFSoftShadowMap,
   PerspectiveCamera,
+  PlaneGeometry,
   Quaternion,
   Scene,
+  Sphere,
+  SRGBColorSpace,
   Texture,
   Vector3,
   WebGLRenderer,
@@ -116,6 +121,9 @@ export class ThreeViewer {
   #controls: OrbitControls | null = null;
   #gltf: GLTF | null = null;
   #root: Object3D | null = null;
+  #ground: Mesh<PlaneGeometry, MeshStandardMaterial> | null = null;
+  #keyLight: DirectionalLight | null = null;
+  #fillLight: DirectionalLight | null = null;
   #mixer: AnimationMixer | null = null;
   #resizeObserver: ResizeObserver | null = null;
   #rafId: number | null = null;
@@ -136,7 +144,10 @@ export class ThreeViewer {
   readonly #enabledAnimations = new Set<string>();
   readonly #enabledScenarios = new Set<string>();
 
-  readonly #handleControlsChange = (): void => this.#render();
+  readonly #handleControlsChange = (): void => {
+    this.#render();
+    if (this.#controls?.enableDamping === true) this.#scheduleFrame();
+  };
   readonly #handleContextLost = (event: Event): void => {
     event.preventDefault();
     void this.#recoverContext();
@@ -168,6 +179,10 @@ export class ThreeViewer {
   async #initializeResources(cameraSnapshot: CameraSnapshot | null): Promise<ViewerInitializationResult> {
     const canvas = document.createElement('canvas');
     canvas.setAttribute('aria-label', 'Interactive 3D product view');
+    canvas.style.display = 'block';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.touchAction = 'none';
     const context = canvas.getContext('webgl2', {
       alpha: true,
       antialias: true,
@@ -185,21 +200,35 @@ export class ThreeViewer {
       const renderer = new WebGLRenderer({ canvas, context, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
       renderer.setClearColor(0x000000, 0);
+      renderer.outputColorSpace = SRGBColorSpace;
+      renderer.toneMapping = ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = PCFSoftShadowMap;
       this.#renderer = renderer;
       this.#container.append(canvas);
       canvas.addEventListener('webglcontextlost', this.#handleContextLost);
 
       this.#scene = new Scene();
-      this.#camera = new PerspectiveCamera(45, 4 / 3, 0.01, 10_000);
+      this.#camera = new PerspectiveCamera(42, 4 / 3, 0.01, 10_000);
       this.#camera.position.set(0, 0, 3);
       this.#controls = new OrbitControls(this.#camera, canvas);
-      this.#controls.enableDamping = false;
+      this.#controls.enableDamping = true;
+      this.#controls.dampingFactor = 0.08;
       this.#controls.enablePan = true;
+      this.#controls.screenSpacePanning = true;
       this.#controls.addEventListener('change', this.#handleControlsChange);
-      this.#scene.add(new AmbientLight(0xffffff, 2));
-      const keyLight = new DirectionalLight(0xffffff, 3);
-      keyLight.position.set(2, 3, 4);
-      this.#scene.add(keyLight);
+
+      this.#scene.add(new HemisphereLight(0xffffff, 0x555555, 2.2));
+      this.#keyLight = new DirectionalLight(0xffffff, 3);
+      this.#keyLight.castShadow = true;
+      this.#keyLight.shadow.mapSize.set(2048, 2048);
+      this.#keyLight.shadow.bias = -0.0002;
+      this.#keyLight.shadow.normalBias = 0.025;
+      this.#scene.add(this.#keyLight, this.#keyLight.target);
+
+      this.#fillLight = new DirectionalLight(0xffffff, 1.5);
+      this.#scene.add(this.#fillLight, this.#fillLight.target);
     } catch (cause) {
       this.#releaseResources();
       return Object.freeze({
@@ -237,11 +266,12 @@ export class ThreeViewer {
       this.#currentSelection = result.selection;
       this.#restoreBasePose();
       this.#applySelectionDirect();
-      this.#frameModel(cameraSnapshot);
+      const modelBounds = this.#configureModelPresentation();
 
       this.#resizeObserver = new ResizeObserver(() => this.resize());
       this.#resizeObserver.observe(this.#container);
       this.resize();
+      this.#frameModel(cameraSnapshot, modelBounds);
       this.#render();
       return result;
     } catch (cause) {
@@ -278,6 +308,8 @@ export class ThreeViewer {
       }));
       this.#baseVisibility.set(object, object.visible);
       if (object instanceof Mesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
           if (!(material instanceof MeshStandardMaterial)) continue;
@@ -289,6 +321,50 @@ export class ThreeViewer {
       }
     });
     for (const clip of this.#gltf!.animations) this.#clipsByName.set(clip.name, clip);
+  }
+
+  #configureModelPresentation(): Box3 {
+    const box = new Box3().setFromObject(this.#root!);
+    const center = box.getCenter(new Vector3());
+    const size = box.getSize(new Vector3());
+    const extent = Math.max(size.x, size.y, size.z, 0.1);
+
+    this.#ground = new Mesh(
+      new PlaneGeometry(extent * 6, extent * 6),
+      new MeshStandardMaterial({ color: 0xd8d8d8, roughness: 1, metalness: 0 }),
+    );
+    this.#ground.rotation.x = -Math.PI / 2;
+    this.#ground.position.set(center.x, box.min.y - extent * 0.002, center.z);
+    this.#ground.receiveShadow = true;
+    this.#scene!.add(this.#ground);
+
+    if (this.#keyLight !== null) {
+      this.#keyLight.position.set(
+        center.x + extent * 1.8,
+        center.y + extent * 2.5,
+        center.z + extent * 2,
+      );
+      this.#keyLight.target.position.copy(center);
+      const shadowExtent = extent * 1.5;
+      this.#keyLight.shadow.camera.left = -shadowExtent;
+      this.#keyLight.shadow.camera.right = shadowExtent;
+      this.#keyLight.shadow.camera.top = shadowExtent;
+      this.#keyLight.shadow.camera.bottom = -shadowExtent;
+      this.#keyLight.shadow.camera.near = Math.max(extent * 0.01, 0.01);
+      this.#keyLight.shadow.camera.far = Math.max(extent * 10, 10);
+      this.#keyLight.shadow.camera.updateProjectionMatrix();
+    }
+
+    if (this.#fillLight !== null) {
+      this.#fillLight.position.set(
+        center.x - extent * 1.7,
+        center.y + extent * 1.1,
+        center.z - extent * 1.3,
+      );
+      this.#fillLight.target.position.copy(center);
+    }
+
+    return box;
   }
 
   #validateModelBoundCapabilities(): Extract<ViewerInitializationResult, { ok: true }> {
@@ -365,7 +441,7 @@ export class ThreeViewer {
     });
   }
 
-  #frameModel(snapshot: CameraSnapshot | null): void {
+  #frameModel(snapshot: CameraSnapshot | null, box: Box3): void {
     if (snapshot !== null) {
       this.#camera!.position.copy(snapshot.position);
       this.#camera!.quaternion.copy(snapshot.quaternion);
@@ -373,16 +449,22 @@ export class ThreeViewer {
       this.#controls!.update();
       return;
     }
-    const box = new Box3().setFromObject(this.#root!);
+
     const center = box.getCenter(new Vector3());
-    const size = box.getSize(new Vector3());
-    const radius = Math.max(size.length() * 0.5, 0.1);
+    const sphere = box.getBoundingSphere(new Sphere());
+    const radius = Math.max(sphere.radius, 0.1);
+    const verticalFov = this.#camera!.fov * Math.PI / 180;
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * this.#camera!.aspect);
+    const limitingFov = Math.max(Math.min(verticalFov, horizontalFov), 0.1);
+    const distance = radius / Math.sin(limitingFov / 2) * 1.12;
+    const direction = new Vector3(1.15, 0.72, 1.35).normalize();
+
     this.#camera!.near = Math.max(radius / 100, 0.001);
-    this.#camera!.far = Math.max(radius * 100, 100);
-    this.#camera!.position.copy(center).add(new Vector3(0, radius * 0.35, radius * 2.5));
+    this.#camera!.far = Math.max(distance + radius * 12, 100);
+    this.#camera!.position.copy(center).addScaledVector(direction, distance);
     this.#controls!.target.copy(center);
-    this.#controls!.minDistance = radius * 0.1;
-    this.#controls!.maxDistance = radius * 20;
+    this.#controls!.minDistance = radius * 0.35;
+    this.#controls!.maxDistance = radius * 12;
     this.#camera!.updateProjectionMatrix();
     this.#controls!.update();
   }
@@ -601,27 +683,40 @@ export class ThreeViewer {
 
   readonly #tick = (now: number): void => {
     this.#rafId = null;
+    if (this.#disposed) return;
+
+    const controlsChanged = this.#controls?.enableDamping === true
+      ? this.#controls.update()
+      : false;
     const playback = this.#playback;
-    if (playback === null || this.#mixer === null || this.#disposed) return;
-    const delta = Math.max(0, Math.min((now - this.#lastFrameTime) / 1000, 0.1));
-    this.#lastFrameTime = now;
-    this.#mixer.update(delta);
-    if (playback.action.time >= playback.endSeconds) {
-      playback.action.time = playback.endSeconds;
-      this.#mixer.update(0);
-      this.#render();
-      if (playback.kind === 'scenario') {
-        playback.action.paused = true;
-        this.#callbacks.onScenarioStepCompleted(playback.scenarioId!, playback.stepIndex!);
-      } else {
-        const animationId = playback.animationId;
-        this.#restoreOrdinaryPose();
-        this.#callbacks.onAnimationCompleted(animationId);
+
+    if (playback !== null && this.#mixer !== null) {
+      const delta = Math.max(0, Math.min((now - this.#lastFrameTime) / 1000, 0.1));
+      this.#lastFrameTime = now;
+      this.#mixer.update(delta);
+      if (playback.action.time >= playback.endSeconds) {
+        playback.action.time = playback.endSeconds;
+        this.#mixer.update(0);
+        this.#render();
+        if (playback.kind === 'scenario') {
+          playback.action.paused = true;
+          this.#callbacks.onScenarioStepCompleted(playback.scenarioId!, playback.stepIndex!);
+        } else {
+          const animationId = playback.animationId;
+          this.#restoreOrdinaryPose();
+          this.#callbacks.onAnimationCompleted(animationId);
+        }
+        return;
       }
+      this.#render();
+      this.#scheduleFrame();
       return;
     }
-    this.#render();
-    this.#scheduleFrame();
+
+    if (controlsChanged) {
+      this.#render();
+      this.#scheduleFrame();
+    }
   };
 
   #restoreOrdinaryPose(): void {
@@ -713,6 +808,12 @@ export class ThreeViewer {
     if (canvas instanceof HTMLCanvasElement) {
       try { canvas.removeEventListener('webglcontextlost', this.#handleContextLost); } catch { /* cleanup continues */ }
     }
+
+    try { this.#ground?.geometry.dispose(); } catch { /* cleanup continues */ }
+    try { this.#ground?.material.dispose(); } catch { /* cleanup continues */ }
+    this.#ground = null;
+    this.#keyLight = null;
+    this.#fillLight = null;
 
     const disposedTextures = new Set<Texture>();
     const disposedGeometries = new Set<object>();
