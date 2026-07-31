@@ -12,9 +12,7 @@ import {
   Mesh,
   MeshStandardMaterial,
   Object3D,
-  PCFSoftShadowMap,
   PerspectiveCamera,
-  PlaneGeometry,
   Quaternion,
   Scene,
   Sphere,
@@ -121,7 +119,6 @@ export class ThreeViewer {
   #controls: OrbitControls | null = null;
   #gltf: GLTF | null = null;
   #root: Object3D | null = null;
-  #ground: Mesh<PlaneGeometry, MeshStandardMaterial> | null = null;
   #keyLight: DirectionalLight | null = null;
   #fillLight: DirectionalLight | null = null;
   #mixer: AnimationMixer | null = null;
@@ -203,8 +200,6 @@ export class ThreeViewer {
       renderer.outputColorSpace = SRGBColorSpace;
       renderer.toneMapping = ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.05;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = PCFSoftShadowMap;
       this.#renderer = renderer;
       this.#container.append(canvas);
       canvas.addEventListener('webglcontextlost', this.#handleContextLost);
@@ -221,10 +216,6 @@ export class ThreeViewer {
 
       this.#scene.add(new HemisphereLight(0xffffff, 0x555555, 2.2));
       this.#keyLight = new DirectionalLight(0xffffff, 3);
-      this.#keyLight.castShadow = true;
-      this.#keyLight.shadow.mapSize.set(2048, 2048);
-      this.#keyLight.shadow.bias = -0.0002;
-      this.#keyLight.shadow.normalBias = 0.025;
       this.#scene.add(this.#keyLight, this.#keyLight.target);
 
       this.#fillLight = new DirectionalLight(0xffffff, 1.5);
@@ -308,8 +299,6 @@ export class ThreeViewer {
       }));
       this.#baseVisibility.set(object, object.visible);
       if (object instanceof Mesh) {
-        object.castShadow = true;
-        object.receiveShadow = true;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
           if (!(material instanceof MeshStandardMaterial)) continue;
@@ -329,15 +318,6 @@ export class ThreeViewer {
     const size = box.getSize(new Vector3());
     const extent = Math.max(size.x, size.y, size.z, 0.1);
 
-    this.#ground = new Mesh(
-      new PlaneGeometry(extent * 6, extent * 6),
-      new MeshStandardMaterial({ color: 0xd8d8d8, roughness: 1, metalness: 0 }),
-    );
-    this.#ground.rotation.x = -Math.PI / 2;
-    this.#ground.position.set(center.x, box.min.y - extent * 0.002, center.z);
-    this.#ground.receiveShadow = true;
-    this.#scene!.add(this.#ground);
-
     if (this.#keyLight !== null) {
       this.#keyLight.position.set(
         center.x + extent * 1.8,
@@ -345,14 +325,6 @@ export class ThreeViewer {
         center.z + extent * 2,
       );
       this.#keyLight.target.position.copy(center);
-      const shadowExtent = extent * 1.5;
-      this.#keyLight.shadow.camera.left = -shadowExtent;
-      this.#keyLight.shadow.camera.right = shadowExtent;
-      this.#keyLight.shadow.camera.top = shadowExtent;
-      this.#keyLight.shadow.camera.bottom = -shadowExtent;
-      this.#keyLight.shadow.camera.near = Math.max(extent * 0.01, 0.01);
-      this.#keyLight.shadow.camera.far = Math.max(extent * 10, 10);
-      this.#keyLight.shadow.camera.updateProjectionMatrix();
     }
 
     if (this.#fillLight !== null) {
@@ -809,9 +781,6 @@ export class ThreeViewer {
       try { canvas.removeEventListener('webglcontextlost', this.#handleContextLost); } catch { /* cleanup continues */ }
     }
 
-    try { this.#ground?.geometry.dispose(); } catch { /* cleanup continues */ }
-    try { this.#ground?.material.dispose(); } catch { /* cleanup continues */ }
-    this.#ground = null;
     this.#keyLight = null;
     this.#fillLight = null;
 
