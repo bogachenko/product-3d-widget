@@ -19,7 +19,7 @@
         <RULE id="MC-RULE-PONYTAIL">Намеренное упрощение с известным потолком получает PONYTAIL-комментарий с пределом, допустимой областью, условием пересмотра и прямым upgrade path.</RULE>
     </GLOBAL_CONTRACT_RULES>
     <INTERACTION_MODEL>
-        <COMMAND_PATH>Host → CONTRACT-MOD-WIDGET-CONTROLLER → ровно один необходимый leaf-модуль.</COMMAND_PATH>
+        <COMMAND_PATH>Host → CONTRACT-MOD-WIDGET-CONTROLLER → минимальная последовательность конкретных leaf-операций, фактически необходимая для команды; каждая операция адресуется ровно одному leaf-модулю. Широковещательный вызов допустим только для cleanup owned resources.</COMMAND_PATH>
         <RESULT_PATH>Leaf-модуль → явный результат или узкий callback → CONTRACT-MOD-WIDGET-CONTROLLER → commit публичного snapshot → DOM events → Promise.</RESULT_PATH>
         <FORBIDDEN_PATH>Leaf-модуль → другой leaf-модуль; leaf-модуль → host event; leaf-модуль → импорт контроллера.</FORBIDDEN_PATH>
         <STATE_COMMIT>Leaf-модуль может изменить только owned internal resources. Публичное состояние считается изменённым только после commit контроллером.</STATE_COMMIT>
@@ -111,7 +111,7 @@
                 <RULE>Наблюдаемая AR-ошибка не утверждает выбранный канал и не создаёт внешнего AR lifecycle.</RULE>
             </FAILURE_BEHAVIOR>
             <INTERACTION_RULES>
-                <RULE>Контроллер вызывает только конкретную операцию, необходимую для текущей команды; пакетная универсальная команда не вводится.</RULE>
+                <RULE>Контроллер вызывает минимальную последовательность конкретных leaf-операций, требуемую текущей командой; каждая операция адресуется одному leaf-модулю, а пакетная универсальная команда не вводится.</RULE>
                 <RULE>Leaf-модуль возвращает результат контроллеру и не отправляет публичный CustomEvent.</RULE>
                 <RULE>Порядок принятой команды: фактический результат → commit snapshot → общее событие → специализированное событие → Promise.</RULE>
                 <RULE>При замене операции сначала проверяется новый запрос; недопустимый запрос не прерывает текущую подтверждённую операцию.</RULE>
