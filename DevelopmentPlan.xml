@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<DEVELOPMENT_PLAN id="DP-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<DEVELOPMENT_PLAN id="DP-PRODUCT-3D-WIDGET" status="APPROVED">
     <PURPOSE>Определить минимальную архитектуру, границы ответственности, потоки данных, последовательность реализации и критерии завершения product-3d-widget на основании утверждённых требований и технологий, не создавая преждевременных абстракций или кода.</PURPOSE>
     <BASED_ON>
         <REQUIREMENTS artifact="RequirementsAnalysis.xml" approved_revision="dbdacbd45007690b454e2f14a325bc7c06f7358f" approval_commit="8fc4558fc4b1c2d13c9354d4054a662281a3d2fd" />
@@ -776,8 +776,10 @@
         <CHECK id="DP-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS пуст перед утверждением.</CHECK>
     </VALIDATION_EXPECTATIONS>
     <UNRESOLVED_DECISIONS />
-    <APPROVAL_GATE status="PENDING">
-        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
-        <CONDITION>Утвердить минимальную четырёхмодульную архитектуру, decision ladder lazy senior, dependency/file constraints, state ownership, implementation stages, mental checks and risks. После утверждения создавать ModuleContracts.xml; реализация по-прежнему запрещена.</CONDITION>
+    <APPROVAL_GATE status="APPROVED">
+        <APPROVED_REVISION>bf444f172b1be14f2e5877fcbe3cff95ff0a6772</APPROVED_REVISION>
+        <APPROVED_AT>2026-07-31T15:06:00+03:00</APPROVED_AT>
+        <APPROVAL_STATEMENT>Утверждаю DevelopmentPlan.xml в редакции commit bf444f172b1be14f2e5877fcbe3cff95ff0a6772, включая минимальную четырёхмодульную runtime-архитектуру, единственного владельца подтверждённого публичного состояния, отсутствие прямых зависимостей между leaf-модулями, принцип lazy senior developer, запрет преждевременных абстракций и зависимостей, минимальное количество файлов, PONYTAIL-комментарии для намеренных ограничений, семь последовательных этапов реализации, минимальные исполняемые проверки, режим-нейтральный AR-адаптер и зафиксированные архитектурные риски.</APPROVAL_STATEMENT>
+        <APPROVED_SCOPE>Полная редакция DevelopmentPlan.xml: четыре минимальных runtime-модуля; контроллер как единственный владелец подтверждённого публичного состояния; независимые leaf-модули без прямых связей; lazy senior decision ladder; запрет преждевременных абстракций и зависимостей; минимальное число файлов; PONYTAIL-комментарии для известных потолков; семь последовательных этапов; минимальные runnable checks; режим-нейтральный AR; архитектурные mental checks и риски.</APPROVED_SCOPE>
     </APPROVAL_GATE>
 </DEVELOPMENT_PLAN>
