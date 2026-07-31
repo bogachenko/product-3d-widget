@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CLASS_FUNCTION_CONTRACTS id="CLASS-FUNCTION-CONTRACTS-PRODUCT-3D-WIDGET" status="DRAFT">
+    <CLASS_CONTRACT id="CONTRACT-PUBLIC-CONTROL-API">
+        <INTENT>Определить точный программный контракт публичных операций product-3d-widget.</INTENT>
+        <LINKS><MODULE_CONTRACT ref="CONTRACT-MOD-HOST-CONTROL"/><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/></LINKS>
+
+        <COMMON_ASYNC_COMMAND_CONTRACT id="COMMON_ASYNC_COMMAND_CONTRACT">
+            <RETURN_TYPE>Promise</RETURN_TYPE>
+            <ACCEPTANCE_SEMANTICS>Promise завершается после принятия либо отклонения команды, а не после завершения длительной операции.</ACCEPTANCE_SEMANTICS>
+            <SUCCESS_RESULT>
+                <FIELD name="operation" required="true"/>
+                <FIELD name="targetId" required="when-applicable"/>
+                <FIELD name="state" required="true"/>
+                <FIELD name="scenarioId" required="for-scenario-operations"/>
+                <FIELD name="stepId" required="when-current-step-applies"/>
+            </SUCCESS_RESULT>
+            <REJECTION>
+                <FIELD name="code" required="true">Стабильный машинно-читаемый код.</FIELD>
+                <FIELD name="message" required="true">Понятное диагностическое сообщение.</FIELD>
+                <STATE_CHANGE>FORBIDDEN</STATE_CHANGE>
+                <PUBLIC_ERROR_EVENT>FORBIDDEN</PUBLIC_ERROR_EVENT>
+            </REJECTION>
+            <ACCEPTED_ASYNC_FAILURE>Сообщается через публичное уведомление ошибки после уже успешного принятия команды.</ACCEPTED_ASYNC_FAILURE>
+        </COMMON_ASYNC_COMMAND_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-SELECT-COLOR">
+            <FUNCTION_NAME status="UNRESOLVED"/>
+            <OPERATION_ID>OP-SELECT-COLOR</OPERATION_ID>
+            <INPUT name="colorId" type="string" required="true"/>
+            <OUTPUT ref="COMMON_ASYNC_COMMAND_CONTRACT"/>
+            <LINKS><REQUIREMENT ref="FR-COLOR-SELECTION"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-SELECT-VARIANT">
+            <FUNCTION_NAME status="UNRESOLVED"/>
+            <OPERATION_ID>OP-SELECT-VARIANT</OPERATION_ID>
+            <INPUT name="variantId" type="string" required="true"/>
+            <OUTPUT ref="COMMON_ASYNC_COMMAND_CONTRACT"/>
+            <LINKS><REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-PLAY-ANIMATION">
+            <FUNCTION_NAME status="UNRESOLVED"/>
+            <OPERATION_ID>OP-PLAY-ANIMATION</OPERATION_ID>
+            <INPUT name="animationId" type="string" required="true"/>
+            <OUTPUT ref="COMMON_ASYNC_COMMAND_CONTRACT"/>
+            <REJECTION_EXTENSION>При несовместимом варианте ошибка дополнительно содержит compatibleVariantIds.</REJECTION_EXTENSION>
+            <LINKS><REQUIREMENT ref="FR-ANIMATION-CONTROLS"/><REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-START-SCENARIO">
+            <FUNCTION_NAME>startScenario</FUNCTION_NAME>
+            <OPERATION>startScenario</OPERATION>
+            <INPUT name="scenarioId" type="string" required="true"/>
+            <OUTPUT ref="COMMON_ASYNC_COMMAND_CONTRACT"/>
+            <REJECTION_EXTENSION>При несовместимом варианте ошибка дополнительно содержит compatibleVariantIds.</REJECTION_EXTENSION>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-CONTROLS"/><REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/><REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-PREVIOUS-SCENARIO-STEP">
+            <FUNCTION_NAME status="UNRESOLVED"/>
+            <OPERATION_ID>OP-PREVIOUS-SCENARIO-STEP</OPERATION_ID>
+            <OUTPUT ref="COMMON_ASYNC_COMMAND_CONTRACT"/>
+            <PRECONDITION>Активен сценарий и текущий шаг не является первым.</PRECONDITION>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY"/><REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-NEXT-SCENARIO-STEP">
+            <FUNCTION_NAME status="UNRESOLVED"/>
+            <OPERATION_ID>OP-NEXT-SCENARIO-STEP</OPERATION_ID>
+            <OUTPUT ref="COMMON_ASYNC_COMMAND_CONTRACT"/>
+            <PRECONDITION>Активен сценарий и текущий шаг не является последним.</PRECONDITION>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-NEXT-PLAYBACK"/><REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-STOP-SCENARIO">
+            <FUNCTION_NAME>stopScenario</FUNCTION_NAME>
+            <OPERATION>stopScenario</OPERATION>
+            <OUTPUT>
+                <FIELD name="operation" value="stopScenario"/>
+                <FIELD name="scenarioId">Идентификатор остановленного сценария.</FIELD>
+                <FIELD name="state">Снимок, в котором scenarioId и stepId равны null.</FIELD>
+            </OUTPUT>
+            <LINKS><REQUIREMENT ref="FR-STOP-SCENARIO"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-LAUNCH-AR">
+            <FUNCTION_NAME status="UNRESOLVED"/>
+            <OPERATION_ID>OP-LAUNCH-AR</OPERATION_ID>
+            <OUTPUT ref="COMMON_ASYNC_COMMAND_CONTRACT"/>
+            <LINKS><REQUIREMENT ref="FR-AR-LAUNCH"/></LINKS>
+        </FUNCTION_CONTRACT>
+
+        <FUNCTION_CONTRACT id="CONTRACT-GET-STATE">
+            <FUNCTION_NAME>getState</FUNCTION_NAME>
+            <OPERATION>getState</OPERATION>
+            <RETURN_TYPE>ComponentStateSnapshot</RETURN_TYPE>
+            <SYNCHRONOUS>true</SYNCHRONOUS>
+            <SIDE_EFFECTS>FORBIDDEN</SIDE_EFFECTS>
+            <POSTCONDITION>Возвращает последний подтверждённый снимок без асинхронного опроса 3D- или AR-средства.</POSTCONDITION>
+            <LINKS><REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY"/></LINKS>
+        </FUNCTION_CONTRACT>
+    </CLASS_CONTRACT>
+
+    <CLASS_CONTRACT id="CONTRACT-COMPONENT-STATE-SNAPSHOT">
+        <TYPE_NAME>ComponentStateSnapshot</TYPE_NAME>
+        <FIELDS>
+            <FIELD name="lifecycle" required="true"/>
+            <FIELD name="colorId" nullable="true"/>
+            <FIELD name="variantId" nullable="true"/>
+            <FIELD name="animationId" nullable="true"/>
+            <FIELD name="scenarioId" nullable="true"/>
+            <FIELD name="stepId" nullable="true"/>
+            <FIELD name="availableOperations" required="true">Только доступные операции; причины отсутствующих операций в первой версии не передаются.</FIELD>
+            <FIELD name="arAvailability" required="true"/>
+            <FIELD name="availableColors" required="true">colorId, label, order, swatchColor.</FIELD>
+            <FIELD name="availableVariants" required="true">variantId, label, order.</FIELD>
+            <FIELD name="unavailableVariants" required="true">variantId и стабильный код причины.</FIELD>
+            <FIELD name="availableAnimations" required="true">animationId, label, order, compatibleVariantIds.</FIELD>
+            <FIELD name="availableScenarios" required="true">scenarioId, label, description, order, stepCount, compatibleVariantIds.</FIELD>
+            <FIELD name="activeScenarioStep" nullable="true">stepId, label, description.</FIELD>
+        </FIELDS>
+        <RULE>Некорректные и отключённые анимации, сценарии, цвета и варианты не включаются в списки доступных.</RULE>
+        <RULE>Для отсутствующей или неактивной одиночной сущности используется null.</RULE>
+        <LINKS><REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY"/><MODULE_CONTRACT ref="CONTRACT-MOD-STATE-COORDINATOR"/></LINKS>
+    </CLASS_CONTRACT>
+
+    <CLASS_CONTRACT id="CONTRACT-HOST-EVENT-API">
+        <TRANSPORT>
+            <TYPE>CustomEvent</TYPE>
+            <DISPATCHER>product-3d-widget</DISPATCHER>
+            <PAYLOAD_LOCATION>event.detail</PAYLOAD_LOCATION>
+            <BUBBLES>true</BUBBLES>
+            <CANCELABLE>false</CANCELABLE>
+            <NAME_PREFIX>product-3d-</NAME_PREFIX>
+        </TRANSPORT>
+
+        <ORDERING>
+            <STEP order="1">Обновить подтверждённый внутренний state.</STEP>
+            <STEP order="2">Отправить product-3d-statechange.</STEP>
+            <STEP order="3">Отправить специализированное событие.</STEP>
+            <STEP order="4">Успешно завершить Promise принятой публичной команды.</STEP>
+        </ORDERING>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-STATECHANGE" name="product-3d-statechange">
+            <PAYLOAD><FIELD name="state" type="ComponentStateSnapshot" required="true"/></PAYLOAD>
+        </EVENT_CONTRACT>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-COLORCHANGE" name="product-3d-colorchange">
+            <PAYLOAD><FIELD name="colorId" type="string" required="true"/></PAYLOAD>
+        </EVENT_CONTRACT>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-VARIANTCHANGE" name="product-3d-variantchange">
+            <PAYLOAD><FIELD name="variantId" type="string" required="true"/></PAYLOAD>
+        </EVENT_CONTRACT>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-ANIMATIONCHANGE" name="product-3d-animationchange">
+            <PAYLOAD>
+                <FIELD name="animationId" type="string" required="true"/>
+                <FIELD name="change" enum="started|completed|stopped" required="true"/>
+                <FIELD name="reason" enum="replaced-by-animation|ar-launch|scenario-start|component-disconnected" required="when-change-stopped"/>
+            </PAYLOAD>
+        </EVENT_CONTRACT>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-SCENARIOCHANGE" name="product-3d-scenariochange">
+            <PAYLOAD>
+                <FIELD name="change" enum="started|step-changed|stopped|replaced|restarted" required="true"/>
+                <FIELD name="scenarioId" required="except-where-not-applicable"/>
+                <FIELD name="stepId" required="started|step-changed|restarted|replaced"/>
+                <FIELD name="previousScenarioId" required="replaced-only"/>
+            </PAYLOAD>
+            <RULE>При replaced отдельные stopped и started не отправляются.</RULE>
+            <RULE>При restarted previousScenarioId не передаётся.</RULE>
+        </EVENT_CONTRACT>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-ARAVAILABILITYCHANGE" name="product-3d-aravailabilitychange">
+            <PAYLOAD_SCHEMA status="UNRESOLVED"/>
+        </EVENT_CONTRACT>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-ARCHANGE" name="product-3d-archange">
+            <PAYLOAD>
+                <FIELD name="change" enum="launched|returned" required="true"/>
+                <FIELD name="mode" enum="webxr|scene-viewer|quick-look" required="true"/>
+            </PAYLOAD>
+            <RULE>launched означает фактический запуск AR, а не только принятие команды.</RULE>
+            <RULE>returned означает возврат управления хост-странице после завершения или закрытия AR.</RULE>
+        </EVENT_CONTRACT>
+
+        <EVENT_CONTRACT id="EVENT-PRODUCT-3D-ERROR" name="product-3d-error">
+            <APPLIES_TO>Ошибка инициализации, загрузки или асинхронного выполнения принятой операции.</APPLIES_TO>
+            <EXCLUDES>Отклонение команды до её принятия.</EXCLUDES>
+            <PAYLOAD_SCHEMA status="UNRESOLVED"/>
+        </EVENT_CONTRACT>
+
+        <RULE>Специализированные события не содержат полный снимок state.</RULE>
+        <LINKS><MODULE_CONTRACT ref="CONTRACT-MOD-HOST-NOTIFICATIONS"/><REQUIREMENT ref="FR-HOST-STATE-EVENTS"/></LINKS>
+    </CLASS_CONTRACT>
+
+    <CLASS_CONTRACT id="CONTRACT-INTERNAL-STYLING-API">
+        <SHADOW_ROOT mode="open"/>
+        <PUBLIC_MECHANISMS>
+            <MECHANISM>::part()</MECHANISM>
+            <MECHANISM>CSS custom properties</MECHANISM>
+        </PUBLIC_MECHANISMS>
+        <STYLABLE_AREAS>
+            <AREA>viewer</AREA>
+            <AREA>loading</AREA>
+            <AREA>status</AREA>
+            <AREA>error</AREA>
+        </STYLABLE_AREAS>
+        <RULE>Внутренние part-имена должны быть стабильными; точный набор имён фиксируется до реализации.</RULE>
+        <LINKS><MODULE_CONTRACT ref="CONTRACT-MOD-INTERNAL-VIEW"/><REQUIREMENT ref="FR-COMPONENT-STYLING-API"/></LINKS>
+    </CLASS_CONTRACT>
+</CLASS_FUNCTION_CONTRACTS>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MENTAL_SCENARIOS id="MENTAL-SCENARIOS-PRODUCT-3D-WIDGET" status="DRAFT">
+    <MENTAL_SCENARIO id="MS-INITIALIZATION-PRIMARY-GLB-SUCCESS">
+        <INPUT>Корректная обязательная конфигурация и доступная основная GLB-модель.</INPUT>
+        <EXPECTED_PATH>validate-required-config → load-primary-glb → initialize-viewer → publish-ready-state</EXPECTED_PATH>
+        <EXPECTED_RESULT>Компонент готов, модель отображается, доступные корректные возможности присутствуют в состоянии.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE"/><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-INITIALIZATION-OPTIONAL-CAPABILITY-INVALID">
+        <INPUT>Основная GLB корректна, одна необязательная анимация, вариант или сценарий некорректны.</INPUT>
+        <EXPECTED_PATH>validate-required-config → isolate-invalid-capability → load-primary-glb → publish-ready-state</EXPECTED_PATH>
+        <EXPECTED_RESULT>Товар инициализирован; отключена только некорректная возможность.</EXPECTED_RESULT>
+        <FORBIDDEN_RESULT>Переход всего компонента в блокирующую ошибку.</FORBIDDEN_RESULT>
+        <LINKS><REQUIREMENT ref="FR-SCENARIO-INVALID-CONFIGURATION-HANDLING"/><REQUIREMENT ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-ANIMATION-REPLACEMENT">
+        <INPUT>Обычная анимация A воспроизводится; запрошена совместимая анимация B.</INPUT>
+        <EXPECTED_PATH>accept-B → stop-A → reset-model-preserving-selection-and-camera → start-B</EXPECTED_PATH>
+        <EXPECTED_RESULT>Активна B; A наблюдается как остановленная по причине замены другой анимацией.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-ANIMATION-INTERRUPTION"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-SCENARIO-START-DURING-ANIMATION-REJECTED">
+        <INPUT>Обычная анимация воспроизводится; запрошен несовместимый или некорректный сценарий.</INPUT>
+        <EXPECTED_PATH>validate-scenario → reject-request</EXPECTED_PATH>
+        <EXPECTED_RESULT>Текущая анимация продолжает работу без изменения состояния.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-SCENARIO-REPLACEMENT-SUCCESS">
+        <INPUT>Активен сценарий A; запрошен допустимый другой сценарий B.</INPUT>
+        <EXPECTED_PATH>validate-B → stop-A → reset-to-B-initial-state → start-B-first-step → publish-atomic-replacement</EXPECTED_PATH>
+        <EXPECTED_RESULT>Активен первый шаг B; хост не наблюдает отдельные остановку A и запуск B.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-SCENARIO-REPLACEMENT-REJECTED">
+        <INPUT>Активен сценарий A; запрошен недопустимый сценарий B.</INPUT>
+        <EXPECTED_PATH>validate-B → reject-request</EXPECTED_PATH>
+        <EXPECTED_RESULT>A продолжает работу; подтверждённое состояние не изменяется.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-ACTIVE-SCENARIO-RESTART">
+        <INPUT>Активен сценарий A; повторно запрошен A.</INPUT>
+        <EXPECTED_PATH>stop-current-step → reset-to-A-initial-state → start-first-step → publish-atomic-restart</EXPECTED_PATH>
+        <EXPECTED_RESULT>Активен первый шаг A; сохранены цвет, структурный вариант и камера.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-ACCEPTED-SCENARIO-FIRST-STEP-FAILURE">
+        <INPUT>Новый сценарий прошёл предварительную проверку и принят, но запуск первого шага завершился внутренней ошибкой.</INPUT>
+        <EXPECTED_PATH>stop-previous-execution → fail-start-first-step → reset-to-ordinary-base-state → clear-active-scenario → publish-state → publish-error</EXPECTED_PATH>
+        <EXPECTED_RESULT>Прежний сценарий не восстановлен; выбор и камера сохранены; активного сценария и шага нет.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-AR-LAUNCH-DURING-ANIMATION">
+        <INPUT>Обычная анимация воспроизводится; принят запрос запуска AR.</INPUT>
+        <EXPECTED_PATH>stop-animation → reset-model-preserving-selection-and-camera → synchronize-selection → launch-ar</EXPECTED_PATH>
+        <EXPECTED_RESULT>Анимация не возобновляется после возврата из AR.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION"/><REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME"/></LINKS>
+    </MENTAL_SCENARIO>
+
+    <MENTAL_SCENARIO id="MS-AR-LIFECYCLE">
+        <INPUT>AR доступно и запуск завершился успешно.</INPUT>
+        <EXPECTED_PATH>accept-launch → actual-ar-launch → publish-launched → user-returns → publish-returned</EXPECTED_PATH>
+        <EXPECTED_RESULT>Хост наблюдает фактический режим AR и возврат из него; выбранное состояние товара сохраняется.</EXPECTED_RESULT>
+        <LINKS><REQUIREMENT ref="FR-AR-LAUNCH"/><REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/></LINKS>
+    </MENTAL_SCENARIO>
+</MENTAL_SCENARIOS>

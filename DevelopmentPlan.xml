@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DEVELOPMENT_PLAN id="DP-PRODUCT-3D-WIDGET" status="DRAFT">
+    <PURPOSE>Архитектурный граф product-3d-widget, производный от RequirementsAnalysis.xml и Technology.xml.</PURPOSE>
+
+    <MODULES>
+        <MODULE id="MOD-CUSTOM-ELEMENT-SHELL">
+            <RESPONSIBILITY>Управлять жизненным циклом экземпляра Web Component, подключением, отключением и границей с хост-страницей.</RESPONSIBILITY>
+            <IMPLEMENTS ref="FR-CONFIGURATION-ACCEPTANCE"/>
+            <IMPLEMENTS ref="FR-DISCONNECT-CLEANUP"/>
+            <USES ref="MOD-CONFIGURATION"/>
+            <USES ref="MOD-STATE-COORDINATOR"/>
+            <USES ref="MOD-HOST-CONTROL"/>
+            <USES ref="MOD-HOST-NOTIFICATIONS"/>
+            <USES ref="MOD-INTERNAL-VIEW"/>
+        </MODULE>
+
+        <MODULE id="MOD-CONFIGURATION">
+            <RESPONSIBILITY>Проверять обязательную конфигурацию и независимо валидировать необязательные варианты, анимации, сценарии и AR-ресурсы.</RESPONSIBILITY>
+            <IMPLEMENTS ref="BP-CONFIGURATION-VALIDATION"/>
+            <IMPLEMENTS ref="FR-ONLY-PRIMARY-GLB-REQUIRED"/>
+            <IMPLEMENTS ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING"/>
+            <IMPLEMENTS ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING"/>
+            <IMPLEMENTS ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING"/>
+        </MODULE>
+
+        <MODULE id="MOD-STATE-COORDINATOR">
+            <RESPONSIBILITY>Хранить последний подтверждённый снимок состояния, применять атомарные переходы и вычислять доступные действия.</RESPONSIBILITY>
+            <IMPLEMENTS ref="FR-HOST-STATE-OBSERVABILITY"/>
+            <IMPLEMENTS ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/>
+            <IMPLEMENTS ref="FR-ATOMIC-STATE-OBSERVATION"/>
+            <USES ref="MOD-VIEWER-ADAPTER"/>
+            <USES ref="MOD-ANIMATION-CONTROLLER"/>
+            <USES ref="MOD-SCENARIO-CONTROLLER"/>
+            <USES ref="MOD-AR-ADAPTER"/>
+        </MODULE>
+
+        <MODULE id="MOD-VIEWER-ADAPTER">
+            <RESPONSIBILITY>Изолировать Three.js и предоставить операции загрузки модели, управления камерой, применения цвета и структурного варианта и установки позы анимации.</RESPONSIBILITY>
+            <IMPLEMENTS ref="FR-GLB-MODEL-LOADING"/>
+            <IMPLEMENTS ref="FR-MODEL-INTERACTION"/>
+            <IMPLEMENTS ref="FR-VIEWER-RESIZE"/>
+        </MODULE>
+
+        <MODULE id="MOD-ANIMATION-CONTROLLER">
+            <RESPONSIBILITY>Проверять совместимость и управлять обычными анимациями, включая остановку, замену и восстановление исходного состояния модели.</RESPONSIBILITY>
+            <IMPLEMENTS ref="BP-ANIMATION-PLAYBACK"/>
+            <IMPLEMENTS ref="FR-ANIMATION-SOURCE-SUPPORT"/>
+            <IMPLEMENTS ref="FR-ANIMATION-INTERRUPTION"/>
+            <USES ref="MOD-VIEWER-ADAPTER"/>
+        </MODULE>
+
+        <MODULE id="MOD-SCENARIO-CONTROLLER">
+            <RESPONSIBILITY>Управлять запуском, навигацией, остановкой, заменой и перезапуском пошаговых сценариев.</RESPONSIBILITY>
+            <IMPLEMENTS ref="BP-SCENARIO-EXECUTION"/>
+            <IMPLEMENTS ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/>
+            <IMPLEMENTS ref="FR-ACTIVE-SCENARIO-RESTART"/>
+            <IMPLEMENTS ref="FR-SCENARIO-ACCEPTED-START-FAILURE"/>
+            <USES ref="MOD-VIEWER-ADAPTER"/>
+            <USES ref="MOD-ANIMATION-CONTROLLER"/>
+        </MODULE>
+
+        <MODULE id="MOD-AR-ADAPTER">
+            <RESPONSIBILITY>Изолировать средство AR, синхронизировать выбор товара, передавать GLB и необязательный USDZ и нормализовать жизненный цикл AR.</RESPONSIBILITY>
+            <IMPLEMENTS ref="BP-AR-PLACEMENT"/>
+            <IMPLEMENTS ref="FR-AR-SELECTION-SYNCHRONIZATION"/>
+            <IMPLEMENTS ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/>
+        </MODULE>
+
+        <MODULE id="MOD-HOST-CONTROL">
+            <RESPONSIBILITY>Предоставлять публичные операции управления и преобразовывать внешние команды в запросы координатору состояния.</RESPONSIBILITY>
+            <IMPLEMENTS ref="FR-PUBLIC-CONTROL-METHODS"/>
+            <IMPLEMENTS ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/>
+            <USES ref="MOD-STATE-COORDINATOR"/>
+        </MODULE>
+
+        <MODULE id="MOD-HOST-NOTIFICATIONS">
+            <RESPONSIBILITY>Преобразовывать подтверждённые изменения состояния и ошибки в публичные DOM-уведомления.</RESPONSIBILITY>
+            <IMPLEMENTS ref="FR-HOST-STATE-EVENTS"/>
+            <IMPLEMENTS ref="FR-ATOMIC-STATE-OBSERVATION"/>
+            <USES ref="MOD-STATE-COORDINATOR"/>
+        </MODULE>
+
+        <MODULE id="MOD-INTERNAL-VIEW">
+            <RESPONSIBILITY>Отображать область 3D-просмотра, загрузку и блокирующие ошибки и предоставлять ограниченную поверхность стилизации.</RESPONSIBILITY>
+            <IMPLEMENTS ref="FR-COMPONENT-STYLING-API"/>
+            <IMPLEMENTS ref="FR-DEFAULT-MINIMAL-STYLING"/>
+            <IMPLEMENTS ref="FR-VIEWER-FILLS-CONTAINER"/>
+            <USES ref="MOD-VIEWER-ADAPTER"/>
+        </MODULE>
+    </MODULES>
+
+    <DATA_FLOWS>
+        <FLOW id="FLOW-HOST-COMMAND">
+            <PATH>Хост-страница → MOD-HOST-CONTROL → MOD-STATE-COORDINATOR → целевой контроллер или адаптер.</PATH>
+        </FLOW>
+        <FLOW id="FLOW-STATE-NOTIFICATION">
+            <PATH>Контроллер или адаптер → MOD-STATE-COORDINATOR → MOD-HOST-NOTIFICATIONS → хост-страница.</PATH>
+        </FLOW>
+        <FLOW id="FLOW-CONFIGURATION">
+            <PATH>Хост-страница → MOD-CUSTOM-ELEMENT-SHELL → MOD-CONFIGURATION → MOD-STATE-COORDINATOR и адаптеры.</PATH>
+        </FLOW>
+        <FLOW id="FLOW-INTERNAL-STATUS">
+            <PATH>MOD-STATE-COORDINATOR → MOD-INTERNAL-VIEW.</PATH>
+        </FLOW>
+    </DATA_FLOWS>
+
+    <IMPLEMENTATION_ORDER>
+        <STEP order="1" module="MOD-CONFIGURATION"/>
+        <STEP order="2" module="MOD-STATE-COORDINATOR"/>
+        <STEP order="3" module="MOD-VIEWER-ADAPTER"/>
+        <STEP order="4" module="MOD-ANIMATION-CONTROLLER"/>
+        <STEP order="5" module="MOD-SCENARIO-CONTROLLER"/>
+        <STEP order="6" module="MOD-AR-ADAPTER"/>
+        <STEP order="7" module="MOD-HOST-CONTROL"/>
+        <STEP order="8" module="MOD-HOST-NOTIFICATIONS"/>
+        <STEP order="9" module="MOD-INTERNAL-VIEW"/>
+        <STEP order="10" module="MOD-CUSTOM-ELEMENT-SHELL"/>
+    </IMPLEMENTATION_ORDER>
+</DEVELOPMENT_PLAN>

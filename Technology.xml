@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="DRAFT">
+    <PURPOSE>Зафиксировать технологические решения, вынесенные из RequirementsAnalysis.xml, не изменяя утверждённое поведение системы.</PURPOSE>
+
+    <RUNTIME_ENVIRONMENT>
+        <TECHNOLOGY id="TECH-BROWSER-WEB-PLATFORM">
+            <NAME>Современная браузерная Web Platform</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>Поддерживаемая матрица браузеров должна быть зафиксирована отдельно.</VERSION>
+            <RATIONALE>Компонент предназначен для встраивания непосредственно в веб-страницу.</RATIONALE>
+            <LINKS><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/><REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT"/></LINKS>
+        </TECHNOLOGY>
+        <TECHNOLOGY id="TECH-CUSTOM-ELEMENTS">
+            <NAME>Custom Elements</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>Стандарт Web Components; минимальная версия браузеров не зафиксирована.</VERSION>
+            <RATIONALE>product-3d-widget является встраиваемым пользовательским элементом.</RATIONALE>
+            <LINKS><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/></LINKS>
+        </TECHNOLOGY>
+        <TECHNOLOGY id="TECH-SHADOW-DOM">
+            <NAME>Open Shadow DOM</NAME>
+            <STATUS>SELECTED</STATUS>
+            <RATIONALE>Изолирует внутреннюю область просмотра и служебные состояния, сохраняя доступ к публичной стилизации.</RATIONALE>
+            <LINKS><REQUIREMENT ref="FR-COMPONENT-STYLING-API"/></LINKS>
+        </TECHNOLOGY>
+        <TECHNOLOGY id="TECH-DOM-CUSTOM-EVENT">
+            <NAME>DOM CustomEvent</NAME>
+            <STATUS>SELECTED</STATUS>
+            <RATIONALE>Используется как транспорт публичных уведомлений хост-странице.</RATIONALE>
+            <LINKS><REQUIREMENT ref="FR-HOST-STATE-EVENTS"/><REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION"/></LINKS>
+        </TECHNOLOGY>
+        <TECHNOLOGY id="TECH-JS-PROMISE">
+            <NAME>JavaScript Promise</NAME>
+            <STATUS>SELECTED</STATUS>
+            <RATIONALE>Используется для принятия или отклонения публичных команд управления.</RATIONALE>
+            <LINKS><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></LINKS>
+        </TECHNOLOGY>
+        <TECHNOLOGY id="TECH-CSS-SHADOW-PARTS">
+            <NAME>CSS Shadow Parts и CSS custom properties</NAME>
+            <STATUS>SELECTED</STATUS>
+            <RATIONALE>Позволяют хост-странице стилизовать разрешённые внутренние части компонента без раскрытия внутренней DOM-структуры.</RATIONALE>
+            <LINKS><REQUIREMENT ref="FR-COMPONENT-STYLING-API"/></LINKS>
+        </TECHNOLOGY>
+    </RUNTIME_ENVIRONMENT>
+
+    <THREE_D_AND_AR>
+        <TECHNOLOGY id="TECH-THREE-JS">
+            <NAME>Three.js</NAME>
+            <STATUS>SELECTED_VERSION_PENDING</STATUS>
+            <VERSION>Не зафиксирована.</VERSION>
+            <RESPONSIBILITY>Непосредственное отображение GLB-модели, камера, анимации и применение визуальных состояний.</RESPONSIBILITY>
+            <LINKS><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/><REQUIREMENT ref="FR-MODEL-INTERACTION"/><REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT"/></LINKS>
+        </TECHNOLOGY>
+        <TECHNOLOGY id="TECH-MODEL-VIEWER-AR">
+            <NAME>model-viewer и поддерживаемые им AR-каналы</NAME>
+            <STATUS>SELECTED_VERSION_PENDING</STATUS>
+            <VERSION>Не зафиксирована.</VERSION>
+            <RESPONSIBILITY>Делегированное определение доступного AR-режима и запуск WebXR, Android Scene Viewer или Apple Quick Look.</RESPONSIBILITY>
+            <LINKS><REQUIREMENT ref="FR-AR-LAUNCH"/><REQUIREMENT ref="FR-AR-ASSET-MAPPING"/><REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/></LINKS>
+        </TECHNOLOGY>
+    </THREE_D_AND_AR>
+
+    <DATA_FORMATS>
+        <FORMAT id="FORMAT-GLB" status="SELECTED">
+            <NAME>GLB</NAME>
+            <USAGE>Обязательная основная 3D-модель и встроенные анимационные клипы.</USAGE>
+            <LINKS><REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED"/><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/></LINKS>
+        </FORMAT>
+        <FORMAT id="FORMAT-USDZ" status="SELECTED_OPTIONAL">
+            <NAME>USDZ</NAME>
+            <USAGE>Необязательный отдельный ресурс Apple Quick Look.</USAGE>
+            <LINKS><REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/></LINKS>
+        </FORMAT>
+        <FORMAT id="FORMAT-CSS-SOLID-COLOR" status="SELECTED">
+            <NAME>Допустимое CSS-значение сплошного цвета</NAME>
+            <USAGE>Формат значения образца цветового варианта во внешнем интерфейсе.</USAGE>
+            <SUPPORTED>HEX, функциональные значения цвета и именованные CSS-цвета.</SUPPORTED>
+            <EXCLUDED>Градиенты и изображения.</EXCLUDED>
+            <LINKS><REQUIREMENT ref="FR-COLOR-SWATCH-REQUIRED"/></LINKS>
+        </FORMAT>
+    </DATA_FORMATS>
+
+    <UNRESOLVED_DECISIONS>
+        <DECISION id="TECH-UNRESOLVED-VERSIONS">Зафиксировать точные версии Three.js и model-viewer.</DECISION>
+        <DECISION id="TECH-UNRESOLVED-BROWSER-MATRIX">Зафиксировать поддерживаемую матрицу браузеров и устройств.</DECISION>
+        <DECISION id="TECH-UNRESOLVED-BUILD-TOOLCHAIN">Выбрать язык исходников и систему сборки.</DECISION>
+    </UNRESOLVED_DECISIONS>
+</TECHNOLOGY_SELECTION>
