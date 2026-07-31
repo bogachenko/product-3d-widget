@@ -6,6 +6,7 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
+  workers: 1,
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'retain-on-failure',
@@ -17,7 +18,20 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: {
+          firefoxUserPrefs: {
+            'webgl.disabled': false,
+            'webgl.enable-webgl2': true,
+            'webgl.force-enabled': true,
+            'webgl.forbid-software': false,
+          },
+        },
+      },
+    },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
 });
