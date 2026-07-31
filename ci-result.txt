@@ -1,11 +1,249 @@
 typecheck PASS
 build PASS
-build:types FAIL
+build:types PASS
+verify:api PASS
+test:unit PASS
+verify:three PASS
+test:e2e FAIL
 
---- build:types output ---
+--- test:e2e output ---
+    > 113 |   expect(result.outcome).toBe('ready');
+          |                          ^
+      114 |   expect((result.state as { lifecycle: string }).lifecycle).toBe('STATE-READY');
+      115 |   expect(result.frozen).toBe(true);
+      116 |   expect(result.canvases).toBe(1);
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:113:26
 
-> product-3d-widget@0.1.0 build:types
-> tsc -p tsconfig.declarations.json
+    Error Context: test-results/product-3d-widget-lifecycl-85a11-e-state-and-styling-surface-firefox/error-context.md
 
-tsconfig.declarations.json(8,5): error TS5011: The common source directory of 'tsconfig.declarations.json' is './src'. The 'rootDir' setting must be explicitly set to this or another path to adjust your output's file layout.
-  Visit https://aka.ms/ts6 for migration information.
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-lifecycl-85a11-e-state-and-styling-surface-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-lifecycl-85a11-e-state-and-styling-surface-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [firefox] › tests/product-3d-widget.spec.ts:127:1 › mandatory rejection is correctable once and accepted assignment is immutable 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "ready"
+    Received: "failed"
+
+      157 |   expect(result.afterInvalid.lifecycle).toBe('STATE-ERROR');
+      158 |   expect(result.afterInvalid.productId).toBeNull();
+    > 159 |   expect(result.corrected.outcome).toBe('ready');
+          |                                    ^
+      160 |   expect(result.acceptedState.productId).toBe('product-1');
+      161 |   expect(result.repeated).toMatchObject({ accepted: false, outcome: 'rejected', reason: 'already-configured' });
+      162 |   expect(result.repeated.state).toEqual(result.acceptedState);
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:159:36
+
+    Error Context: test-results/product-3d-widget-mandator-90d3d-ted-assignment-is-immutable-firefox/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-mandator-90d3d-ted-assignment-is-immutable-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-mandator-90d3d-ted-assignment-is-immutable-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [firefox] › tests/product-3d-widget.spec.ts:167:1 › selection, compatibility, animation, scenario and event order are atomic 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "completed"
+    Received: "rejected"
+
+      221 |   });
+      222 |
+    > 223 |   expect(result.baseAnimation.outcome).toBe('completed');
+          |                                        ^
+      224 |   expect(result.color.outcome).toBe('completed');
+      225 |   expect(result.animationAfterColor).toEqual({ id: 'pulse-base', status: 'playing' });
+      226 |   expect(result.incompatibleVariant).toMatchObject({
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:223:40
+
+    Error Context: test-results/product-3d-widget-selectio-ddf7f--and-event-order-are-atomic-firefox/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-selectio-ddf7f--and-event-order-are-atomic-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-selectio-ddf7f--and-event-order-are-atomic-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [firefox] › tests/product-3d-widget.spec.ts:247:1 › natural completion and scenario final-frame holding are observable 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "STATE-READY"
+    Received: "STATE-ERROR"
+
+    Call Log:
+    - Timeout 10000ms exceeded while waiting on the predicate
+
+      253 |     await widget.playAnimation('pulse-all');
+      254 |   });
+    > 255 |   await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().lifecycle)).toBe('STATE-READY');
+          |                                                                                                           ^
+      256 |   expect(await page.locator('#widget').evaluate((widget: any) => widget.getState().animation)).toEqual({ id: null, status: 'idle' });
+      257 |
+      258 |   await page.evaluate(async () => {
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:255:107
+
+    Error Context: test-results/product-3d-widget-natural--b73f5-rame-holding-are-observable-firefox/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-natural--b73f5-rame-holding-are-observable-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-natural--b73f5-rame-holding-are-observable-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [firefox] › tests/product-3d-widget.spec.ts:266:1 › resize, disconnect, reconnect and cleanup release owned browser resources 
+
+    Error: locator.evaluate: can't access property "width", canvas is null
+    @debugger eval code line 311 > eval:4:7
+    evaluate@debugger eval code:313:16
+    @debugger eval code:1:44
+    @debugger eval code:1:62
+
+        at @debugger eval code line 311 > eval:4:7
+        at evaluate@debugger eval code:313:16
+        at @debugger eval code:1:44
+        at @debugger eval code:1:62
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:320:55
+
+    Error Context: test-results/product-3d-widget-resize-d-c74b6-ase-owned-browser-resources-firefox/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-resize-d-c74b6-ase-owned-browser-resources-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-resize-d-c74b6-ase-owned-browser-resources-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [firefox] › tests/product-3d-widget.spec.ts:365:1 › WebGL context recovery is single-attempt and a second loss becomes blocking 
+
+    Error: locator.evaluate: can't access property "dispatchEvent", widget.shadowRoot.querySelector(...) is null
+    @debugger eval code line 311 > eval:2:23
+    evaluate@debugger eval code:313:16
+    @debugger eval code:1:44
+    @debugger eval code:1:62
+
+        at @debugger eval code line 311 > eval:2:23
+        at evaluate@debugger eval code:313:16
+        at @debugger eval code:1:44
+        at @debugger eval code:1:62
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:368:33
+
+    Error Context: test-results/product-3d-widget-WebGL-co-1e4ec-econd-loss-becomes-blocking-firefox/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-WebGL-co-1e4ec-econd-loss-becomes-blocking-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-WebGL-co-1e4ec-econd-loss-becomes-blocking-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [firefox] › tests/product-3d-widget.spec.ts:382:1 › mode-neutral AR exposes only availability and publicly observed WebXR lifecycle 
+
+    Error: locator.evaluate: can't access property "dispatchEvent", widget.shadowRoot.querySelector(...) is null
+    @debugger eval code line 311 > eval:3:23
+    evaluate@debugger eval code:313:16
+    @debugger eval code:1:44
+    @debugger eval code:1:62
+
+        at @debugger eval code line 311 > eval:3:23
+        at evaluate@debugger eval code:313:16
+        at @debugger eval code:1:44
+        at @debugger eval code:1:62
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:405:33
+
+    Error Context: test-results/product-3d-widget-mode-neu-8f969-ly-observed-WebXR-lifecycle-firefox/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-mode-neu-8f969-ly-observed-WebXR-lifecycle-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-mode-neu-8f969-ly-observed-WebXR-lifecycle-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [firefox] › tests/product-3d-widget.spec.ts:453:1 › WebGL2 absence and primary GLB failure produce exact blocking outcomes 
+
+    Error: expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+        "accepted": true,
+        "error": Object {
+    -     "code": "PRIMARY_GLB_FAILED",
+    +     "code": "WEBGL2_UNAVAILABLE",
+        },
+        "outcome": "failed",
+      }
+
+      482 |     };
+      483 |   });
+    > 484 |   expect(glb.result).toMatchObject({ accepted: true, outcome: 'failed', error: { code: 'PRIMARY_GLB_FAILED' } });
+          |                      ^
+      485 |   expect(glb.reconnectLifecycle).toBe('STATE-ERROR');
+      486 |   expect(glb.canvases).toBe(0);
+      487 | });
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:484:22
+
+    Error Context: test-results/product-3d-widget-WebGL2-a-64841-uce-exact-blocking-outcomes-firefox/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-WebGL2-a-64841-uce-exact-blocking-outcomes-firefox/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-WebGL2-a-64841-uce-exact-blocking-outcomes-firefox/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [webkit] › tests/product-3d-widget.spec.ts:266:1 › resize, disconnect, reconnect and cleanup release owned browser resources 
+
+    Error: locator.evaluate: TypeError: null is not an object (evaluating 'canvas.width')
+
+      318 |
+      319 |   await configureWidget(page);
+    > 320 |   const initialCanvas = await page.locator('#widget').evaluate((widget) => {
+          |                                                       ^
+      321 |     const canvas = widget.shadowRoot!.querySelector('canvas')!;
+      322 |     return { width: canvas.width, height: canvas.height };
+      323 |   });
+        at /home/runner/work/product-3d-widget/product-3d-widget/tests/product-3d-widget.spec.ts:320:55
+
+    Error Context: test-results/product-3d-widget-resize-d-c74b6-ase-owned-browser-resources-webkit/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-3d-widget-resize-d-c74b6-ase-owned-browser-resources-webkit/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/product-3d-widget-resize-d-c74b6-ase-owned-browser-resources-webkit/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10 failed
+    [chromium] › tests/product-3d-widget.spec.ts:266:1 › resize, disconnect, reconnect and cleanup release owned browser resources 
+    [firefox] › tests/product-3d-widget.spec.ts:47:1 › lifecycle, exact host API, immutable state and styling surface 
+    [firefox] › tests/product-3d-widget.spec.ts:127:1 › mandatory rejection is correctable once and accepted assignment is immutable 
+    [firefox] › tests/product-3d-widget.spec.ts:167:1 › selection, compatibility, animation, scenario and event order are atomic 
+    [firefox] › tests/product-3d-widget.spec.ts:247:1 › natural completion and scenario final-frame holding are observable 
+    [firefox] › tests/product-3d-widget.spec.ts:266:1 › resize, disconnect, reconnect and cleanup release owned browser resources 
+    [firefox] › tests/product-3d-widget.spec.ts:365:1 › WebGL context recovery is single-attempt and a second loss becomes blocking 
+    [firefox] › tests/product-3d-widget.spec.ts:382:1 › mode-neutral AR exposes only availability and publicly observed WebXR lifecycle 
+    [firefox] › tests/product-3d-widget.spec.ts:453:1 › WebGL2 absence and primary GLB failure produce exact blocking outcomes 
+    [webkit] › tests/product-3d-widget.spec.ts:266:1 › resize, disconnect, reconnect and cleanup release owned browser resources 
+  14 passed (41.9s)
