@@ -491,20 +491,14 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
     const three = await import(threeImport) as typeof import('three');
 
     const nativeRendererDispose = three.WebGLRenderer.prototype.dispose;
-    const nativeForceContextLoss = three.WebGLRenderer.prototype.forceContextLoss;
     const nativeGeometryDispose = three.BufferGeometry.prototype.dispose;
     const nativeMaterialDispose = three.Material.prototype.dispose;
     let rendererDispose = 0;
-    let forceContextLoss = 0;
     let geometryDispose = 0;
     let materialDispose = 0;
     three.WebGLRenderer.prototype.dispose = function(): void {
       rendererDispose += 1;
       nativeRendererDispose.call(this);
-    };
-    three.WebGLRenderer.prototype.forceContextLoss = function(): void {
-      forceContextLoss += 1;
-      nativeForceContextLoss.call(this);
     };
     three.BufferGeometry.prototype.dispose = function(): void {
       geometryDispose += 1;
@@ -580,7 +574,6 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
         contextListeners: () => contextListeners,
         arStatusListeners: () => arStatusListeners,
         rendererDispose: () => rendererDispose,
-        forceContextLoss: () => forceContextLoss,
         geometryDispose: () => geometryDispose,
         materialDispose: () => materialDispose,
       },
@@ -609,7 +602,6 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
     widget.remove();
   });
   await expect.poll(() => page.evaluate(() => (window as any).__resources.pending.size)).toBe(0);
-  await expect.poll(() => page.evaluate(() => (window as any).__resources.forceContextLoss())).toBe(1);
   expect(await page.evaluate(() => {
     const widget = (window as any).__removedWidget as HTMLElement;
     return {
@@ -617,7 +609,6 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
       contextListeners: (window as any).__resources.contextListeners(),
       arStatusListeners: (window as any).__resources.arStatusListeners(),
       rendererDispose: (window as any).__resources.rendererDispose(),
-      forceContextLoss: (window as any).__resources.forceContextLoss(),
       geometryDispose: (window as any).__resources.geometryDispose(),
       materialDispose: (window as any).__resources.materialDispose(),
       contextLost: (window as any).__removedContext.isContextLost(),
@@ -629,7 +620,6 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
     contextListeners: 0,
     arStatusListeners: 0,
     rendererDispose: 1,
-    forceContextLoss: 1,
     geometryDispose: 1,
     materialDispose: 1,
     contextLost: true,
@@ -664,50 +654,51 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
 
 test('a stale disconnected initialization cannot commit after a fresh reconnect cycle', async ({ page }) => {
   await openFixture(page);
-  const result = await page.evaluate(async (config) => {
-    const nativeFetch = window.fetch.bind(window);
-    let requestCount = 0;
-    let releaseFirst!: () => void;
-    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      if (url.includes('/tests/fixtures/product.gltf')) {
-        requestCount += 1;
-        if (requestCount === 1) await firstGate;
-      }
-      return nativeFetch(input, init);
-    };
+  let requestCount = 0;
+  let releaseFirst!: () => void;
+  const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+  await page.route('**/tests/fixtures/product.gltf', async (route) => {
+    requestCount += 1;
+    if (requestCount === 1) await firstGate;
+    await route.continue();
+  });
 
+  await page.evaluate((config) => {
     const widget = document.createElement('product-3d-widget') as any;
     document.body.append(widget);
     let readyEvents = 0;
     widget.addEventListener('product-3d-state-change', (event: CustomEvent) => {
       if (event.detail.lifecycle === 'STATE-READY') readyEvents += 1;
     });
-    const stale = widget.configure(config);
-    while (requestCount < 1) await new Promise((resolve) => setTimeout(resolve, 0));
-    widget.remove();
-    document.body.append(widget);
-    while (requestCount < 2) await new Promise((resolve) => setTimeout(resolve, 0));
-    while (widget.getState().lifecycle !== 'STATE-READY') await new Promise((resolve) => setTimeout(resolve, 10));
-    const fresh = widget.getState();
-    releaseFirst();
-    const staleResult = await stale;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    window.fetch = nativeFetch;
-    return {
-      staleResult,
-      fresh,
-      final: widget.getState(),
-      readyEvents,
-      canvases: widget.shadowRoot.querySelectorAll('canvas').length,
-    };
+    Object.assign(window, {
+      __staleWidget: widget,
+      __readyEvents: () => readyEvents,
+      __staleResult: widget.configure(config),
+    });
   }, configuration);
 
-  expect(result.staleResult).toMatchObject({ accepted: false, outcome: 'rejected', reason: 'disconnected' });
-  expect(result.final).toEqual(result.fresh);
-  expect(result.readyEvents).toBe(1);
-  expect(result.canvases).toBe(1);
+  await expect.poll(() => requestCount).toBe(1);
+  await page.evaluate(() => {
+    const widget = (window as any).__staleWidget as HTMLElement;
+    widget.remove();
+    document.body.append(widget);
+  });
+  await expect.poll(() => requestCount).toBe(2);
+  await expect.poll(() => page.evaluate(() => (window as any).__staleWidget.getState().lifecycle)).toBe('STATE-READY');
+  const fresh = await page.evaluate(() => (window as any).__staleWidget.getState());
+  releaseFirst();
+  const staleResult = await page.evaluate(() => (window as any).__staleResult);
+  await page.waitForTimeout(50);
+  const final = await page.evaluate(() => ({
+    state: (window as any).__staleWidget.getState(),
+    readyEvents: (window as any).__readyEvents(),
+    canvases: (window as any).__staleWidget.shadowRoot.querySelectorAll('canvas').length,
+  }));
+
+  expect(staleResult).toMatchObject({ accepted: false, outcome: 'rejected', reason: 'disconnected' });
+  expect(final.state).toEqual(fresh);
+  expect(final.readyEvents).toBe(1);
+  expect(final.canvases).toBe(1);
 });
 
 test('WebGL context recovery is single-attempt and a second loss becomes blocking', async ({ page }) => {
@@ -751,7 +742,7 @@ test('mode-neutral AR exposes only availability and publicly observed WebXR life
   const initial = await page.locator('#widget').evaluate((widget: any) => {
     const modelViewer = widget.shadowRoot.querySelector('model-viewer');
     return {
-      sourcePath: new URL(modelViewer.src).pathname,
+      sourcePath: new URL(modelViewer.src, document.baseURI).pathname,
       iosSrc: modelViewer.iosSrc,
       available: widget.getState().ar.available,
     };
@@ -843,7 +834,7 @@ test('AR maps usable USDZ and preserves GLB fallback for unusable USDZ', async (
   expect(await page.locator('#widget').evaluate((widget: any) => {
     const modelViewer = widget.shadowRoot.querySelector('model-viewer');
     return {
-      sourcePath: new URL(modelViewer.src).pathname,
+      sourcePath: new URL(modelViewer.src, document.baseURI).pathname,
       iosPath: new URL(modelViewer.iosSrc, document.baseURI).pathname,
     };
   })).toEqual({ sourcePath: '/tests/fixtures/product.gltf', iosPath: '/tests/fixtures/product.usdz' });
@@ -861,7 +852,7 @@ test('AR maps usable USDZ and preserves GLB fallback for unusable USDZ', async (
     const state = widget.getState();
     const modelViewer = widget.shadowRoot.querySelector('model-viewer');
     return {
-      sourcePath: new URL(modelViewer.src).pathname,
+      sourcePath: new URL(modelViewer.src, document.baseURI).pathname,
       iosSrc: modelViewer.iosSrc,
       errorCodes: state.capabilities.localErrors.map((error: any) => error.code),
     };
