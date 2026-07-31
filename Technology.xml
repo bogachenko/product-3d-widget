@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="APPROVED">
     <PURPOSE>Зафиксировать технологические решения для реализации утверждённого RequirementsAnalysis.xml без изменения утверждённого поведения системы.</PURPOSE>
 
     <BASED_ON_REQUIREMENTS>
@@ -406,8 +406,10 @@
 
     <UNRESOLVED_DECISIONS/>
 
-    <APPROVAL_GATE status="PENDING">
-        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
-        <CONDITION>Утвердить полный Technology.xml после проверки точных версий, browser/device matrix, ESM library build, отдельной генерации деклараций, single-copy Three.js invariant, режим-нейтрального model-viewer AR-адаптера и границ автоматических и real-device тестов.</CONDITION>
+    <APPROVAL_GATE status="APPROVED">
+        <APPROVED_REVISION>2fed2843ee692abf401e1999c5bba1e0550245ba</APPROVED_REVISION>
+        <APPROVED_AT>2026-07-31T14:32:00+03:00</APPROVED_AT>
+        <APPROVAL_STATEMENT>Утверждаю Technology.xml в редакции commit 2fed2843ee692abf401e1999c5bba1e0550245ba, включая точные версии зависимостей, ESM-only library build, отдельную генерацию .d.ts через tsc, требование единственной копии Three.js, использование Node.js только для разработки, сборки, тестов и CI, Three.js как основной 3D-рендерер, &lt;model-viewer&gt; как режим-нейтральный публичный AR-адаптер, WebGL 2 как обязательное условие, Playwright для браузерных интеграционных тестов и проверки AR на реальных устройствах.</APPROVAL_STATEMENT>
+        <APPROVED_SCOPE>Полная редакция Technology.xml: точные версии зависимостей; ESM-only library build; отдельная генерация деклараций через tsc; единственная копия Three.js; Node.js только как build/test/CI runtime; Three.js как основной 3D-рендерер; model-viewer только как режим-нейтральный публичный AR-адаптер; обязательный WebGL 2; Playwright и проверки AR на реальных устройствах.</APPROVED_SCOPE>
     </APPROVAL_GATE>
 </TECHNOLOGY_SELECTION>
