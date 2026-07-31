@@ -1,0 +1,1332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CLASS_FUNCTION_CONTRACTS id="CFC-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+    <PURPOSE>Зафиксировать минимальную реализационную поверхность классов, функций, публичных типов и событий, достаточную для утверждённых module contracts без преждевременных abstractions.</PURPOSE>
+    <BASED_ON>
+        <REQUIREMENTS artifact="RequirementsAnalysis.xml" approved_revision="dbdacbd45007690b454e2f14a325bc7c06f7358f" approval_commit="8fc4558fc4b1c2d13c9354d4054a662281a3d2fd" />
+        <TECHNOLOGY artifact="Technology.xml" approved_revision="2fed2843ee692abf401e1999c5bba1e0550245ba" approval_commit="161d967588367b5e0612886b773c39bc0e1c4dda" />
+        <DEVELOPMENT_PLAN artifact="DevelopmentPlan.xml" approved_revision="bf444f172b1be14f2e5877fcbe3cff95ff0a6772" approval_commit="5d6b911292cfb81f884d0d816ade4a87fec76d88" />
+        <MODULE_CONTRACTS artifact="ModuleContracts.xml" approved_revision="14f452de0e4a075b99aeaa9c3ae2aff101920ef8" approval_commit="e972f365e84fcc4cd3f632ad6d87d3da4f5da5ee" />
+    </BASED_ON>
+    <LAZY_IMPLEMENTATION_BOUNDARY>
+        <RULE id="CFC-LAZY-ONLY-THREE-CLASSES">Создать только Product3DWidget, ThreeViewer и ModelViewerArAdapter. Конфигурационная логика остаётся одной чистой функцией; дополнительные runtime-классы запрещены без изменения контракта.</RULE>
+        <RULE id="CFC-LAZY-ONLY-FOUR-SOURCE-FILES">Начальная runtime-реализация использует ровно четыре исходных файла: src/product-3d-widget.ts, src/configuration.ts, src/three-viewer.ts и src/ar-adapter.ts. Отдельные index.ts, types.ts, events.ts, state.ts, utils.ts и manager-файлы не создаются.</RULE>
+        <RULE id="CFC-LAZY-NO-EXTRA-NAMED-FUNCTIONS">Новые нетривиальные именованные функции или методы запрещены до добавления их контрактов. Тривиальная inline closure допустима только для прямой передачи аргументов/результата без ветвления, состояния или преобразования.</RULE>
+        <RULE id="CFC-LAZY-NATIVE-FIRST">Custom Elements lifecycle, Shadow DOM, CustomEvent, Promise, ResizeObserver, Set/Map и platform user activation используются напрямую без wrapper.</RULE>
+        <RULE id="CFC-LAZY-NO-PUBLIC-STOP-ANIMATION">Публичный stopAnimation не создаётся: утверждённые требования предусматривают завершение, replacement, scenario/AR stop и cleanup, но не отдельную host-команду остановки обычной анимации.</RULE>
+        <RULE id="CFC-LAZY-PONYTAIL">Известный потолок внутри конкретной реализации маркируется PONYTAIL-комментарием по утверждённому формату; общий speculative comment не создаётся.</RULE>
+    </LAZY_IMPLEMENTATION_BOUNDARY>
+    <SOURCE_LAYOUT>
+        <SOURCE_FILE path="src/product-3d-widget.ts">Public Product3DWidget, exported public types/events and customElements registration.</SOURCE_FILE>
+        <SOURCE_FILE path="src/configuration.ts">Pure normalizeProductConfiguration and internal normalized types used only where imports require them.</SOURCE_FILE>
+        <SOURCE_FILE path="src/three-viewer.ts">Concrete ThreeViewer and its internal result types.</SOURCE_FILE>
+        <SOURCE_FILE path="src/ar-adapter.ts">Concrete ModelViewerArAdapter and its internal result types.</SOURCE_FILE>
+        <REGISTRATION>src/product-3d-widget.ts registers product-3d-widget once using the native Custom Elements registry; no separate entry wrapper is created.</REGISTRATION>
+        <DECLARATIONS>Public declarations are emitted by tsc from exported types in src/product-3d-widget.ts; no handwritten .d.ts exists.</DECLARATIONS>
+    </SOURCE_LAYOUT>
+    <PUBLIC_EVENTS>
+        <EVENT name="product-3d-state-change">
+            <WHEN>Every committed public snapshot change.</WHEN>
+            <DETAIL>Product3DWidgetState</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+        <EVENT name="product-3d-selection-change">
+            <WHEN>Confirmed color or structural selection change.</WHEN>
+            <DETAIL>Product3DWidgetState</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+        <EVENT name="product-3d-animation-change">
+            <WHEN>Regular animation start, replacement, completion or AR/scenario-caused stop.</WHEN>
+            <DETAIL>Product3DWidgetState</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+        <EVENT name="product-3d-scenario-change">
+            <WHEN>Scenario start, restart, replacement, navigation, completion-state update or stop.</WHEN>
+            <DETAIL>Product3DWidgetState</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+        <EVENT name="product-3d-ar-availability-change">
+            <WHEN>Publicly observed AR availability change.</WHEN>
+            <DETAIL>Product3DWidgetState</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+        <EVENT name="product-3d-ar-launched">
+            <WHEN>Publicly observed WebXR start only.</WHEN>
+            <DETAIL>Product3DWidgetState</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+        <EVENT name="product-3d-ar-returned">
+            <WHEN>Publicly observed end of a previously observed WebXR session only.</WHEN>
+            <DETAIL>Product3DWidgetState</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+        <EVENT name="product-3d-error">
+            <WHEN>Blocking or local capability/accepted-operation error; never command rejection.</WHEN>
+            <DETAIL>Readonly&lt;{ state: Product3DWidgetState; error: WidgetError }&gt;</DETAIL>
+            <BUBBLES>true</BUBBLES>
+            <COMPOSED>true</COMPOSED>
+        </EVENT>
+    </PUBLIC_EVENTS>
+    <DATA_CONTRACTS>
+        <DATA_CONTRACT id="CFC-TYPE-PRODUCT-CONFIGURATION" visibility="PUBLIC" kind="readonly interface">
+            <NAME>ProductConfiguration</NAME>
+            <FIELDS>
+                <FIELD name="productId" type="string" required="YES">Stable non-empty identifier of the single product served by the element.</FIELD>
+                <FIELD name="glbUrl" type="string" required="YES">Non-empty URL of the required primary GLB asset.</FIELD>
+                <FIELD name="usdzUrl" type="string" required="NO">Optional separate USDZ asset; absence preserves automatic GLB-to-USDZ Quick Look fallback.</FIELD>
+                <FIELD name="colors" type="readonly ColorVariantConfig[]" required="NO">Optional independent color group.</FIELD>
+                <FIELD name="variants" type="readonly StructuralVariantConfig[]" required="NO">Optional independent structural variant group.</FIELD>
+                <FIELD name="animations" type="readonly AnimationConfig[]" required="NO">Optional regular animations.</FIELD>
+                <FIELD name="scenarios" type="readonly ScenarioConfig[]" required="NO">Optional step-by-step scenarios.</FIELD>
+                <FIELD name="ar" type="Readonly&lt;{ enabled: boolean }&gt;" required="NO">AR is configured only when enabled is true; no channel-order or channel-disable setting exists in v1.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>After one configuration passes mandatory validation, the instance never accepts a different complete product configuration.</RULE>
+                <RULE>Unknown extra fields are ignored rather than copied into normalized runtime state.</RULE>
+                <RULE>The input object is never mutated.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-COLOR-VARIANT-CONFIG" visibility="PUBLIC" kind="readonly interface">
+            <NAME>ColorVariantConfig</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Unique non-empty identifier within the color group.</FIELD>
+                <FIELD name="label" type="string" required="YES">Host-facing human-readable label.</FIELD>
+                <FIELD name="swatch" type="string" required="YES">Valid solid CSS color used by the host and, for non-base variants, as the material color.</FIELD>
+                <FIELD name="isDefault" type="boolean" required="YES">Exactly one enabled color variant is default in a non-empty valid group.</FIELD>
+                <FIELD name="isBase" type="boolean" required="YES">True only for the ordinary variant representing original GLB material values.</FIELD>
+                <FIELD name="materialNames" type="readonly string[]" required="YES">Explicit material names affected by a non-base color; base may use an empty list and restores captured originals.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Color compatibility never participates in animation or scenario compatibility.</RULE>
+                <RULE>A missing or invalid swatch disables only that color unless it was the sole declared default, in which case the group is disabled.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-STRUCTURAL-VARIANT-CONFIG" visibility="PUBLIC" kind="readonly interface">
+            <NAME>StructuralVariantConfig</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Unique non-empty identifier within the structural group.</FIELD>
+                <FIELD name="label" type="string" required="YES">Host-facing human-readable label.</FIELD>
+                <FIELD name="isDefault" type="boolean" required="YES">Exactly one enabled structural variant is default in a non-empty valid group.</FIELD>
+                <FIELD name="isBase" type="boolean" required="YES">True only for the ordinary variant representing original node visibility.</FIELD>
+                <FIELD name="visibleNodeNames" type="readonly string[]" required="YES">Explicit nodes that must be visible after applying the variant.</FIELD>
+                <FIELD name="hiddenNodeNames" type="readonly string[]" required="YES">Explicit nodes that must be hidden after applying the variant.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>A node name may not appear in both visibleNodeNames and hiddenNodeNames of the same variant.</RULE>
+                <RULE>Missing model nodes are detected after GLB loading and disable only that variant unless it was the sole declared default.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-ANIMATION-CONFIG" visibility="PUBLIC" kind="readonly discriminated interface">
+            <NAME>AnimationConfig</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Unique non-empty animation identifier.</FIELD>
+                <FIELD name="label" type="string" required="YES">Host-facing label.</FIELD>
+                <FIELD name="source" type="ClipSource | RangeSource" required="YES">ClipSource has kind='clip' and clipName. RangeSource has kind='range', clipName, startSeconds and endSeconds.</FIELD>
+                <FIELD name="compatibleVariantIds" type="readonly string[]" required="YES">Explicit structural-variant whitelist; colors are not included.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>For a range, startSeconds is finite, non-negative and strictly less than endSeconds.</RULE>
+                <RULE>An empty structural whitelist disables the animation.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-SCENARIO-CONFIG" visibility="PUBLIC" kind="readonly interface">
+            <NAME>ScenarioConfig</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Unique non-empty scenario identifier.</FIELD>
+                <FIELD name="label" type="string" required="YES">Host-facing label.</FIELD>
+                <FIELD name="steps" type="readonly ScenarioStepConfig[]" required="YES">Non-empty ordered steps.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Each step has stable id, description and animationId referencing a configured regular animation definition.</RULE>
+                <RULE>Scenario-compatible structural variants are the exact intersection of all referenced step animation whitelists.</RULE>
+                <RULE>An invalid or empty-intersection scenario is disabled without disabling unrelated capabilities.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-WIDGET-STATE" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>Product3DWidgetState</NAME>
+            <FIELDS>
+                <FIELD name="lifecycle" type="LifecycleState" required="YES">One of STATE-NOT-CONFIGURED, STATE-LOADING-CONFIGURATION, STATE-LOADING-MODEL, STATE-READY, STATE-ANIMATION-PLAYING, STATE-SCENARIO-ACTIVE, STATE-AR-ACTIVE, STATE-ERROR or STATE-DISCONNECTED.</FIELD>
+                <FIELD name="productId" type="string | null" required="YES">Accepted product id or null before configuration acceptance.</FIELD>
+                <FIELD name="selection" type="Readonly&lt;{ colorId: string | null; variantId: string | null }&gt;" required="YES">Last confirmed independent selections.</FIELD>
+                <FIELD name="animation" type="Readonly&lt;{ id: string | null; status: 'idle' | 'playing' }&gt;" required="YES">Confirmed regular-animation state.</FIELD>
+                <FIELD name="scenario" type="Readonly&lt;{ id: string | null; stepIndex: number | null; canGoBack: boolean; canGoNext: boolean }&gt;" required="YES">Confirmed scenario state.</FIELD>
+                <FIELD name="availability" type="Readonly&lt;AvailabilityState&gt;" required="YES">Current operation availability and enabled ids derived from confirmed state and validated capabilities.</FIELD>
+                <FIELD name="capabilities" type="Readonly&lt;CapabilityState&gt;" required="YES">Enabled color, variant, animation and scenario descriptors plus AR configured/available state and local capability errors.</FIELD>
+                <FIELD name="ar" type="Readonly&lt;{ available: boolean; webxrActive: boolean }&gt;" required="YES">No selected external AR mode field exists.</FIELD>
+                <FIELD name="error" type="WidgetError | null" required="YES">Current blocking error only.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Each published state is a new deeply readonly snapshot; prior snapshots never change.</RULE>
+                <RULE>No field exposes Scene Viewer or Quick Look lifecycle or selected model-viewer mode.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-COMMAND-RESULT" visibility="PUBLIC" kind="discriminated readonly union">
+            <NAME>CommandResult</NAME>
+            <FIELDS>
+                <FIELD name="rejected" type="{ accepted: false; outcome: 'rejected'; reason: CommandRejectionReason; state: Product3DWidgetState; compatibleVariantIds?: readonly string[] }" required="N/A">Expected refusal before mutation.</FIELD>
+                <FIELD name="completed" type="{ accepted: true; outcome: 'completed'; state: Product3DWidgetState }" required="N/A">Accepted operation completed and notification order finished.</FIELD>
+                <FIELD name="initiated" type="{ accepted: true; outcome: 'initiated'; state: Product3DWidgetState }" required="N/A">Used by a mode-neutral AR request after public initiation; it does not claim external launch.</FIELD>
+                <FIELD name="failed" type="{ accepted: true; outcome: 'failed'; error: WidgetError; state: Product3DWidgetState }" required="N/A">Accepted operation later failed observably.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Expected rejection and accepted execution failure are returned as data and are never conflated.</RULE>
+                <RULE>A rejected result preserves the exact confirmed snapshot and emits no error event.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-INITIALIZATION-RESULT" visibility="PUBLIC" kind="discriminated readonly union">
+            <NAME>InitializationResult</NAME>
+            <FIELDS>
+                <FIELD name="ready" type="{ accepted: true; outcome: 'ready'; state: Product3DWidgetState }" required="N/A">Configuration accepted and primary viewer reached ready.</FIELD>
+                <FIELD name="rejected" type="{ accepted: false; outcome: 'rejected'; errors: readonly WidgetError[]; state: Product3DWidgetState }" required="N/A">Second configuration, disconnected call or invalid mandatory configuration.</FIELD>
+                <FIELD name="failed" type="{ accepted: true; outcome: 'failed'; error: WidgetError; state: Product3DWidgetState }" required="N/A">Accepted configuration reached terminal GLB/WebGL failure.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>configure() settles only after ready, rejection or blocking failure.</RULE>
+                <RULE>Expected outcomes are data; unexpected programmer defects may still reject the Promise.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-WIDGET-ERROR" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>WidgetError</NAME>
+            <FIELDS>
+                <FIELD name="code" type="WidgetErrorCode" required="YES">Stable machine-readable code.</FIELD>
+                <FIELD name="scope" type="'blocking' | 'color' | 'variant' | 'animation' | 'scenario' | 'ar'" required="YES">Affected capability.</FIELD>
+                <FIELD name="message" type="string" required="YES">Host-readable and user-displayable message.</FIELD>
+                <FIELD name="entityId" type="string" required="NO">Optional affected configured entity.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Error messages do not assert an AR channel that was not publicly observed.</RULE>
+                <RULE>Command rejection is not WidgetError and does not emit product-3d-error.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-NORMALIZED-CONFIG" visibility="INTERNAL" kind="deeply readonly interface">
+            <NAME>NormalizedProductConfiguration</NAME>
+            <FIELDS>
+                <FIELD name="productId" type="string" required="YES">Accepted id.</FIELD>
+                <FIELD name="glbUrl" type="string" required="YES">Required primary GLB URL.</FIELD>
+                <FIELD name="usdzUrl" type="string | null" required="YES">Optional separate USDZ before model-viewer usability check.</FIELD>
+                <FIELD name="colorsById" type="ReadonlyMap&lt;string, NormalizedColorVariant&gt;" required="YES">Enabled structurally valid colors.</FIELD>
+                <FIELD name="variantsById" type="ReadonlyMap&lt;string, NormalizedStructuralVariant&gt;" required="YES">Enabled structurally valid variants.</FIELD>
+                <FIELD name="animationsById" type="ReadonlyMap&lt;string, NormalizedAnimation&gt;" required="YES">Enabled structurally valid animations.</FIELD>
+                <FIELD name="scenariosById" type="ReadonlyMap&lt;string, NormalizedScenario&gt;" required="YES">Enabled scenarios with computed compatibility intersections.</FIELD>
+                <FIELD name="initialSelection" type="Readonly&lt;{ colorId: string | null; variantId: string | null }&gt;" required="YES">Validated defaults.</FIELD>
+                <FIELD name="localErrors" type="readonly WidgetError[]" required="YES">Non-blocking configuration errors.</FIELD>
+                <FIELD name="arEnabled" type="boolean" required="YES">Configured AR capability; no per-channel setting.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Maps are internal lookup structures, not a public serialization format.</RULE>
+                <RULE>The normalized value is created once per initialization cycle and never mutated.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+    </DATA_CONTRACTS>
+    <STANDALONE_FUNCTIONS>
+        <FUNCTION_CONTRACT id="CFC-FN-NORMALIZE-CONFIG" visibility="INTERNAL">
+            <NAME>normalizeProductConfiguration</NAME>
+            <SIGNATURE>normalizeProductConfiguration(input: unknown): ConfigurationValidationResult</SIGNATURE>
+            <MODULE_CONTRACT ref="CONTRACT-MOD-CONFIGURATION" />
+            <INTENT>Validate the trust boundary and return either blocking mandatory errors or one immutable normalized configuration with isolated optional-capability errors.</INTENT>
+            <PRECONDITIONS>
+            </PRECONDITIONS>
+            <POSTCONDITIONS>
+                <CONDITION>Input is unchanged.</CONDITION>
+                <CONDITION>Success contains deterministic readonly maps, exact defaults and computed scenario intersections.</CONDITION>
+                <CONDITION>Blocking failure contains no partially accepted normalized configuration.</CONDITION>
+                <CONDITION>Optional errors disable only the affected entity/group.</CONDITION>
+            </POSTCONDITIONS>
+            <SIDE_EFFECTS>
+            </SIDE_EFFECTS>
+            <FAILURE_BEHAVIOR>
+                <RULE>Expected invalid input is returned as data.</RULE>
+                <RULE>Unexpected programmer defects are not converted to success.</RULE>
+            </FAILURE_BEHAVIOR>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE" />
+                <REQUIREMENT ref="FR-COLOR-SWATCH-REQUIRED" />
+                <REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY" />
+                <REQUIREMENT ref="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION" />
+                <REQUIREMENT ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING" />
+                <REQUIREMENT ref="FR-SCENARIO-INVALID-CONFIGURATION-HANDLING" />
+                <REQUIREMENT ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING" />
+                <REQUIREMENT ref="FR-BASE-STATE-AS-VARIANT" />
+                <REQUIREMENT ref="FR-VARIANT-GROUP-DEFAULT-REQUIRED" />
+                <REQUIREMENT ref="FR-VARIANT-GROUP-INVALID-DEFAULT-HANDLING" />
+                <REQUIREMENT ref="FR-INVALID-DEFAULT-VARIANT-DISABLE-GROUP" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBILITY-STRUCTURAL-VARIANTS-ONLY" />
+                <REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED" />
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET" />
+            </REQUIREMENTS>
+            <MINIMUM_RUNNABLE_CHECK>Same deeply equal input yields structurally equal result; input remains unchanged; all 14 configuration requirements have focused cases in the minimum Vitest file.</MINIMUM_RUNNABLE_CHECK>
+        </FUNCTION_CONTRACT>
+    </STANDALONE_FUNCTIONS>
+    <CLASS_CONTRACTS>
+        <CLASS_CONTRACT id="CFC-CLASS-PRODUCT-3D-WIDGET" export="PUBLIC">
+            <NAME>Product3DWidget</NAME>
+            <FILE>src/product-3d-widget.ts</FILE>
+            <EXTENDS>HTMLElement</EXTENDS>
+            <MODULE ref="MOD-WIDGET-CONTROLLER" />
+            <MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER" />
+            <INTENT>The only public runtime class and confirmed-state owner.</INTENT>
+            <CONSTRUCTOR_CONTRACT>
+                <RULE>attachShadow({ mode: 'open' }) and create only viewer/loading/error containers.</RULE>
+                <RULE>Do not load assets, register global listeners or accept a product in the constructor.</RULE>
+            </CONSTRUCTOR_CONTRACT>
+            <OWNED_STATE>
+                <STATE_ITEM>private state: Product3DWidgetState</STATE_ITEM>
+                <STATE_ITEM>private rawConfig: ProductConfiguration | null</STATE_ITEM>
+                <STATE_ITEM>private normalizedConfig: NormalizedProductConfiguration | null</STATE_ITEM>
+                <STATE_ITEM>private viewer: ThreeViewer | null</STATE_ITEM>
+                <STATE_ITEM>private arAdapter: ModelViewerArAdapter | null</STATE_ITEM>
+                <STATE_ITEM>private cycle: number</STATE_ITEM>
+                <STATE_ITEM>private terminalPrimaryGlbFailure: boolean</STATE_ITEM>
+            </OWNED_STATE>
+            <NON_RESPONSIBILITIES>
+                <RULE>No command bus, reducer/store, middleware, DI container or generic state-machine framework.</RULE>
+                <RULE>No separate UI controls for color, variants, animation, scenario or camera.</RULE>
+                <RULE>No selected AR mode field.</RULE>
+            </NON_RESPONSIBILITIES>
+            <METHODS>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-CONNECTED" visibility="PLATFORM_CALLBACK">
+                    <NAME>connectedCallback</NAME>
+                    <SIGNATURE>connectedCallback(): void</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Start a fresh initialization cycle when connected and a configuration has already been accepted for this instance.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>The element has just become connected.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Without accepted configuration, lifecycle becomes STATE-NOT-CONFIGURED.</CONDITION>
+                        <CONDITION>After non-terminal reconnect, prior selection and operations are discarded and initialization uses normalized initialSelection.</CONDITION>
+                        <CONDITION>After terminal primary GLB failure, no new model load starts.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Creates the minimal Shadow DOM and owned lifecycle listeners when absent.</EFFECT>
+                        <EFFECT>May invoke initializeCycle().</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Unexpected setup failure becomes a blocking error through commitAndNotify().</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-AVAILABILITY-STATES" />
+                        <REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION" />
+                        <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Reconnect starts a new cycle with defaults, while a terminal GLB-failed instance performs no load.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-DISCONNECTED" visibility="PLATFORM_CALLBACK">
+                    <NAME>disconnectedCallback</NAME>
+                    <SIGNATURE>disconnectedCallback(): void</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Synchronously prohibit new work and initiate idempotent cleanup of every owned runtime resource.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>The element has just become disconnected.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Lifecycle is STATE-DISCONNECTED.</CONDITION>
+                        <CONDITION>No previous runtime selection or operation is eligible for resume.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls dispose() on viewer and AR adapter when present.</EFFECT>
+                        <EFFECT>Removes owned listeners and references.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Cleanup continues best-effort across independent owned resources; a cleanup defect is diagnostic and does not recreate resources.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-DISCONNECT-CLEANUP" />
+                        <REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>After disconnect there are no owned RAF loops, listeners, hidden model-viewer elements or active operations.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-CONFIGURE" visibility="PUBLIC">
+                    <NAME>configure</NAME>
+                    <SIGNATURE>configure(config: ProductConfiguration): Promise&lt;InitializationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Validate and, only after mandatory validation succeeds, accept the single product assignment and initialize its primary viewer.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>The element is connected.</CONDITION>
+                        <CONDITION>No configuration has previously passed mandatory validation for this instance.</CONDITION>
+                        <CONDITION>The instance has not reached terminal primary GLB failure.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>A configuration that passes mandatory validation is retained as the single product assignment.</CONDITION>
+                        <CONDITION>Success reaches STATE-READY with initial defaults.</CONDITION>
+                        <CONDITION>Mandatory validation rejection reaches STATE-ERROR, retains no accepted product assignment and permits a later corrected configure() attempt.</CONDITION>
+                        <CONDITION>Primary GLB/WebGL failure reaches STATE-ERROR and marks the instance terminal where required.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls normalizeProductConfiguration().</EFFECT>
+                        <EFFECT>Creates concrete viewer and optional AR adapter only when their approved capability is needed.</EFFECT>
+                        <EFFECT>Publishes loading, ready or error snapshots.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>A call after mandatory configuration acceptance returns accepted=false with reason already-configured.</RULE>
+                        <RULE>A corrected call after mandatory validation rejection is allowed because no product assignment was accepted.</RULE>
+                        <RULE>Disconnected call returns accepted=false with reason disconnected.</RULE>
+                        <RULE>Unexpected programmer errors may reject the Promise after owned cleanup.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT" />
+                        <REQUIREMENT ref="FR-AVAILABILITY-STATES" />
+                        <REQUIREMENT ref="FR-ERROR-MESSAGES" />
+                        <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>An invalid mandatory configuration starts no model load and may be corrected once; after the first accepted configuration, another configuration never changes productId or starts a load.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-GET-STATE" visibility="PUBLIC">
+                    <NAME>getState</NAME>
+                    <SIGNATURE>getState(): Product3DWidgetState</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Return the last confirmed deeply readonly snapshot without triggering work.</INTENT>
+                    <PRECONDITIONS>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Returns the current snapshot object or an equivalent immutable snapshot.</CONDITION>
+                        <CONDITION>No state changes.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Does not throw for ordinary lifecycle states.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY" />
+                        <REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Mutating a consumer-held prior value cannot change current component state.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-SELECT-COLOR" visibility="PUBLIC">
+                    <NAME>selectColor</NAME>
+                    <SIGNATURE>selectColor(colorId: string): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Apply an enabled color while preserving structural selection and any allowed running regular animation.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Lifecycle gate permits product selection.</CONDITION>
+                        <CONDITION>colorId identifies an enabled color.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>On completion, only confirmed colorId changes.</CONDITION>
+                        <CONDITION>During a regular animation the animation continues without restart.</CONDITION>
+                        <CONDITION>During a scenario the command is rejected unchanged.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls ThreeViewer.applyColor().</EFFECT>
+                        <EFFECT>Commits and publishes state plus selection event on success.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Unknown, unavailable, pre-ready or scenario-locked requests return rejected data without events.</RULE>
+                        <RULE>Accepted viewer failure returns accepted=true outcome=failed and emits an operation error.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION" />
+                        <REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION" />
+                        <REQUIREMENT ref="FR-ANIMATION-SELECTION-AVAILABILITY" />
+                        <REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE" />
+                        <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
+                        <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Changing color during regular animation changes only color and does not restart playback.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-SELECT-VARIANT" visibility="PUBLIC">
+                    <NAME>selectVariant</NAME>
+                    <SIGNATURE>selectVariant(variantId: string): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Apply an enabled structural variant only when current operation compatibility permits it.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Lifecycle gate permits product selection.</CONDITION>
+                        <CONDITION>variantId identifies an enabled structural variant.</CONDITION>
+                        <CONDITION>If a regular animation is active, the variant is in its explicit whitelist.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>On completion, only confirmed structural variant changes.</CONDITION>
+                        <CONDITION>A compatible change during regular animation does not restart it.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls ThreeViewer.applyVariant().</EFFECT>
+                        <EFFECT>Commits and publishes state plus selection event on success.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Incompatible result includes compatibleVariantIds and leaves viewer/state unchanged.</RULE>
+                        <RULE>Scenario-active, pre-ready and unknown-id requests are rejected without events.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION" />
+                        <REQUIREMENT ref="FR-ANIMATION-SELECTION-AVAILABILITY" />
+                        <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE" />
+                        <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
+                        <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>An incompatible variant request leaves both state and scene unchanged and returns the whitelist.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-PLAY-ANIMATION" visibility="PUBLIC">
+                    <NAME>playAnimation</NAME>
+                    <SIGNATURE>playAnimation(animationId: string): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Start or atomically replace a regular animation after full compatibility validation.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>STATE-READY or STATE-ANIMATION-PLAYING.</CONDITION>
+                        <CONDITION>No active scenario.</CONDITION>
+                        <CONDITION>animationId is enabled and compatible with selected structural variant.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success commits STATE-ANIMATION-PLAYING.</CONDITION>
+                        <CONDITION>Replacement stops and resets the prior animation before starting the new one.</CONDITION>
+                        <CONDITION>Natural completion returns the model to base pose with selection and camera preserved and commits STATE-READY.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls ThreeViewer.playAnimation().</EFFECT>
+                        <EFFECT>Publishes replacement/completion semantics in deterministic order.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Invalid replacement request does not stop the current animation.</RULE>
+                        <RULE>Scenario lock and incompatibility return rejected data.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-ANIMATION-INTERRUPTION" />
+                        <REQUIREMENT ref="FR-SCENARIO-LOCK-REGULAR-ANIMATIONS" />
+                        <REQUIREMENT ref="FR-ANIMATION-SELECTION-AVAILABILITY" />
+                        <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>A valid replacement is observed as one committed change; an invalid replacement leaves the old animation running.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-START-SCENARIO" visibility="PUBLIC">
+                    <NAME>startScenario</NAME>
+                    <SIGNATURE>startScenario(scenarioId: string): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Start, replace or restart a scenario atomically only after complete prevalidation.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>scenarioId is enabled.</CONDITION>
+                        <CONDITION>Selected structural variant belongs to computed scenario intersection.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success commits STATE-SCENARIO-ACTIVE at step 0.</CONDITION>
+                        <CONDITION>A valid request stops a current regular animation or scenario only after validation.</CONDITION>
+                        <CONDITION>Accepted first-step failure clears scenario state and returns the model to ordinary base pose without restoring prior execution.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls ThreeViewer.startScenario().</EFFECT>
+                        <EFFECT>Publishes one atomic scenario change after success or accepted failure state.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Invalid/incompatible request preserves current operation.</RULE>
+                        <RULE>Accepted first-step failure returns accepted=true outcome=failed and emits error.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION" />
+                        <REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT" />
+                        <REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART" />
+                        <REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE" />
+                        <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>An invalid replacement preserves the current scenario; an accepted first-step failure does not restore it.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-PREVIOUS-STEP" visibility="PUBLIC">
+                    <NAME>previousScenarioStep</NAME>
+                    <SIGNATURE>previousScenarioStep(): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Move to and replay the previous scenario step while preserving camera and selection.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>STATE-SCENARIO-ACTIVE.</CONDITION>
+                        <CONDITION>canGoBack is true.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success commits the decremented step index and starts that step from its beginning.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls ThreeViewer.goToScenarioStep('back').</EFFECT>
+                        <EFFECT>Publishes state and scenario event.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>At first step returns boundary rejection without stopping current step.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                        <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Boundary rejection leaves current step/playback unchanged.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-NEXT-STEP" visibility="PUBLIC">
+                    <NAME>nextScenarioStep</NAME>
+                    <SIGNATURE>nextScenarioStep(): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Move to and replay the next scenario step while preserving camera and selection.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>STATE-SCENARIO-ACTIVE.</CONDITION>
+                        <CONDITION>canGoNext is true.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success commits the incremented step index and starts that step from its beginning.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls ThreeViewer.goToScenarioStep('next').</EFFECT>
+                        <EFFECT>Publishes state and scenario event.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>At last step returns boundary rejection without stopping current step.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                        <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Navigation remains available during step playback and starts the target step from zero.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-STOP-SCENARIO" visibility="PUBLIC">
+                    <NAME>stopScenario</NAME>
+                    <SIGNATURE>stopScenario(): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Stop the active scenario and restore ordinary base pose with confirmed selection and camera.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>STATE-SCENARIO-ACTIVE.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success clears scenario id/step and commits STATE-READY.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls ThreeViewer.stopScenario().</EFFECT>
+                        <EFFECT>Publishes state and scenario event.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Without an active scenario returns rejection without viewer mutation.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                        <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Stopping at any step clears scenario and preserves selection/camera.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-LAUNCH-AR" visibility="PUBLIC">
+                    <NAME>launchAR</NAME>
+                    <SIGNATURE>launchAR(): Promise&lt;CommandResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Initiate one mode-neutral AR request from a valid user activation without inferring the selected channel.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>STATE-READY or STATE-ANIMATION-PLAYING.</CONDITION>
+                        <CONDITION>No active scenario.</CONDITION>
+                        <CONDITION>AR is configured and currently available.</CONDITION>
+                        <CONDITION>navigator.userActivation.isActive is true when the platform exposes it and model-viewer requires transient activation.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>A regular animation is stopped/reset before AR sync and is not resumed.</CONDITION>
+                        <CONDITION>After successful initiation, result is accepted=true outcome='initiated' and lifecycle remains STATE-READY.</CONDITION>
+                        <CONDITION>Only a later public WebXR start callback may commit STATE-AR-ACTIVE.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>May call ThreeViewer.stopAnimationAndReset('ar').</EFFECT>
+                        <EFFECT>Calls ModelViewerArAdapter.syncSelection() then launch().</EFFECT>
+                        <EFFECT>Publishes animation stop and any observable generic AR error in required order.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Scenario lock, unavailable AR or missing activation returns rejected data.</RULE>
+                        <RULE>Observable request failure is generic and contains no mode.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-SCENARIO-LOCK-AR" />
+                        <REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION" />
+                        <REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE" />
+                        <REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME" />
+                        <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Accepted external AR initiation leaves lifecycle READY and never emits launched without WebXR start.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-INITIALIZE-CYCLE" visibility="PRIVATE">
+                    <NAME>initializeCycle</NAME>
+                    <SIGNATURE>initializeCycle(): Promise&lt;InitializationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Run the minimum sequence normalize configuration → initialize viewer → initialize optional AR adapter for the current connection cycle.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Element is connected.</CONDITION>
+                        <CONDITION>A raw configuration has been assigned once.</CONDITION>
+                        <CONDITION>Instance is not terminal from primary GLB failure.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Exactly one cycle result is committed.</CONDITION>
+                        <CONDITION>Leaf instances belong only to this cycle.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Creates concrete leaf instances.</EFFECT>
+                        <EFFECT>Registers narrow callbacks.</EFFECT>
+                        <EFFECT>Commits loading/ready/error states.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Cycle token prevents stale async completion from mutating a later connection cycle.</RULE>
+                        <RULE>Blocking failure disposes partially created resources.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS" />
+                        <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                        <REQUIREMENT ref="FR-AVAILABILITY-STATES" />
+                        <REQUIREMENT ref="FR-ERROR-MESSAGES" />
+                        <REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>A stale result from a disconnected cycle cannot commit state after reconnect.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-COMMIT-NOTIFY" visibility="PRIVATE">
+                    <NAME>commitAndNotify</NAME>
+                    <SIGNATURE>commitAndNotify(next: Product3DWidgetState, specializedEvent?: WidgetEventName): Product3DWidgetState</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
+                    <INTENT>Atomically replace the confirmed snapshot and enforce general-event → specialized-event ordering.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>next is internally validated and deeply readonly.</CONDITION>
+                        <CONDITION>No leaf resource mutation remains pending for the represented outcome.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>this.state is next before any event listener runs.</CONDITION>
+                        <CONDITION>product-3d-state-change is dispatched first.</CONDITION>
+                        <CONDITION>The optional specialized event is dispatched second.</CONDITION>
+                        <CONDITION>Caller may resolve the public Promise only after this method returns.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Updates minimal loading/error Shadow DOM.</EFFECT>
+                        <EFFECT>Dispatches DOM CustomEvent with detail.state === next.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Listener exceptions do not roll back confirmed state and are not converted into command failure.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-HOST-STATE-EVENTS" />
+                        <REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY" />
+                        <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                        <REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER" />
+                        <REQUIREMENT ref="FR-ERROR-MESSAGES" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Listeners observe the new snapshot and exact general-before-specialized order.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+            </METHODS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                <REQUIREMENT ref="FR-HOST-STATE-EVENTS" />
+                <REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY" />
+                <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS" />
+                <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                <REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION" />
+                <REQUIREMENT ref="FR-AVAILABILITY-STATES" />
+                <REQUIREMENT ref="FR-ERROR-MESSAGES" />
+                <REQUIREMENT ref="FR-DISCONNECT-CLEANUP" />
+                <REQUIREMENT ref="FR-ANIMATION-INTERRUPTION" />
+                <REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION" />
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT" />
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART" />
+                <REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-REGULAR-ANIMATIONS" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-AR" />
+                <REQUIREMENT ref="FR-ANIMATION-SELECTION-AVAILABILITY" />
+                <REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION" />
+                <REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE" />
+                <REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME" />
+                <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
+                <REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT" />
+                <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                <REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION" />
+                <REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER" />
+            </REQUIREMENTS>
+            <INVARIANTS>
+                <INVARIANT ref="INV-REJECTED-COMMAND-PRESERVES-CONFIRMED-STATE" />
+                <INVARIANT ref="INV-ATOMIC-HOST-OBSERVATION" />
+                <INVARIANT ref="INV-ACTIVE-SCENARIO-EXCLUSIVITY" />
+                <INVARIANT ref="INV-DISCONNECTED-COMPONENT-HAS-NO-OWNED-ACTIVE-OPERATIONS" />
+                <INVARIANT ref="INV-INSTANCE-PRODUCT-IMMUTABILITY" />
+                <INVARIANT ref="INV-PRE-READY-COMMANDS-ARE-NOT-QUEUED" />
+                <INVARIANT ref="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE" />
+                <INVARIANT ref="INV-PRIMARY-GLB-FAILURE-TERMINAL-FOR-INSTANCE" />
+                <INVARIANT ref="INV-HOST-NOTIFICATION-ORDER" />
+                <INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE" />
+                <INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED" />
+            </INVARIANTS>
+            <TEST_STRATEGY>
+                <RULE>One Playwright integration surface verifies public methods, atomic snapshots, event order and reconnect cleanup.</RULE>
+                <RULE>Pure guards may be checked by Vitest only when extracted for a real reuse reason; do not create helpers solely to make tests look unit-like.</RULE>
+            </TEST_STRATEGY>
+        </CLASS_CONTRACT>
+        <CLASS_CONTRACT id="CFC-CLASS-THREE-VIEWER" export="INTERNAL">
+            <NAME>ThreeViewer</NAME>
+            <FILE>src/three-viewer.ts</FILE>
+            <EXTENDS>none</EXTENDS>
+            <MODULE ref="MOD-THREE-VIEWER" />
+            <MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER" />
+            <INTENT>The single concrete owner of Three.js scene, renderer, camera, controls, mixer and GPU resources.</INTENT>
+            <CONSTRUCTOR_CONTRACT>
+                <RULE>Receive the concrete container and a narrow readonly callback object.</RULE>
+                <RULE>Do not create resources until initialize().</RULE>
+            </CONSTRUCTOR_CONTRACT>
+            <OWNED_STATE>
+                <STATE_ITEM>one renderer, scene, camera and control instance</STATE_ITEM>
+                <STATE_ITEM>loaded GLB root and model-bound lookup maps</STATE_ITEM>
+                <STATE_ITEM>captured base material/node values</STATE_ITEM>
+                <STATE_ITEM>current mixer/action and scenario step playback</STATE_ITEM>
+                <STATE_ITEM>camera snapshot used only for approved restore operations</STATE_ITEM>
+                <STATE_ITEM>one contextRecoveryAttempted boolean</STATE_ITEM>
+                <STATE_ITEM>owned RAF/listeners/ResizeObserver</STATE_ITEM>
+            </OWNED_STATE>
+            <NON_RESPONSIBILITIES>
+                <RULE>No renderer abstraction, engine interface, repository or scene service.</RULE>
+                <RULE>No public DOM events or confirmed host state.</RULE>
+                <RULE>No direct import of Product3DWidget or ModelViewerArAdapter.</RULE>
+            </NON_RESPONSIBILITIES>
+            <METHODS>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-INITIALIZE" visibility="INTERNAL">
+                    <NAME>initialize</NAME>
+                    <SIGNATURE>initialize(config: NormalizedProductConfiguration, selection: ConfirmedSelection): Promise&lt;ViewerInitializationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Create the single Three.js viewer, require WebGL 2, load primary GLB, validate model-bound references and render the confirmed initial selection.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Viewer is not initialized or disposed.</CONDITION>
+                        <CONDITION>Container is connected to the current Shadow DOM cycle.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success has one renderer, scene, camera, controls and loaded GLB.</CONDITION>
+                        <CONDITION>Returns enabled model-bound capabilities and local errors.</CONDITION>
+                        <CONDITION>Failure leaves no partially active viewer.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Creates canvas/GPU resources, loads GLB and registers owned resize/context listeners.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>No WebGL 2 is blocking.</RULE>
+                        <RULE>Primary GLB load/parse failure is terminal for the component instance.</RULE>
+                        <RULE>Optional model reference errors disable only affected capabilities.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
+                        <REQUIREMENT ref="FR-MODEL-INTERACTION" />
+                        <REQUIREMENT ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING" />
+                        <REQUIREMENT ref="FR-PRIMARY-GLB-ONLY-VIEW" />
+                        <REQUIREMENT ref="FR-NO-SEPARATE-CAMERA-CONTROLS" />
+                        <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT" />
+                        <REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER" />
+                        <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>GLB-only config renders; a failed load leaves no RAF/listeners/resources.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-APPLY-COLOR" visibility="INTERNAL">
+                    <NAME>applyColor</NAME>
+                    <SIGNATURE>applyColor(colorId: string): Promise&lt;ViewerOperationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Apply one validated color or restore captured base material values without changing playback/camera/variant.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>colorId is model-bound enabled.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success changes only intended materials.</CONDITION>
+                        <CONDITION>Running animation continues at the same logical playback position.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Mutates owned Three.js materials and requests render.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Operation failure leaves or restores the prior rendered color as far as internally observable.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-COLOR-SELECTION" />
+                        <REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE" />
+                        <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Applying color during playback does not recreate mixer/action or reset time.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-APPLY-VARIANT" visibility="INTERNAL">
+                    <NAME>applyVariant</NAME>
+                    <SIGNATURE>applyVariant(variantId: string): Promise&lt;ViewerOperationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Apply one validated structural visibility set without changing color or compatible regular playback.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>variantId is model-bound enabled.</CONDITION>
+                        <CONDITION>Controller already validated current-operation compatibility.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success applies the complete target visibility set atomically from the viewer's perspective.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Mutates owned node visibility and requests render.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Failure does not deliberately choose another variant.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />
+                        <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE" />
+                        <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Compatible change preserves mixer/action time and color.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-PLAY-ANIMATION" visibility="INTERNAL">
+                    <NAME>playAnimation</NAME>
+                    <SIGNATURE>playAnimation(animationId: string): Promise&lt;ViewerPlaybackResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Start or replace one validated regular animation using an existing clip or bounded range.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>animationId is enabled and compatible.</CONDITION>
+                        <CONDITION>No scenario is active in controller-confirmed state.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Start preserves camera.</CONDITION>
+                        <CONDITION>Replacement resets old model pose before the new start.</CONDITION>
+                        <CONDITION>Natural completion resets base pose while reapplying selection and preserving camera.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Uses AnimationMixer and RAF only while needed.</EFFECT>
+                        <EFFECT>Reports completion via the narrow playback callback.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>A start failure returns explicit failure after restoring ordinary base pose where possible.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-ANIMATION-CONTROLS" />
+                        <REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT" />
+                        <REQUIREMENT ref="FR-ANIMATION-RANGE-PLAYBACK" />
+                        <REQUIREMENT ref="FR-ANIMATION-RESET-AFTER-PLAYBACK" />
+                        <REQUIREMENT ref="FR-ANIMATION-ALLOW-VIEW-INTERACTION" />
+                        <REQUIREMENT ref="FR-ANIMATION-PRESERVE-CAMERA-VIEW" />
+                        <REQUIREMENT ref="FR-ANIMATION-VARIANT-COMPATIBILITY" />
+                        <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANTS-WHITELIST" />
+                        <REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Range stops at end; completion restores pose/selection/camera.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-STOP-ANIMATION" visibility="INTERNAL">
+                    <NAME>stopAnimationAndReset</NAME>
+                    <SIGNATURE>stopAnimationAndReset(reason: 'replacement' | 'scenario' | 'ar' | 'cleanup'): Promise&lt;ViewerOperationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Stop regular playback and restore ordinary base pose while preserving confirmed selection and camera.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>A regular animation may be active; otherwise the operation is idempotent.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>No regular AnimationAction remains active.</CONDITION>
+                        <CONDITION>Selection/camera are preserved.</CONDITION>
+                        <CONDITION>No automatic resume token is kept.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Stops mixer action, resets model pose and reapplies confirmed selection.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Failure is explicit to controller except during best-effort cleanup.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-ANIMATION-INTERRUPTION" />
+                        <REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION" />
+                        <REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION" />
+                        <REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>AR reason leaves no resumable animation after later WebXR end.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-START-SCENARIO" visibility="INTERNAL">
+                    <NAME>startScenario</NAME>
+                    <SIGNATURE>startScenario(scenarioId: string, mode: 'start' | 'replace' | 'restart'): Promise&lt;ViewerScenarioResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>After caller prevalidation, establish scenario base and play step zero while preserving camera and selection.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Scenario and model-bound step animations are enabled.</CONDITION>
+                        <CONDITION>Controller has validated selected structural compatibility before stopping prior execution.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Success leaves scenario step zero active.</CONDITION>
+                        <CONDITION>Restart/replacement is one viewer operation.</CONDITION>
+                        <CONDITION>Accepted first-step failure restores ordinary base pose and leaves no scenario execution.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Stops prior allowed execution, resets pose and starts step zero.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Never attempts to restore a replaced prior scenario after accepted start failure.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-SCENARIO-CONTROLS" />
+                        <REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME" />
+                        <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
+                        <REQUIREMENT ref="FR-SCENARIO-ALLOW-VIEW-INTERACTION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>First-step failure leaves ordinary pose and no active scenario.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-GO-SCENARIO-STEP" visibility="INTERNAL">
+                    <NAME>goToScenarioStep</NAME>
+                    <SIGNATURE>goToScenarioStep(direction: 'back' | 'next'): Promise&lt;ViewerScenarioResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Stop current step and replay the adjacent validated step from its beginning.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Scenario is active.</CONDITION>
+                        <CONDITION>Target step exists.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Target step starts at its initial pose/time.</CONDITION>
+                        <CONDITION>Camera and selection are preserved.</CONDITION>
+                        <CONDITION>Final frame remains after target completion.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Stops current action and starts target step.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Boundary is expected to be rejected by controller; unexpected viewer failure is explicit.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY" />
+                        <REQUIREMENT ref="FR-SCENARIO-NEXT-PLAYBACK" />
+                        <REQUIREMENT ref="FR-SCENARIO-NAVIGATION-DURING-PLAYBACK" />
+                        <REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION" />
+                        <REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME" />
+                        <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Navigation during playback starts adjacent step at zero without camera reset.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-STOP-SCENARIO" visibility="INTERNAL">
+                    <NAME>stopScenario</NAME>
+                    <SIGNATURE>stopScenario(): Promise&lt;ViewerOperationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Stop any active scenario step and restore ordinary base pose with confirmed selection/camera.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Scenario may be active.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>No scenario action remains active.</CONDITION>
+                        <CONDITION>Ordinary base pose is rendered.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Stops mixer action, resets pose and reapplies selection.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Explicit failure except during cleanup.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-STOP-SCENARIO" />
+                        <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Stop works at any step and preserves selection/camera.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-RESIZE" visibility="INTERNAL">
+                    <NAME>resize</NAME>
+                    <SIGNATURE>resize(): void</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Set renderer size and camera aspect from the actual container, using 4/3 only when no applicable height exists.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Viewer is initialized.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Renderer/camera match current container without model distortion.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Updates renderer dimensions, pixel ratio within an implementation cap, camera projection and render.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Zero-size transient layout does not dispose or corrupt the viewer.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-COMPONENT-STYLING-API" />
+                        <REQUIREMENT ref="FR-DEFAULT-MINIMAL-STYLING" />
+                        <REQUIREMENT ref="FR-NEUTRAL-DEFAULT-STYLING" />
+                        <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT" />
+                        <REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER" />
+                        <REQUIREMENT ref="FR-VIEWER-RESIZE" />
+                        <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Width-only host sizing uses 4/3; explicit height overrides it.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-RECOVER-CONTEXT" visibility="PRIVATE">
+                    <NAME>recoverContext</NAME>
+                    <SIGNATURE>recoverContext(): Promise&lt;ViewerRecoveryResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Perform the single automatic WebGL recovery from last confirmed selection/camera.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>A successful viewer existed.</CONDITION>
+                        <CONDITION>Automatic recovery has not already been attempted.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Attempt flag is permanently set.</CONDITION>
+                        <CONDITION>Success restores last confirmed state; failure disposes unusable resources and reports blocking failure.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Recreates only necessary renderer/viewer resources and reloads primary GLB.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>No second automatic attempt.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Two loss events cause at most one automatic recovery attempt.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-DISPOSE" visibility="INTERNAL">
+                    <NAME>dispose</NAME>
+                    <SIGNATURE>dispose(): void</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
+                    <INTENT>Idempotently release every viewer-owned CPU, GPU, listener, observer, mixer and canvas resource.</INTENT>
+                    <PRECONDITIONS>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>No active RAF/action/listener remains.</CONDITION>
+                        <CONDITION>Owned resource references are cleared.</CONDITION>
+                        <CONDITION>Repeated calls are safe.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Disposes geometries, materials, textures, controls and renderer; removes canvas/listeners.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Best-effort continues after one resource disposal defect.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-DISCONNECT-CLEANUP" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Resource counters/listener probes reach zero after repeated dispose.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+            </METHODS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
+                <REQUIREMENT ref="FR-MODEL-INTERACTION" />
+                <REQUIREMENT ref="FR-COLOR-SELECTION" />
+                <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />
+                <REQUIREMENT ref="FR-ANIMATION-CONTROLS" />
+                <REQUIREMENT ref="FR-SCENARIO-CONTROLS" />
+                <REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT" />
+                <REQUIREMENT ref="FR-ANIMATION-RANGE-PLAYBACK" />
+                <REQUIREMENT ref="FR-ANIMATION-RESET-AFTER-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME" />
+                <REQUIREMENT ref="FR-STOP-SCENARIO" />
+                <REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY" />
+                <REQUIREMENT ref="FR-SCENARIO-NEXT-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-NAVIGATION-DURING-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION" />
+                <REQUIREMENT ref="FR-SCENARIO-ALLOW-VIEW-INTERACTION" />
+                <REQUIREMENT ref="FR-ANIMATION-ALLOW-VIEW-INTERACTION" />
+                <REQUIREMENT ref="FR-ANIMATION-PRESERVE-CAMERA-VIEW" />
+                <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
+                <REQUIREMENT ref="FR-ANIMATION-VARIANT-COMPATIBILITY" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANTS-WHITELIST" />
+                <REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE" />
+                <REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE" />
+                <REQUIREMENT ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-ONLY-VIEW" />
+                <REQUIREMENT ref="FR-NO-SEPARATE-CAMERA-CONTROLS" />
+                <REQUIREMENT ref="FR-COMPONENT-STYLING-API" />
+                <REQUIREMENT ref="FR-DEFAULT-MINIMAL-STYLING" />
+                <REQUIREMENT ref="FR-NEUTRAL-DEFAULT-STYLING" />
+                <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT" />
+                <REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER" />
+                <REQUIREMENT ref="FR-VIEWER-RESIZE" />
+                <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING" />
+                <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY" />
+            </REQUIREMENTS>
+            <INVARIANTS>
+                <INVARIANT ref="INV-SELECTION-INDEPENDENCE" />
+                <INVARIANT ref="INV-CAMERA-PRESERVATION" />
+                <INVARIANT ref="INV-COMPATIBILITY-USES-STRUCTURAL-VARIANTS-ONLY" />
+                <INVARIANT ref="INV-SCENARIO-COMPATIBILITY-IS-STEP-INTERSECTION" />
+            </INVARIANTS>
+            <TEST_STRATEGY>
+                <RULE>Focused Vitest checks cover deterministic source/range and compatibility behavior only where no browser/GPU is required.</RULE>
+                <RULE>Playwright covers real WebGL 2 integration, resize, context loss boundary and cleanup.</RULE>
+            </TEST_STRATEGY>
+        </CLASS_CONTRACT>
+        <CLASS_CONTRACT id="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER" export="INTERNAL">
+            <NAME>ModelViewerArAdapter</NAME>
+            <FILE>src/ar-adapter.ts</FILE>
+            <EXTENDS>none</EXTENDS>
+            <MODULE ref="MOD-AR-ADAPTER" />
+            <MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER" />
+            <INTENT>The single concrete wrapper around model-viewer public AR API.</INTENT>
+            <CONSTRUCTOR_CONTRACT>
+                <RULE>Receive the owned hidden-DOM parent and narrow callbacks for availability, WebXR start/end and generic error.</RULE>
+                <RULE>Do not accept channel-specific adapters or strategies.</RULE>
+            </CONSTRUCTOR_CONTRACT>
+            <OWNED_STATE>
+                <STATE_ITEM>one hidden model-viewer element</STATE_ITEM>
+                <STATE_ITEM>owned public event listeners</STATE_ITEM>
+                <STATE_ITEM>last synced confirmed asset/selection data</STATE_ITEM>
+                <STATE_ITEM>one webxrObserved boolean</STATE_ITEM>
+            </OWNED_STATE>
+            <NON_RESPONSIBILITIES>
+                <RULE>No WebXR/Scene Viewer/Quick Look subclass hierarchy.</RULE>
+                <RULE>No internal model-viewer symbols or Three.js scene access.</RULE>
+                <RULE>No visibility/timer heuristic for external AR lifecycle.</RULE>
+            </NON_RESPONSIBILITIES>
+            <METHODS>
+                <FUNCTION_CONTRACT id="CFC-FN-AR-INITIALIZE" visibility="INTERNAL">
+                    <NAME>initialize</NAME>
+                    <SIGNATURE>initialize(config: NormalizedProductConfiguration): Promise&lt;ArInitializationResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER" />
+                    <INTENT>Create one hidden model-viewer, configure mode-neutral public AR inputs and observe public availability.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>AR is configured.</CONDITION>
+                        <CONDITION>Adapter is not initialized/disposed.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>One hidden model-viewer and only necessary public listeners exist.</CONDITION>
+                        <CONDITION>Availability callback reports public canActivateAR changes without a selected mode.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Creates hidden DOM and assigns primary GLB plus usable optional USDZ.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Optional USDZ unusability removes that source and preserves GLB fallback.</RULE>
+                        <RULE>Initialization failure disables only AR unless caused by a shared mandatory asset already handled elsewhere.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION" />
+                        <REQUIREMENT ref="FR-AR-ASSET-MAPPING" />
+                        <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION" />
+                        <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK" />
+                        <REQUIREMENT ref="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>No USDZ or unusable USDZ still leaves primary GLB configured for model-viewer fallback.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-AR-SYNC-SELECTION" visibility="INTERNAL">
+                    <NAME>syncSelection</NAME>
+                    <SIGNATURE>syncSelection(selection: ConfirmedSelection): Promise&lt;ArSyncResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER" />
+                    <INTENT>Apply the current confirmed color and structural selection only through model-viewer public supported capabilities.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Adapter is initialized.</CONDITION>
+                        <CONDITION>Selection is confirmed by controller.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Best publicly supported representation is ready before launch.</CONDITION>
+                        <CONDITION>Unsupported transfer does not alter controller/viewer selection.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Updates public model-viewer properties/attributes only.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Observable sync failure is explicit and channel-neutral.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Sync never reads or mutates model-viewer internal Three.js scene.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-AR-LAUNCH" visibility="INTERNAL">
+                    <NAME>launch</NAME>
+                    <SIGNATURE>launch(): Promise&lt;ArRequestResult&gt;</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER" />
+                    <INTENT>Call public activateAR() once from the host user activation and report only initiation or an observable generic failure.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Adapter is initialized and publicly available.</CONDITION>
+                        <CONDITION>Call stack retains required transient user activation.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Fulfilled initiation contains no selected mode and no launched claim.</CONDITION>
+                        <CONDITION>Only later public WebXR start/end callbacks produce lifecycle observations.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Calls modelViewer.activateAR().</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Observable rejection/error is generic.</RULE>
+                        <RULE>Visibility changes and absence of error are ignored as lifecycle evidence.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-AR-LAUNCH" />
+                        <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY" />
+                        <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Fulfilled activateAR without WebXR event produces no launched callback.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-AR-HANDLE-STATUS" visibility="PRIVATE_CALLBACK">
+                    <NAME>handleArStatus</NAME>
+                    <SIGNATURE>handleArStatus(event: Event): void</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER" />
+                    <INTENT>Translate only public model-viewer WebXR status evidence into one start/end pair.</INTENT>
+                    <PRECONDITIONS>
+                        <CONDITION>Event comes from the owned model-viewer public event surface.</CONDITION>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>Observed WebXR start sets internal observed flag and calls onWebXRStart once.</CONDITION>
+                        <CONDITION>End calls onWebXREnd once only if start was previously observed.</CONDITION>
+                        <CONDITION>External modes and visibility produce no callback.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Updates one boolean and invokes narrow callbacks.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Unknown status values are ignored rather than inferred.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY" />
+                        <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>End without prior start and duplicate statuses do not emit extra lifecycle callbacks.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-AR-DISPOSE" visibility="INTERNAL">
+                    <NAME>dispose</NAME>
+                    <SIGNATURE>dispose(): void</SIGNATURE>
+                    <CLASS_CONTRACT ref="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER" />
+                    <INTENT>Idempotently remove owned public listeners, hidden model-viewer and retained asset/selection references.</INTENT>
+                    <PRECONDITIONS>
+                    </PRECONDITIONS>
+                    <POSTCONDITIONS>
+                        <CONDITION>No hidden element or listener remains.</CONDITION>
+                        <CONDITION>Observed WebXR flag is cleared.</CONDITION>
+                        <CONDITION>Repeated calls are safe.</CONDITION>
+                    </POSTCONDITIONS>
+                    <SIDE_EFFECTS>
+                        <EFFECT>Removes owned DOM/listeners.</EFFECT>
+                    </SIDE_EFFECTS>
+                    <FAILURE_BEHAVIOR>
+                        <RULE>Does not try to infer, stop or interact with an external AR application.</RULE>
+                    </FAILURE_BEHAVIOR>
+                    <REQUIREMENTS>
+                        <REQUIREMENT ref="FR-DISCONNECT-CLEANUP" />
+                    </REQUIREMENTS>
+                    <MINIMUM_RUNNABLE_CHECK>Repeated dispose leaves zero owned DOM/listeners.</MINIMUM_RUNNABLE_CHECK>
+                </FUNCTION_CONTRACT>
+            </METHODS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-AR-LAUNCH" />
+                <REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION" />
+                <REQUIREMENT ref="FR-AR-ASSET-MAPPING" />
+                <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION" />
+                <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION" />
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK" />
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY" />
+                <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH" />
+                <REQUIREMENT ref="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1" />
+            </REQUIREMENTS>
+            <INVARIANTS>
+                <INVARIANT ref="INV-PRIMARY-GLB-IS-ONLY-MANDATORY" />
+                <INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE" />
+                <INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED" />
+            </INVARIANTS>
+            <TEST_STRATEGY>
+                <RULE>Playwright with a controlled public model-viewer seam verifies request and event translation.</RULE>
+                <RULE>Real Android/iOS devices remain required evidence for native AR channels; automated tests do not claim that evidence.</RULE>
+            </TEST_STRATEGY>
+        </CLASS_CONTRACT>
+    </CLASS_CONTRACTS>
+    <PUBLIC_API_SUMMARY>
+        <METHOD name="configure" contract="CFC-FN-WIDGET-CONFIGURE" signature="configure(config: ProductConfiguration): Promise&lt;InitializationResult&gt;" />
+        <METHOD name="getState" contract="CFC-FN-WIDGET-GET-STATE" signature="getState(): Product3DWidgetState" />
+        <METHOD name="selectColor" contract="CFC-FN-WIDGET-SELECT-COLOR" signature="selectColor(colorId: string): Promise&lt;CommandResult&gt;" />
+        <METHOD name="selectVariant" contract="CFC-FN-WIDGET-SELECT-VARIANT" signature="selectVariant(variantId: string): Promise&lt;CommandResult&gt;" />
+        <METHOD name="playAnimation" contract="CFC-FN-WIDGET-PLAY-ANIMATION" signature="playAnimation(animationId: string): Promise&lt;CommandResult&gt;" />
+        <METHOD name="startScenario" contract="CFC-FN-WIDGET-START-SCENARIO" signature="startScenario(scenarioId: string): Promise&lt;CommandResult&gt;" />
+        <METHOD name="previousScenarioStep" contract="CFC-FN-WIDGET-PREVIOUS-STEP" signature="previousScenarioStep(): Promise&lt;CommandResult&gt;" />
+        <METHOD name="nextScenarioStep" contract="CFC-FN-WIDGET-NEXT-STEP" signature="nextScenarioStep(): Promise&lt;CommandResult&gt;" />
+        <METHOD name="stopScenario" contract="CFC-FN-WIDGET-STOP-SCENARIO" signature="stopScenario(): Promise&lt;CommandResult&gt;" />
+        <METHOD name="launchAR" contract="CFC-FN-WIDGET-LAUNCH-AR" signature="launchAR(): Promise&lt;CommandResult&gt;" />
+    </PUBLIC_API_SUMMARY>
+    <TRACEABILITY>
+        <TRACE class="CFC-CLASS-PRODUCT-3D-WIDGET" module_contract="CONTRACT-MOD-WIDGET-CONTROLLER" />
+        <TRACE class="CFC-CLASS-THREE-VIEWER" module_contract="CONTRACT-MOD-THREE-VIEWER" />
+        <TRACE class="CFC-CLASS-MODEL-VIEWER-AR-ADAPTER" module_contract="CONTRACT-MOD-AR-ADAPTER" />
+        <TRACE function="CFC-FN-NORMALIZE-CONFIG" module_contract="CONTRACT-MOD-CONFIGURATION" />
+    </TRACEABILITY>
+    <VALIDATION_EXPECTATIONS>
+        <CHECK id="CFC-VALIDATE-UPSTREAM">All four upstream artifacts are APPROVED at the referenced revisions and approval commits.</CHECK>
+        <CHECK id="CFC-VALIDATE-EXACT-RUNTIME-CLASSES">Exactly three runtime class contracts exist and map to controller, viewer and AR adapter; configuration has exactly one standalone pure function.</CHECK>
+        <CHECK id="CFC-VALIDATE-SOURCE-FILES">Exactly four runtime source files exist in the declared layout and no speculative source file is required.</CHECK>
+        <CHECK id="CFC-VALIDATE-PUBLIC-API">Public API contains exactly the ten listed methods; no public stopAnimation or mode-specific AR method exists.</CHECK>
+        <CHECK id="CFC-VALIDATE-REQUIREMENT-COVERAGE">Class-level module requirement sets plus the configuration function reproduce all 86 functional requirements exactly once by architectural owner.</CHECK>
+        <CHECK id="CFC-VALIDATE-METHOD-REFS">Every method requirement is a functional requirement and may link cross-module behavior only where the method orchestrates the approved leaf operation; class-level ownership remains exact.</CHECK>
+        <CHECK id="CFC-VALIDATE-NO-AR-MODE">No public type, method, event or state field exposes selected Scene Viewer or Quick Look mode/lifecycle.</CHECK>
+        <CHECK id="CFC-VALIDATE-NAMED-FUNCTION-CLOSURE">Implementation may not add non-trivial named functions or methods absent from this artifact.</CHECK>
+        <CHECK id="CFC-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS is empty before approval.</CHECK>
+    </VALIDATION_EXPECTATIONS>
+    <UNRESOLVED_DECISIONS />
+    <APPROVAL_GATE status="PENDING">
+        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
+        <CONDITION>Approve the exact public API, events and data contracts; three concrete runtime classes; one pure configuration function; four-file layout; method pre/postconditions, side effects, failure behavior, requirement links and minimum runnable checks. After approval create MentalScenarios.xml; implementation remains forbidden.</CONDITION>
+    </APPROVAL_GATE>
+</CLASS_FUNCTION_CONTRACTS>
