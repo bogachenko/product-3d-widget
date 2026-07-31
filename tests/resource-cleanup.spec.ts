@@ -141,7 +141,7 @@ test('owned browser resources are released across resize and reconnect cycles', 
     widget.remove();
   });
   await expect.poll(() => page.evaluate(() => (window as any).__resources.pending.size)).toBe(0);
-  expect(await page.evaluate(() => {
+  await expect.poll(() => page.evaluate(() => {
     const widget = (window as any).__detachedWidget as HTMLElement;
     return {
       observed: (window as any).__resources.observed(),
