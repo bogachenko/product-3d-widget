@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Product 3D Widget — ручной стенд</title>
+    <style>
+      :root { color-scheme: light dark; font-family: Inter, system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: Canvas; color: CanvasText; }
+      header { padding: 20px 24px; border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent); }
+      h1, h2 { margin: 0; }
+      h1 { font-size: 22px; }
+      h2 { margin-bottom: 12px; font-size: 16px; }
+      main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 20px; padding: 20px; }
+      .panel { min-width: 0; padding: 16px; border: 1px solid color-mix(in srgb, CanvasText 18%, transparent); border-radius: 12px; background: color-mix(in srgb, Canvas 94%, CanvasText 6%); }
+      .viewer-panel, .stack, .control { display: grid; gap: 12px; }
+      .viewer-panel { align-content: start; }
+      #viewer-mount { overflow: hidden; min-height: 360px; border-radius: 10px; background: #e7e7e7; }
+      product-3d-widget { display: block; width: 100%; --product-3d-aspect-ratio: 4 / 3; }
+      product-3d-widget::part(viewer) { background: linear-gradient(#f8f8f8, #dadada); }
+      .status-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+      #status { padding: 5px 9px; border-radius: 999px; background: color-mix(in srgb, CanvasText 10%, transparent); font: 12px ui-monospace, monospace; }
+      .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .control { gap: 6px; }
+      .control.full { grid-column: 1 / -1; }
+      label { font-size: 12px; font-weight: 650; }
+      button, select, textarea { width: 100%; min-height: 38px; border: 1px solid color-mix(in srgb, CanvasText 24%, transparent); border-radius: 8px; background: Canvas; color: CanvasText; font: inherit; }
+      button { cursor: pointer; }
+      button:disabled, select:disabled { cursor: not-allowed; opacity: 0.45; }
+      button:not(:disabled):hover { background: color-mix(in srgb, Canvas 90%, CanvasText 10%); }
+      textarea { min-height: 260px; padding: 10px; resize: vertical; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+      pre { overflow: auto; max-height: 300px; margin: 0; padding: 10px; border-radius: 8px; background: color-mix(in srgb, Canvas 88%, CanvasText 12%); font-size: 11px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+      .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .button-row.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+      @media (max-width: 520px) { main { padding: 12px; } .controls, .button-row, .button-row.four { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header><h1>Product 3D Widget — ручной стенд</h1></header>
+    <main>
+      <section class="panel viewer-panel">
+        <div class="status-row"><strong>Lifecycle:</strong><span id="status" data-testid="status">элемент не создан</span></div>
+        <div id="viewer-mount" aria-label="Область 3D-просмотра"></div>
+        <div class="controls">
+          <div class="control">
+            <label for="color-select">Цвет</label>
+            <select id="color-select"></select>
+            <button id="apply-color" type="button">Применить цвет</button>
+          </div>
+          <div class="control">
+            <label for="variant-select">Вариант</label>
+            <select id="variant-select"></select>
+            <button id="apply-variant" type="button">Применить вариант</button>
+          </div>
+          <div class="control">
+            <label for="animation-select">Анимация</label>
+            <select id="animation-select"></select>
+            <button id="play-animation" type="button">Запустить анимацию</button>
+          </div>
+          <div class="control">
+            <label for="scenario-select">Сценарий</label>
+            <select id="scenario-select"></select>
+            <button id="start-scenario" type="button">Запустить сценарий</button>
+          </div>
+          <div class="control full">
+            <div class="button-row four">
+              <button id="previous-step" type="button">Назад</button>
+              <button id="next-step" type="button">Вперёд</button>
+              <button id="stop-scenario" type="button">Стоп</button>
+              <button id="launch-ar" type="button">Открыть AR</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <aside class="stack">
+        <section class="panel stack">
+          <h2>Конфигурация</h2>
+          <textarea id="configuration" spellcheck="false" aria-label="JSON-конфигурация"></textarea>
+          <div class="button-row">
+            <button id="initialize" type="button">Создать новый экземпляр</button>
+            <button id="reset-config" type="button">Вернуть пример</button>
+          </div>
+        </section>
+        <section class="panel stack"><h2>Последний результат</h2><pre id="result-output" data-testid="result-output">—</pre></section>
+        <section class="panel stack"><h2>Текущее состояние</h2><pre id="state-output" data-testid="state-output">—</pre></section>
+        <section class="panel stack"><h2>События и команды</h2><button id="clear-log" type="button">Очистить журнал</button><pre id="event-log" data-testid="event-log">—</pre></section>
+      </aside>
+    </main>
+    <script type="module">
+      import '/src/product-3d-widget.ts';
+
+      const EVENT_NAMES = [
+        'product-3d-state-change',
+        'product-3d-selection-change',
+        'product-3d-animation-change',
+        'product-3d-scenario-change',
+        'product-3d-ar-availability-change',
+        'product-3d-ar-launched',
+        'product-3d-ar-returned',
+        'product-3d-error',
+      ];
+
+      const DEFAULT_CONFIGURATION = {
+        productId: 'manual-demo-product',
+        glbUrl: '/tests/fixtures/product.gltf',
+        colors: [
+          { id: 'original', label: 'Исходный', swatch: '#3366cc', isDefault: true, isBase: true, materialNames: [] },
+          { id: 'red', label: 'Красный', swatch: '#ff0000', isDefault: false, isBase: false, materialNames: ['Body'] },
+        ],
+        variants: [
+          { id: 'base', label: 'Базовый', isDefault: true, isBase: true, visibleNodeNames: [], hiddenNodeNames: [] },
+          { id: 'alt', label: 'Альтернативный', isDefault: false, isBase: false, visibleNodeNames: ['AltNode'], hiddenNodeNames: ['BaseNode'] },
+        ],
+        animations: [
+          { id: 'pulse-all', label: 'Пульсация — все варианты', source: { kind: 'clip', clipName: 'Pulse' }, compatibleVariantIds: ['base', 'alt'] },
+          { id: 'pulse-base', label: 'Пульсация — только базовый', source: { kind: 'range', clipName: 'Pulse', startSeconds: 0.1, endSeconds: 0.8 }, compatibleVariantIds: ['base'] },
+        ],
+        scenarios: [
+          { id: 'tour', label: 'Демонстрация', steps: [
+            { id: 'one', description: 'Полная анимация', animationId: 'pulse-all' },
+            { id: 'two', description: 'Диапазон анимации', animationId: 'pulse-base' },
+          ] },
+        ],
+        ar: { enabled: true },
+      };
+
+      const elements = {
+        mount: document.querySelector('#viewer-mount'),
+        status: document.querySelector('#status'),
+        configuration: document.querySelector('#configuration'),
+        result: document.querySelector('#result-output'),
+        state: document.querySelector('#state-output'),
+        log: document.querySelector('#event-log'),
+        color: document.querySelector('#color-select'),
+        variant: document.querySelector('#variant-select'),
+        animation: document.querySelector('#animation-select'),
+        scenario: document.querySelector('#scenario-select'),
+        applyColor: document.querySelector('#apply-color'),
+        applyVariant: document.querySelector('#apply-variant'),
+        playAnimation: document.querySelector('#play-animation'),
+        startScenario: document.querySelector('#start-scenario'),
+        previousStep: document.querySelector('#previous-step'),
+        nextStep: document.querySelector('#next-step'),
+        stopScenario: document.querySelector('#stop-scenario'),
+        launchAr: document.querySelector('#launch-ar'),
+      };
+
+      let widget = null;
+      let logEntries = [];
+      const format = (value) => JSON.stringify(value, null, 2);
+
+      function appendLog(kind, value) {
+        logEntries.unshift({ time: new Date().toISOString(), kind, value });
+        logEntries = logEntries.slice(0, 100);
+        elements.log.textContent = format(logEntries);
+      }
+
+      function populateSelect(select, items, selectedId) {
+        const previousValue = selectedId ?? select.value;
+        select.replaceChildren(...items.map((item) => {
+          const option = document.createElement('option');
+          option.value = item.id;
+          option.textContent = `${item.label} (${item.id})`;
+          return option;
+        }));
+        if (items.some((item) => item.id === previousValue)) select.value = previousValue;
+      }
+
+      function renderState() {
+        if (!widget) {
+          elements.status.textContent = 'элемент не создан';
+          elements.state.textContent = '—';
+          return;
+        }
+        const state = widget.getState();
+        elements.status.textContent = state.lifecycle;
+        elements.state.textContent = format(state);
+        populateSelect(elements.color, state.capabilities.colors, state.selection.colorId);
+        populateSelect(elements.variant, state.capabilities.variants, state.selection.variantId);
+        populateSelect(elements.animation, state.capabilities.animations, state.animation.id);
+        populateSelect(elements.scenario, state.capabilities.scenarios, state.scenario.id);
+        elements.color.disabled = !state.availability.canSelectColor;
+        elements.applyColor.disabled = !state.availability.canSelectColor || !elements.color.value;
+        elements.variant.disabled = !state.availability.canSelectVariant;
+        elements.applyVariant.disabled = !state.availability.canSelectVariant || !elements.variant.value;
+        elements.animation.disabled = !state.availability.canPlayAnimation;
+        elements.playAnimation.disabled = !state.availability.canPlayAnimation || !elements.animation.value;
+        elements.scenario.disabled = !state.availability.canStartScenario;
+        elements.startScenario.disabled = !state.availability.canStartScenario || !elements.scenario.value;
+        elements.previousStep.disabled = !state.availability.canGoBack;
+        elements.nextStep.disabled = !state.availability.canGoNext;
+        elements.stopScenario.disabled = !state.availability.canStopScenario;
+        elements.launchAr.disabled = !state.availability.canLaunchAR;
+      }
+
+      async function runCommand(name, invoke) {
+        if (!widget) return;
+        try {
+          const pendingResult = invoke();
+          const result = await pendingResult;
+          elements.result.textContent = format(result);
+          appendLog(`command:${name}`, result);
+        } catch (error) {
+          const failure = { name: error instanceof Error ? error.name : 'Error', message: error instanceof Error ? error.message : String(error) };
+          elements.result.textContent = format(failure);
+          appendLog(`exception:${name}`, failure);
+        } finally {
+          renderState();
+        }
+      }
+
+      async function initializeWidget() {
+        let configuration;
+        try {
+          configuration = JSON.parse(elements.configuration.value);
+        } catch (error) {
+          elements.result.textContent = format({ accepted: false, reason: 'invalid-json', message: error instanceof Error ? error.message : String(error) });
+          return;
+        }
+        widget?.remove();
+        widget = document.createElement('product-3d-widget');
+        widget.id = 'widget';
+        widget.dataset.testid = 'widget';
+        for (const eventName of EVENT_NAMES) {
+          widget.addEventListener(eventName, (event) => {
+            appendLog(eventName, event.detail);
+            renderState();
+          });
+        }
+        elements.mount.replaceChildren(widget);
+        renderState();
+        const result = await widget.configure(configuration);
+        elements.result.textContent = format(result);
+        appendLog('configure', result);
+        renderState();
+      }
+
+      elements.configuration.value = format(DEFAULT_CONFIGURATION);
+      document.querySelector('#initialize').addEventListener('click', initializeWidget);
+      document.querySelector('#reset-config').addEventListener('click', () => { elements.configuration.value = format(DEFAULT_CONFIGURATION); });
+      document.querySelector('#clear-log').addEventListener('click', () => { logEntries = []; elements.log.textContent = '—'; });
+      elements.applyColor.addEventListener('click', () => { runCommand('selectColor', () => widget.selectColor(elements.color.value)); });
+      elements.applyVariant.addEventListener('click', () => { runCommand('selectVariant', () => widget.selectVariant(elements.variant.value)); });
+      elements.playAnimation.addEventListener('click', () => { runCommand('playAnimation', () => widget.playAnimation(elements.animation.value)); });
+      elements.startScenario.addEventListener('click', () => { runCommand('startScenario', () => widget.startScenario(elements.scenario.value)); });
+      elements.previousStep.addEventListener('click', () => { runCommand('previousScenarioStep', () => widget.previousScenarioStep()); });
+      elements.nextStep.addEventListener('click', () => { runCommand('nextScenarioStep', () => widget.nextScenarioStep()); });
+      elements.stopScenario.addEventListener('click', () => { runCommand('stopScenario', () => widget.stopScenario()); });
+      elements.launchAr.addEventListener('click', () => { runCommand('launchAR', () => widget.launchAR()); });
+      await customElements.whenDefined('product-3d-widget');
+      await initializeWidget();
+    </script>
+  </body>
+</html>
