@@ -49,23 +49,38 @@ test('owned browser resources are released across resize and reconnect cycles', 
       nativeCancel(id);
     };
 
-    const activeObservers = new WeakSet<ResizeObserver>();
+    const observedTargets = new WeakMap<ResizeObserver, Set<Element>>();
     let observed = 0;
     const observe = ResizeObserver.prototype.observe;
+    const unobserve = ResizeObserver.prototype.unobserve;
     const disconnect = ResizeObserver.prototype.disconnect;
     ResizeObserver.prototype.observe = function(
       this: ResizeObserver,
       target: Element,
       options?: ResizeObserverOptions,
     ): void {
-      if (!activeObservers.has(this)) {
-        activeObservers.add(this);
+      let targets = observedTargets.get(this);
+      if (targets === undefined) {
+        targets = new Set<Element>();
+        observedTargets.set(this, targets);
+      }
+      if (!targets.has(target)) {
+        targets.add(target);
         observed += 1;
       }
       observe.call(this, target, options);
     };
+    ResizeObserver.prototype.unobserve = function(this: ResizeObserver, target: Element): void {
+      const targets = observedTargets.get(this);
+      if (targets?.delete(target)) observed -= 1;
+      unobserve.call(this, target);
+    };
     ResizeObserver.prototype.disconnect = function(this: ResizeObserver): void {
-      if (activeObservers.delete(this)) observed -= 1;
+      const targets = observedTargets.get(this);
+      if (targets !== undefined) {
+        observed -= targets.size;
+        targets.clear();
+      }
       disconnect.call(this);
     };
 
@@ -98,6 +113,36 @@ test('owned browser resources are released across resize and reconnect cycles', 
     });
   });
 
+  const warmup = await page.evaluate(async (config) => {
+    const widget = document.createElement('product-3d-widget') as HTMLElement & {
+      configure(value: object): Promise<unknown>;
+    };
+    document.body.append(widget);
+    const result = await widget.configure(config);
+    (window as any).__warmupWidget = widget;
+    widget.remove();
+    return result;
+  }, configuration);
+  expect(warmup).toMatchObject({ accepted: true, outcome: 'ready' });
+
+  await expect.poll(() => page.evaluate(() => {
+    const widget = (window as any).__warmupWidget as HTMLElement;
+    return {
+      pending: (window as any).__resources.pending.size,
+      observed: (window as any).__resources.observed(),
+      canvases: widget.shadowRoot!.querySelectorAll('canvas').length,
+      modelViewers: widget.shadowRoot!.querySelectorAll('model-viewer').length,
+    };
+  })).toEqual({ pending: 0, observed: 0, canvases: 0, modelViewers: 0 });
+
+  // PONYTAIL: <model-viewer> 4.3.1 owns a process-wide renderer singleton and exposes no public disposer.
+  // Compare later cleanup against the warmed dependency baseline; switch to absolute zero if a public disposer is added.
+  const baseline = await page.evaluate(() => ({
+    observed: (window as any).__resources.observed(),
+    contextListeners: (window as any).__resources.contextListeners(),
+  }));
+  expect(baseline.observed).toBe(0);
+
   const initialized = await page.evaluate(async (config) => {
     const widget = document.createElement('product-3d-widget') as HTMLElement & {
       configure(value: object): Promise<unknown>;
@@ -121,8 +166,8 @@ test('owned browser resources are released across resize and reconnect cycles', 
   });
   expect(initial.canvases).toBe(1);
   expect(initial.modelViewers).toBe(1);
-  expect(initial.observed).toBeGreaterThan(0);
-  expect(initial.contextListeners).toBeGreaterThan(0);
+  expect(initial.observed).toBeGreaterThan(baseline.observed);
+  expect(initial.contextListeners).toBeGreaterThan(baseline.contextListeners);
 
   await page.locator('#widget').evaluate((widget: HTMLElement) => {
     widget.style.width = '640px';
@@ -140,16 +185,24 @@ test('owned browser resources are released across resize and reconnect cycles', 
     (window as any).__detachedWidget = widget;
     widget.remove();
   });
-  await expect.poll(() => page.evaluate(() => (window as any).__resources.pending.size)).toBe(0);
-  await expect.poll(() => page.evaluate(() => {
+  await expect.poll(() => page.evaluate((expected) => {
     const widget = (window as any).__detachedWidget as HTMLElement;
     return {
+      pending: (window as any).__resources.pending.size,
       observed: (window as any).__resources.observed(),
       contextListeners: (window as any).__resources.contextListeners(),
       canvases: widget.shadowRoot!.querySelectorAll('canvas').length,
       modelViewers: widget.shadowRoot!.querySelectorAll('model-viewer').length,
+      expected,
     };
-  })).toEqual({ observed: 0, contextListeners: 0, canvases: 0, modelViewers: 0 });
+  }, baseline)).toEqual({
+    pending: 0,
+    observed: baseline.observed,
+    contextListeners: baseline.contextListeners,
+    canvases: 0,
+    modelViewers: 0,
+    expected: baseline,
+  });
 
   const reconnected = await page.evaluate(async (config) => {
     const widget = document.createElement('product-3d-widget') as HTMLElement & {
@@ -189,11 +242,19 @@ test('owned browser resources are released across resize and reconnect cycles', 
     modelViewers: 1,
   });
 
-  await expect.poll(() => page.evaluate(() => ({
+  await expect.poll(() => page.evaluate((expected) => ({
     pending: (window as any).__resources.pending.size,
     observed: (window as any).__resources.observed(),
     contextListeners: (window as any).__resources.contextListeners(),
     canvases: ((window as any).__reconnectedWidget as HTMLElement).shadowRoot!.querySelectorAll('canvas').length,
     modelViewers: ((window as any).__reconnectedWidget as HTMLElement).shadowRoot!.querySelectorAll('model-viewer').length,
-  }))).toEqual({ pending: 0, observed: 0, contextListeners: 0, canvases: 0, modelViewers: 0 });
+    expected,
+  }), baseline)).toEqual({
+    pending: 0,
+    observed: baseline.observed,
+    contextListeners: baseline.contextListeners,
+    canvases: 0,
+    modelViewers: 0,
+    expected: baseline,
+  });
 });
