@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="APPROVED">
+<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
     <PROJECT_GOAL id="GOAL-P3D-001">
         Создать настраиваемый Web Component product-3d-widget для встраивания на веб-страницу интерактивной 3D-карточки товара, позволяющей просматривать и настраивать 3D-модель товара на странице, запускать её анимации и пошаговые сценарии, а также размещать товар в реальном пространстве в AR-режиме.
     </PROJECT_GOAL>
@@ -49,7 +49,7 @@
     <BUSINESS_PROCESSES>
         <BUSINESS_PROCESS id="BP-PRODUCT-INITIALIZATION"><DESCRIPTION>Хост-страница передаёт компоненту конфигурацию товара, подписывается на его события и после успешной проверки и загрузки основной GLB-модели активирует собственный внешний интерфейс.</DESCRIPTION><INCLUDES_PROCESS ref="BP-CONFIGURATION-VALIDATION"/><INCLUDES_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/></BUSINESS_PROCESS>
         <BUSINESS_PROCESS id="BP-PRODUCT-EXPLORATION"><DESCRIPTION>Пользователь взаимодействует с 3D-моделью непосредственно в области просмотра и вызывает через внешний интерфейс хост-страницы публичные методы выбора цвета и структурного варианта.</DESCRIPTION></BUSINESS_PROCESS>
-        <BUSINESS_PROCESS id="BP-AR-PLACEMENT"><DESCRIPTION>Хост-страница запрашивает запуск AR. Компонент синхронизирует текущее состояние товара со средством AR-размещения и передаёт применимые ресурсы. Для WebXR компонент делает наблюдаемыми фактическое начало и завершение WebXR-сессии. Для Android Scene Viewer и Apple Quick Look компонент делает наблюдаемой только инициированную передачу управления внешнему средству, фактически наблюдаемую ошибку передачи и, при наличии перехода страницы hidden → visible после передачи, возврат страницы в активное состояние; эти наблюдения не подтверждают фактический запуск, использование или корректное завершение AR.</DESCRIPTION></BUSINESS_PROCESS>
+        <BUSINESS_PROCESS id="BP-AR-PLACEMENT"><DESCRIPTION>Хост-страница запрашивает запуск AR. Компонент останавливает обычную анимацию при необходимости, синхронизирует текущее состояние товара со средством AR-размещения, передаёт применимые ресурсы и инициирует единый режим-нейтральный AR-запрос. Средство AR самостоятельно выбирает WebXR, Android Scene Viewer или Apple Quick Look. Компонент не определяет выбранный канал. Только фактически наблюдаемые начало и завершение WebXR-сессии изменяют состояние AR; жизненный цикл Scene Viewer и Quick Look компонентом не выводится.</DESCRIPTION></BUSINESS_PROCESS>
         <BUSINESS_PROCESS id="BP-ANIMATION-PLAYBACK"><DESCRIPTION>Хост-страница запрашивает запуск анимации. Компонент проверяет совместимость выбранного структурного варианта, управляет воспроизведением, сохраняет пользовательский ракурс и делает изменения состояния анимации наблюдаемыми для хост-страницы.</DESCRIPTION></BUSINESS_PROCESS>
         <BUSINESS_PROCESS id="BP-SCENARIO-EXECUTION"><DESCRIPTION>Хост-страница запрашивает запуск сценария, переходы между шагами и остановку. Компонент управляет связанными анимациями и делает состояние сценария и текущего шага наблюдаемыми для хост-страницы.</DESCRIPTION></BUSINESS_PROCESS>
         <BUSINESS_PROCESS id="BP-CONFIGURATION-VALIDATION"><DESCRIPTION>Компонент проверяет обязательную основную конфигурацию и отдельные необязательные возможности товара. Блокирующая ошибка обязательной конфигурации прекращает инициализацию. Ошибка отдельного варианта, анимации, сценария или необязательного AR-ресурса отключает только соответствующую возможность.</DESCRIPTION></BUSINESS_PROCESS>
@@ -84,7 +84,7 @@
         <FUNCTIONAL_REQUIREMENT id="FR-ANIMATION-CONTROLS"><DESCRIPTION>При принятии запроса запуска обычной анимации компонент должен запустить соответствующий именованный клип или временной диапазон.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-ANIMATION"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-SCENARIO-CONTROLS"><DESCRIPTION>Хост-страница должна иметь возможность запускать сценарий, переходить к предыдущему и следующему шагу и останавливать сценарий. Компонент должен сохранять текущий шаг и управлять воспроизведением связанной анимации или временного диапазона.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-SCENARIO-STEP"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-AR-LAUNCH"><DESCRIPTION>Если AR предусмотрено конфигурацией товара, при принятии запроса запуска AR компонент должен синхронизировать текущее состояние товара со средством AR-размещения, передать необходимые ресурсы и инициировать запуск.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-AR-CONFIGURATION"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
-        <FUNCTIONAL_REQUIREMENT id="FR-HOST-STATE-EVENTS"><DESCRIPTION>product-3d-widget должен делать для хост-страницы наблюдаемыми изменения выбранного цвета и структурного варианта, состояние обычной анимации, состояние сценария и текущего шага, доступность AR и предусмотренный для фактического режима наблюдаемый жизненный цикл. Для WebXR наблюдаются фактические launched и returned. Для Android Scene Viewer и Apple Quick Look наблюдаются handoff-started, только фактически наблюдаемая handoff-failed и page-resumed только после последовательности hidden → visible, последовавшей за handoff-started. Способ доставки и структура уведомлений определяются нижестоящими контрактами.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><ENTITY ref="ENTITY-CURRENT-SELECTION"/><ENTITY ref="ENTITY-AR-MODE"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-HOST-STATE-EVENTS"><DESCRIPTION>product-3d-widget должен делать для хост-страницы наблюдаемыми изменения выбранного цвета и структурного варианта, состояние обычной анимации, состояние сценария и текущего шага, доступность AR, фактически наблюдаемые начало и завершение WebXR-сессии и фактически наблюдаемые общие ошибки AR-запроса. Для Android Scene Viewer и Apple Quick Look компонент не формирует режим-специфических событий запуска, передачи управления, возврата или завершения. Способ доставки и структура уведомлений определяются нижестоящими контрактами.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><ENTITY ref="ENTITY-CURRENT-SELECTION"/><ENTITY ref="ENTITY-AR-MODE"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-HOST-STATE-OBSERVABILITY"><DESCRIPTION>Хост-страница должна иметь возможность получить последний подтверждённый снимок состояния компонента, достаточный для отображения текущего жизненного цикла, выбора пользователя, активной операции, доступных действий, проверенных возможностей товара и доступности AR. Конкретная структура снимка определяется нижестоящим контрактом данных.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/><USE_CASE ref="UC-HOST-PAGE-INITIALIZE-WIDGET"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-COMMAND-ACCEPTANCE-SEMANTICS"><DESCRIPTION>Каждый запрос управления должен быть либо отклонён без изменения подтверждённого состояния, либо принят с последующим наблюдаемым выполнением в пределах возможностей компонента. Ошибка выполнения после принятия запроса должна сообщаться отдельно от отказа принять запрос, если компонент может фактически наблюдать эту ошибку. Для внутренних операций компонента такая ошибка должна быть наблюдаема; ограничения наблюдаемости ошибок внешних AR-средств определяются отдельными требованиями. Точный асинхронный интерфейс, формат результата и формат ошибки определяются нижестоящими контрактами.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-HOST-CONTROL-API"/><ENTITY ref="ENTITY-COMPONENT-STATE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-ATOMIC-STATE-OBSERVATION"><DESCRIPTION>Хост-страница не должна наблюдать противоречивое промежуточное состояние. Перед сообщением о конкретном изменении компонент должен зафиксировать соответствующее подтверждённое состояние; атомарные замены и перезапуски должны наблюдаться как одно изменение.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
@@ -93,7 +93,7 @@
         <FUNCTIONAL_REQUIREMENT id="FR-AVAILABILITY-STATES"><DESCRIPTION>product-3d-widget должен отображать состояния загрузки и блокирующей ошибки внутри своей области, а изменения готовности и доступности управляемых возможностей передавать хост-странице через события.</DESCRIPTION><LINKS><STATE ref="STATE-LOADING-MODEL"/><STATE ref="STATE-READY"/><STATE ref="STATE-ERROR"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-ERROR-MESSAGES"><DESCRIPTION>product-3d-widget должен показывать понятные сообщения о блокирующих ошибках конфигурации, загрузки основной GLB-модели и недоступности 3D-просмотра, а также отправлять хост-странице события обо всех блокирующих и локальных ошибках, кроме отклонения публичной команды.</DESCRIPTION><LINKS><STATE ref="STATE-ERROR"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-DISCONNECT-CLEANUP"><DESCRIPTION>При удалении product-3d-widget с хост-страницы компонент должен остановить инициированные им операции, удалить собственные обработчики событий и освободить связанные ресурсы.</DESCRIPTION><LINKS><STATE ref="STATE-DISCONNECTED"/></LINKS></FUNCTIONAL_REQUIREMENT>
-        <FUNCTIONAL_REQUIREMENT id="FR-AR-AVAILABILITY-REFLECTION"><DESCRIPTION>product-3d-widget должен использовать информацию о доступности AR, предоставляемую средством AR-размещения, и отправлять хост-странице событие при изменении доступности AR. Для WebXR ошибка запуска после принятия команды должна сообщаться как ошибка выполнения. Для Android Scene Viewer и Apple Quick Look handoff-failed должен сообщаться только тогда, когда ошибку передачи управления удалось фактически наблюдать; отсутствие handoff-failed не означает успешный запуск внешнего средства или AR.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-AR-AVAILABILITY-REFLECTION"><DESCRIPTION>product-3d-widget должен использовать предоставляемую средством AR информацию о доступности запуска и отправлять хост-странице событие при изменении доступности AR. После принятия AR-запроса фактически наблюдаемая публичная ошибка должна сообщаться как общая ошибка выполнения AR без определения или раскрытия выбранного канала. Отсутствие наблюдаемой ошибки не означает успешный запуск, использование или завершение AR.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-AR-ASSET-MAPPING"><DESCRIPTION>product-3d-widget должен передать средству AR основную GLB-модель и, если она указана и может быть использована, отдельную USDZ-модель как необязательный ресурс Apple Quick Look. Выбор конкретного AR-режима выполняется средством AR-размещения.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-GLB-MODEL"/><ENTITY ref="ENTITY-USDZ-MODEL"/><ENTITY ref="ENTITY-AR-MODE"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-AR-SELECTION-SYNCHRONIZATION"><DESCRIPTION>Перед запуском AR product-3d-widget должен синхронизировать со средством AR-размещения текущие выбранные цвет и структурный вариант товара. Выбор AR-режима и фактическая переносимость изменений определяются средством AR.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-CURRENT-SELECTION"/><ENTITY ref="ENTITY-AR-MODE"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-ANIMATION-SOURCE-SUPPORT"><DESCRIPTION>product-3d-widget должен поддерживать анимации, заданные отдельными именованными клипами внутри GLB-модели, и анимации, заданные временными диапазонами одной общей анимации.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-ANIMATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
@@ -123,9 +123,9 @@
         <FUNCTIONAL_REQUIREMENT id="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT"><DESCRIPTION>Если перед запуском анимации выбран несовместимый структурный вариант, компонент не должен запускать анимацию или автоматически менять вариант. Запрос должен быть отклонён с указанием совместимых структурных вариантов.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-CURRENT-SELECTION"/><ENTITY ref="ENTITY-ANIMATION"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE"><DESCRIPTION>Если во время обычной анимации вызывается выбор другого совместимого структурного варианта, компонент должен применить его без остановки или перезапуска анимации.</DESCRIPTION><LINKS><STATE ref="STATE-ANIMATION-PLAYING"/><ENTITY ref="ENTITY-PRODUCT-VARIANT"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-ANIMATION-COLOR-CHANGE"><DESCRIPTION>Если во время обычной анимации вызывается выбор другого цвета, компонент должен применить его без остановки или перезапуска анимации.</DESCRIPTION><LINKS><STATE ref="STATE-ANIMATION-PLAYING"/><ENTITY ref="ENTITY-COLOR-VARIANT"/></LINKS></FUNCTIONAL_REQUIREMENT>
-        <FUNCTIONAL_REQUIREMENT id="FR-AR-LAUNCH-STOPS-ANIMATION"><DESCRIPTION>Если запуск AR запрошен во время обычной анимации, компонент должен остановить анимацию, вернуть модель в исходное состояние с сохранением выбора и ракурса и затем инициировать AR. Хост-страница должна наблюдать остановку анимации как вызванную запуском AR.</DESCRIPTION><LINKS><STATE ref="STATE-ANIMATION-PLAYING"/><STATE ref="STATE-AR-LAUNCHING"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
-        <FUNCTIONAL_REQUIREMENT id="FR-AR-RETURN-PRESERVE-STATE"><DESCRIPTION>После фактического завершения WebXR-сессии либо после page-resumed внешнего AR-режима компонент должен сохранить выбранные до запуска цвет, структурный вариант и ракурс камеры. Для Scene Viewer и Quick Look page-resumed означает только наблюдаемый возврат страницы в активное состояние и не подтверждает, что внешнее средство или AR были успешно запущены.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-CURRENT-SELECTION"/><STATE ref="STATE-AR-ACTIVE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
-        <FUNCTIONAL_REQUIREMENT id="FR-AR-RETURN-NO-ANIMATION-RESUME"><DESCRIPTION>После фактического завершения WebXR-сессии либо после page-resumed внешнего AR-режима компонент должен отображать модель в исходном состоянии и не возобновлять остановленную перед запуском анимацию. Если после handoff-started перехода hidden → visible не произошло, page-resumed не формируется.</DESCRIPTION><LINKS><STATE ref="STATE-AR-ACTIVE"/><STATE ref="STATE-READY"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-AR-LAUNCH-STOPS-ANIMATION"><DESCRIPTION>Если запуск AR запрошен во время обычной анимации, компонент должен остановить анимацию, вернуть модель в исходное состояние с сохранением выбора и ракурса и затем инициировать режим-нейтральный AR-запрос. Хост-страница должна наблюдать остановку анимации как вызванную запуском AR. После инициирования запроса компонент находится в STATE-READY, пока фактическое начало WebXR-сессии не подтверждено публичным событием.</DESCRIPTION><LINKS><STATE ref="STATE-ANIMATION-PLAYING"/><STATE ref="STATE-READY"/><STATE ref="STATE-AR-ACTIVE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-AR-RETURN-PRESERVE-STATE"><DESCRIPTION>Инициирование AR-запроса не должно изменять выбранные цвет, структурный вариант и ракурс камеры основного 3D-просмотра. После фактического завершения ранее начавшейся WebXR-сессии компонент должен сохранить этот выбор и ракурс. Для Scene Viewer и Quick Look компонент не определяет момент возврата и не связывает сохранение состояния с косвенными событиями страницы.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-CURRENT-SELECTION"/><STATE ref="STATE-READY"/><STATE ref="STATE-AR-ACTIVE"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-AR-RETURN-NO-ANIMATION-RESUME"><DESCRIPTION>Обычная анимация, остановленная перед инициированием AR-запроса, не должна автоматически возобновляться. После фактического завершения ранее начавшейся WebXR-сессии компонент должен отображать модель в исходном состоянии с сохранением выбора и ракурса. Для Scene Viewer и Quick Look компонент не определяет момент возврата и не запускает действия на основании изменения видимости страницы.</DESCRIPTION><LINKS><STATE ref="STATE-READY"/><STATE ref="STATE-AR-ACTIVE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-SCENARIO-VARIANT-COMPATIBILITY"><DESCRIPTION>Если выбранный структурный вариант несовместим хотя бы с одним шагом сценария, компонент не должен запускать сценарий или автоматически менять вариант. Запрос должен быть отклонён с указанием совместимых структурных вариантов.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-SCENARIO"/><ENTITY ref="ENTITY-PRODUCT-VARIANT"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION"><DESCRIPTION>Список структурных вариантов, совместимых со всем сценарием, должен вычисляться как пересечение списков совместимых вариантов всех его шагов.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-SCENARIO"/><ENTITY ref="ENTITY-SCENARIO-STEP"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING"><DESCRIPTION>Если пересечение списков совместимых вариантов пусто, компонент должен отключить только этот сценарий, зарегистрировать ошибку и продолжить инициализацию остальных возможностей.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-SCENARIO"/></LINKS></FUNCTIONAL_REQUIREMENT>
@@ -159,9 +159,9 @@
         <FUNCTIONAL_REQUIREMENT id="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"><DESCRIPTION>Блокирующая ошибка обязательной основной GLB-модели является конечной для текущего экземпляра в первой версии. Повторная загрузка основной модели в том же экземпляре не поддерживается; для новой попытки хост-страница должна создать новый экземпляр компонента.</DESCRIPTION><LINKS><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING"/><STATE ref="STATE-ERROR"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-WEBGL-CONTEXT-LOSS-RECOVERY"><DESCRIPTION>При потере WebGL-контекста после успешной инициализации компонент должен выполнить одну автоматическую попытку восстановления средства 3D-просмотра из последнего подтверждённого состояния. Если эта попытка неуспешна, компонент должен перейти в состояние блокирующей ошибки. Дополнительные автоматические попытки не выполняются.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><STATE ref="STATE-READY"/><STATE ref="STATE-ERROR"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-HOST-NOTIFICATION-ORDER"><DESCRIPTION>Для принятой команды, изменяющей наблюдаемое состояние, компонент должен сначала зафиксировать новое подтверждённое состояние, затем отправить общее уведомление состояния, после него специализированное уведомление конкретного изменения и только затем подтвердить хост-странице принятие команды. Точные имена и структуры определяются нижестоящими контрактами.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
-        <FUNCTIONAL_REQUIREMENT id="FR-AR-LIFECYCLE-OBSERVABILITY"><DESCRIPTION>Наблюдаемость жизненного цикла должна зависеть от фактически выбранного AR-режима. Для WebXR launched означает, что WebXR-сессия фактически началась, а returned — что WebXR-сессия фактически завершилась. Для Android Scene Viewer и Apple Quick Look handoff-started означает только то, что компонент инициировал передачу управления внешнему AR-средству; handoff-failed формируется только при фактически наблюдаемой ошибке; page-resumed формируется только когда после handoff-started страница прошла последовательность hidden → visible. page-resumed не означает успешный запуск внешнего средства, нахождение пользователя в AR или корректное завершение. Отсутствие ошибки не означает успешный запуск AR.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><STATE ref="STATE-AR-ACTIVE"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-AR-LIFECYCLE-OBSERVABILITY"><DESCRIPTION>Наблюдаемость AR должна основываться только на фактически доступных публичных событиях и не должна требовать предварительного знания выбранного AR-канала. Событие launched формируется только после фактически наблюдаемого начала WebXR-сессии, а returned — только после фактически наблюдаемого завершения ранее начавшейся WebXR-сессии. Для Android Scene Viewer и Apple Quick Look компонент не формирует событий запуска, передачи управления, возврата или завершения, поскольку выбранный внешний канал и его жизненный цикл надёжно не наблюдаются. Фактически наблюдаемая ошибка запроса AR может быть сообщена как общая ошибка AR без утверждения о выбранном канале.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><STATE ref="STATE-READY"/><STATE ref="STATE-AR-ACTIVE"/></LINKS></FUNCTIONAL_REQUIREMENT>
 
-        <FUNCTIONAL_REQUIREMENT id="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"><DESCRIPTION>Для Android Scene Viewer и Apple Quick Look после успешного инициирования передачи управления и формирования handoff-started компонент должен немедленно завершить состояние запуска и вернуться в STATE-READY. Ожидание возможных handoff-failed и page-resumed должно храниться отдельно от основного состояния жизненного цикла и не должно блокировать доступные в STATE-READY операции. Позднее handoff-failed или page-resumed не означает, что компонент до этого находился в активном AR-состоянии.</DESCRIPTION><LINKS><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><ENTITY ref="ENTITY-COMPONENT-STATE"/><STATE ref="STATE-AR-LAUNCHING"/><STATE ref="STATE-READY"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-AR-MODE-NEUTRAL-LAUNCH"><DESCRIPTION>Компонент должен запускать AR через единый режим-нейтральный запрос и не должен предварительно определять, принудительно выбирать или раскрывать фактически используемый WebXR, Scene Viewer или Quick Look. После синхронизации состояния товара и инициирования принятого AR-запроса компонент должен находиться в STATE-READY. Переход в STATE-AR-ACTIVE допускается только после фактически наблюдаемого публичного события начала WebXR-сессии.</DESCRIPTION><LINKS><REQUIREMENT ref="FR-AR-LAUNCH"/><REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/><ENTITY ref="ENTITY-COMPONENT-STATE"/><STATE ref="STATE-READY"/><STATE ref="STATE-AR-ACTIVE"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1"><DESCRIPTION>В первой версии хост-страница не может отключить предусмотренный fallback Apple Quick Look с основной GLB-модели на автоматическое формирование USDZ. При отсутствии или непригодности отдельной USDZ-модели средство AR должно использовать этот fallback-путь.</DESCRIPTION><LINKS><REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/><ENTITY ref="ENTITY-AR-CONFIGURATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
     </FUNCTIONAL_REQUIREMENTS>
 
@@ -172,8 +172,7 @@
         <STATE id="STATE-READY"><NAME>Модель готова к взаимодействию</NAME><DESCRIPTION>Основная GLB-модель загружена. Публичные методы корректно настроенных возможностей доступны, а хост-страница получает актуальное состояние через события.</DESCRIPTION></STATE>
         <STATE id="STATE-ANIMATION-PLAYING"><NAME>Воспроизведение обычной анимации</NAME><DESCRIPTION>Компонент воспроизводит выбранную анимацию, сохраняет ракурс и сообщает хост-странице текущее состояние и доступные действия.</DESCRIPTION></STATE>
         <STATE id="STATE-SCENARIO-ACTIVE"><NAME>Выполняется пошаговый сценарий</NAME><DESCRIPTION>Компонент управляет текущим шагом и связанной анимацией, блокирует несовместимые публичные операции и отправляет события о состоянии сценария и доступных переходах.</DESCRIPTION></STATE>
-        <STATE id="STATE-AR-LAUNCHING"><NAME>Инициация AR или внешней передачи управления</NAME><DESCRIPTION>Компонент синхронизирует состояние товара, передаёт ресурсы и инициирует WebXR либо передачу управления Scene Viewer или Quick Look. Для WebXR компонент остаётся в этом состоянии до фактического начала сессии либо наблюдаемой ошибки запуска. Для внешнего режима после формирования handoff-started компонент немедленно возвращается в STATE-READY; ожидание возможных handoff-failed и page-resumed хранится отдельно и не блокирует обычное состояние компонента.</DESCRIPTION></STATE>
-        <STATE id="STATE-AR-ACTIVE"><NAME>Активная WebXR-сессия</NAME><DESCRIPTION>WebXR-сессия фактически началась и ещё не завершилась. Scene Viewer и Quick Look не переводят компонент в это состояние, поскольку их фактический запуск и активность веб-страницей надёжно не наблюдаются.</DESCRIPTION></STATE>
+        <STATE id="STATE-AR-ACTIVE"><NAME>Активная наблюдаемая WebXR-сессия</NAME><DESCRIPTION>Публичное событие подтвердило, что WebXR-сессия фактически началась и ещё не завершилась. До такого события компонент остаётся в STATE-READY. Scene Viewer и Quick Look не переводят компонент в это состояние и не создают отдельного состояния запуска.</DESCRIPTION></STATE>
         <STATE id="STATE-ERROR"><NAME>Блокирующая ошибка конфигурации, основной модели или средства 3D-просмотра</NAME><DESCRIPTION>Компонент не может завершить инициализацию либо продолжить интерактивное отображение после неуспешного восстановления средства 3D-просмотра; компонент показывает сообщение об ошибке и отправляет событие ошибки.</DESCRIPTION></STATE>
         <STATE id="STATE-DISCONNECTED"><NAME>Компонент удалён со страницы</NAME><DESCRIPTION>Компонент прекращает операции, удаляет обработчики и освобождает связанные ресурсы.</DESCRIPTION></STATE>
     </STATES>
@@ -214,7 +213,7 @@
             <DERIVED_FROM><REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION"/><REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/><REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART"/></DERIVED_FROM>
         </INVARIANT>
         <INVARIANT id="INV-CAMERA-PRESERVATION">
-            <DESCRIPTION>Операции анимации, сценария, фактического завершения WebXR и page-resumed после внешней передачи управления сохраняют пользовательский ракурс во всех случаях, где требования прямо не предписывают иное.</DESCRIPTION>
+            <DESCRIPTION>Операции анимации, сценария и AR-запроса сохраняют пользовательский ракурс во всех случаях, где требования прямо не предписывают иное; фактическое завершение WebXR также не сбрасывает ракурс.</DESCRIPTION>
             <DERIVED_FROM><REQUIREMENT ref="FR-ANIMATION-PRESERVE-CAMERA-VIEW"/><REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW"/><REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/></DERIVED_FROM>
         </INVARIANT>
         <INVARIANT id="INV-ACTIVE-SCENARIO-EXCLUSIVITY">
@@ -265,13 +264,13 @@
         </INVARIANT>
 
 
-        <INVARIANT id="INV-EXTERNAL-AR-HANDOFF-DOES-NOT-BLOCK-READY">
-            <DESCRIPTION>После handoff-started для Scene Viewer или Quick Look компонент находится в STATE-READY, а ожидание возможных handoff-failed и page-resumed не является активным AR-состоянием и не блокирует обычные операции готового компонента.</DESCRIPTION>
-            <DERIVED_FROM><REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/></DERIVED_FROM>
+        <INVARIANT id="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE">
+            <DESCRIPTION>Принятие и инициирование AR-запроса не требует знания фактически выбранного AR-канала. Компонент остаётся в STATE-READY, пока публичное событие не подтвердит фактическое начало WebXR-сессии.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/></DERIVED_FROM>
         </INVARIANT>
-        <INVARIANT id="INV-EXTERNAL-AR-HANDOFF-IS-NONCONFIRMING">
-            <DESCRIPTION>Для Scene Viewer и Quick Look ни handoff-started, ни page-resumed, ни отсутствие handoff-failed не подтверждают фактический запуск, использование или корректное завершение AR.</DESCRIPTION>
-            <DERIVED_FROM><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/></DERIVED_FROM>
+        <INVARIANT id="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED">
+            <DESCRIPTION>Для Scene Viewer и Quick Look компонент не выводит факт запуска, использования, возврата или завершения из разрешения AR-запроса, изменения видимости страницы, отсутствия ошибки либо любого другого косвенного признака.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/></DERIVED_FROM>
         </INVARIANT>
     </INVARIANTS>
 
@@ -327,9 +326,9 @@
             <LINKS><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/></LINKS>
         </ERROR_SCENARIO>
         <ERROR_SCENARIO id="ERR-ACCEPTED-AR-LAUNCH-FAILURE">
-            <CONDITION>Запрос запуска AR принят, после чего возникает ошибка запуска WebXR либо фактически наблюдаемая ошибка передачи управления Scene Viewer или Quick Look.</CONDITION>
-            <EXPECTED_RESULT>Ошибка WebXR становится наблюдаемой как ошибка выполнения. Для внешнего режима handoff-failed формируется только при фактически наблюдаемой ошибке; если внешнее средство не вернуло ошибку странице, компонент не должен формировать ошибку по предположению.</EXPECTED_RESULT>
-            <LINKS><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></LINKS>
+            <CONDITION>AR-запрос принят, после чего публичный интерфейс сообщает фактически наблюдаемую ошибку запуска или выполнения запроса.</CONDITION>
+            <EXPECTED_RESULT>Компонент сообщает общую ошибку AR отдельно от принятия команды, не утверждает фактически выбранный канал и остаётся в STATE-READY, если начало WebXR-сессии не было подтверждено.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/><STATE ref="STATE-READY"/></LINKS>
         </ERROR_SCENARIO>
 
         <ERROR_SCENARIO id="ERR-COMMAND-BEFORE-READY">
@@ -382,8 +381,8 @@
         </EDGE_CASE>
         <EDGE_CASE id="EDGE-AR-REQUEST-DURING-ANIMATION">
             <CONDITION>Запуск AR запрошен во время обычной анимации.</CONDITION>
-            <EXPECTED_RESULT>Анимация останавливается и не возобновляется после фактического завершения WebXR либо после page-resumed внешнего режима; выбор и камера сохраняются. Для внешнего режима page-resumed не подтверждает запуск или завершение AR.</EXPECTED_RESULT>
-            <LINKS><REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION"/><REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME"/><REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/></LINKS>
+            <EXPECTED_RESULT>Анимация останавливается до инициирования режим-нейтрального AR-запроса и не возобновляется автоматически. Выбор и камера сохраняются. Компонент остаётся в STATE-READY, если публичное событие не подтвердило фактическое начало WebXR-сессии.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION"/><REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME"/><REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/><REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/></LINKS>
         </EDGE_CASE>
         <EDGE_CASE id="EDGE-COMPATIBLE-SELECTION-CHANGE-DURING-ANIMATION">
             <CONDITION>Во время обычной анимации запрошен другой цвет либо совместимый структурный вариант.</CONDITION>
@@ -417,15 +416,15 @@
             <LINKS><REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/><ERROR_SCENARIO ref="ERR-WEBGL-CONTEXT-RECOVERY-FAILED"/></LINKS>
         </EDGE_CASE>
 
-        <EDGE_CASE id="EDGE-EXTERNAL-AR-NO-VISIBILITY-CYCLE">
-            <CONDITION>После handoff-started для Scene Viewer или Quick Look страница не прошла последовательность hidden → visible.</CONDITION>
-            <EXPECTED_RESULT>Событие page-resumed не формируется; компонент остаётся в STATE-READY и не делает выводов о запуске или завершении внешнего AR.</EXPECTED_RESULT>
-            <LINKS><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/><INVARIANT ref="INV-EXTERNAL-AR-HANDOFF-IS-NONCONFIRMING"/><INVARIANT ref="INV-EXTERNAL-AR-HANDOFF-DOES-NOT-BLOCK-READY"/></LINKS>
+        <EDGE_CASE id="EDGE-AR-REQUEST-WITHOUT-WEBXR-SESSION">
+            <CONDITION>AR-запрос принят и инициирован, но публичное событие фактического начала WebXR-сессии не наблюдалось.</CONDITION>
+            <EXPECTED_RESULT>Компонент остаётся в STATE-READY, не формирует launched или returned и не создаёт режим-специфических событий внешнего AR.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/><INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE"/><INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED"/></LINKS>
         </EDGE_CASE>
-        <EDGE_CASE id="EDGE-EXTERNAL-AR-UNOBSERVABLE-FAILURE">
-            <CONDITION>Scene Viewer или Quick Look не запустились либо завершились ошибкой, но внешнее средство не вернуло наблюдаемую ошибку странице.</CONDITION>
-            <EXPECTED_RESULT>handoff-failed не формируется по предположению; отсутствие ошибки не трактуется как успешный запуск.</EXPECTED_RESULT>
-            <LINKS><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><INVARIANT ref="INV-EXTERNAL-AR-HANDOFF-IS-NONCONFIRMING"/></LINKS>
+        <EDGE_CASE id="EDGE-AR-REQUEST-OBSERVABLE-FAILURE">
+            <CONDITION>После принятия AR-запроса публичный интерфейс сообщает фактически наблюдаемую ошибку запуска или выполнения запроса.</CONDITION>
+            <EXPECTED_RESULT>Компонент сообщает общую ошибку AR без утверждения о фактически выбранном канале и остаётся в STATE-READY, если WebXR-сессия не началась.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED"/></LINKS>
         </EDGE_CASE>
     </EDGE_CASES>
 
@@ -468,14 +467,14 @@
         </ACCEPTANCE_CRITERION>
         <ACCEPTANCE_CRITERION id="AC-AR-LIFECYCLE">
             <GIVEN>AR предусмотрено и доступно для текущего товара.</GIVEN>
-            <WHEN>Пользователь запрашивает AR, а средство выбирает WebXR, Scene Viewer или Quick Look.</WHEN>
-            <THEN>Перед запуском синхронизирован текущий выбор и переданы применимые ресурсы. Для WebXR фактические начало и завершение сессии наблюдаемы. Для внешних режимов наблюдается только передача управления, фактически наблюдаемая ошибка и возможный возврат страницы hidden → visible без утверждения об успешном AR. После handoff-started компонент сразу находится в STATE-READY, а ожидание внешних наблюдений не блокирует обычные операции. Выбранное состояние и камера сохраняются по правилам соответствующего режима.</THEN>
-            <LINKS><USE_CASE ref="UC-END-USER-PLACE-IN-AR"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/></LINKS>
+            <WHEN>Пользователь запрашивает AR.</WHEN>
+            <THEN>Перед запросом синхронизирован текущий выбор и переданы применимые ресурсы, после чего средство AR самостоятельно выбирает применимый канал. Компонент не определяет выбранный канал и находится в STATE-READY. Только фактически наблюдаемое начало WebXR переводит компонент в STATE-AR-ACTIVE, а фактически наблюдаемое завершение этой сессии возвращает его в STATE-READY. Для Scene Viewer и Quick Look режим-специфический жизненный цикл не утверждается.</THEN>
+            <LINKS><USE_CASE ref="UC-END-USER-PLACE-IN-AR"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/></LINKS>
         </ACCEPTANCE_CRITERION>
         <ACCEPTANCE_CRITERION id="AC-HOST-OBSERVABILITY">
             <GIVEN>Хост-страница управляет компонентом и отслеживает его состояние.</GIVEN>
             <WHEN>Команда принимается, отклоняется либо завершается с фактически наблюдаемой последующей ошибкой выполнения.</WHEN>
-            <THEN>Хост получает непротиворечивое подтверждённое состояние и различает отказ принять запрос и наблюдаемую ошибку после принятия. Отсутствие события ошибки внешнего AR-средства не трактуется как успех.</THEN>
+            <THEN>Хост получает непротиворечивое подтверждённое состояние и различает отказ принять запрос и наблюдаемую ошибку после принятия. Отсутствие ошибки AR не трактуется как доказательство запуска, использования или завершения внешнего AR.</THEN>
             <LINKS><REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><INVARIANT ref="INV-ATOMIC-HOST-OBSERVATION"/></LINKS>
         </ACCEPTANCE_CRITERION>
         <ACCEPTANCE_CRITERION id="AC-RESPONSIVE-INTERNAL-VIEW">
@@ -528,17 +527,17 @@
             <LINKS><REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER"/><INVARIANT ref="INV-HOST-NOTIFICATION-ORDER"/></LINKS>
         </ACCEPTANCE_CRITERION>
         <ACCEPTANCE_CRITERION id="AC-AR-LIFECYCLE-OBSERVABILITY">
-            <GIVEN>Для запуска выбран WebXR, Scene Viewer или Quick Look.</GIVEN>
-            <WHEN>Компонент и браузер наблюдают доступные события выбранного режима.</WHEN>
-            <THEN>Для WebXR launched формируется только после фактического начала сессии, а returned — после её фактического завершения. Для Scene Viewer и Quick Look handoff-started формируется после инициирования передачи управления; handoff-failed — только при фактически наблюдаемой ошибке; page-resumed — только после hidden → visible, последовавшего за handoff-started. page-resumed и отсутствие ошибки не подтверждают успешный запуск, использование или завершение AR.</THEN>
-            <LINKS><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><INVARIANT ref="INV-EXTERNAL-AR-HANDOFF-IS-NONCONFIRMING"/><EDGE_CASE ref="EDGE-EXTERNAL-AR-NO-VISIBILITY-CYCLE"/><EDGE_CASE ref="EDGE-EXTERNAL-AR-UNOBSERVABLE-FAILURE"/></LINKS>
+            <GIVEN>Пользователь инициировал принятый AR-запрос.</GIVEN>
+            <WHEN>Компонент наблюдает публичные события AR-средства.</WHEN>
+            <THEN>launched формируется только после фактического начала WebXR-сессии, а returned — только после фактического завершения ранее начавшейся WebXR-сессии. Для Scene Viewer и Quick Look компонент не формирует событий запуска, передачи управления, возврата или завершения и не использует изменение видимости страницы как доказательство AR-жизненного цикла. Наблюдаемая ошибка сообщается без утверждения о выбранном канале.</THEN>
+            <LINKS><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED"/><EDGE_CASE ref="EDGE-AR-REQUEST-WITHOUT-WEBXR-SESSION"/><EDGE_CASE ref="EDGE-AR-REQUEST-OBSERVABLE-FAILURE"/></LINKS>
         </ACCEPTANCE_CRITERION>
 
-        <ACCEPTANCE_CRITERION id="AC-EXTERNAL-AR-HANDOFF-NONBLOCKING">
-            <GIVEN>Компонент успешно инициировал Scene Viewer или Quick Look.</GIVEN>
-            <WHEN>Сформировано событие handoff-started.</WHEN>
-            <THEN>Компонент немедленно возвращается в STATE-READY; обычные операции готового компонента не блокируются, а возможные handoff-failed и page-resumed отслеживаются отдельно без перехода в STATE-AR-ACTIVE.</THEN>
-            <LINKS><REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/><INVARIANT ref="INV-EXTERNAL-AR-HANDOFF-DOES-NOT-BLOCK-READY"/><STATE ref="STATE-READY"/></LINKS>
+        <ACCEPTANCE_CRITERION id="AC-AR-MODE-NEUTRAL-LAUNCH">
+            <GIVEN>AR-запрос может быть принят через единый публичный интерфейс средства AR.</GIVEN>
+            <WHEN>Компонент синхронизирует ресурсы и инициирует запрос.</WHEN>
+            <THEN>Компонент не определяет и не принуждает фактически выбранный AR-канал, не создаёт отдельного состояния запуска и остаётся в STATE-READY, пока публичное событие не подтвердит фактическое начало WebXR-сессии.</THEN>
+            <LINKS><REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/><INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE"/><STATE ref="STATE-READY"/><STATE ref="STATE-AR-ACTIVE"/></LINKS>
         </ACCEPTANCE_CRITERION>
     </ACCEPTANCE_CRITERIA>
 
@@ -606,15 +605,15 @@
         <GRAPH_BRANCH id="GRAPH-AR">
             <GOAL ref="GOAL-P3D-001"/><ACTOR ref="ACTOR-END-USER"/><USE_CASE ref="UC-END-USER-PLACE-IN-AR"/>
             <BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><ENTITY ref="ENTITY-AR-CONFIGURATION"/><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-USDZ-MODEL"/>
-            <STATE_PATH>WebXR: STATE-READY | STATE-ANIMATION-PLAYING → STATE-AR-LAUNCHING → STATE-AR-ACTIVE → STATE-READY. Scene Viewer / Quick Look: STATE-READY | STATE-ANIMATION-PLAYING → STATE-AR-LAUNCHING → handoff-started → STATE-READY; возможные handoff-failed и page-resumed отслеживаются отдельно, не блокируют STATE-READY и не подтверждают состояние AR.</STATE_PATH>
+            <STATE_PATH>Принятый AR-запрос: STATE-READY | STATE-ANIMATION-PLAYING → STATE-READY. Если публично наблюдается фактическое начало WebXR-сессии: STATE-READY → STATE-AR-ACTIVE → STATE-READY после фактического завершения. Scene Viewer и Quick Look не создают режим-специфических состояний или lifecycle-событий компонента.</STATE_PATH>
             <REQUIREMENTS>
                 <REQUIREMENT ref="FR-AR-LAUNCH"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-AR-ASSET-MAPPING"/>
                 <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/><REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION"/>
                 <REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/><REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME"/>
-                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/>
                 <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/>
             </REQUIREMENTS>
-            <RESULT ref="AC-AR-LIFECYCLE"/><RESULT ref="AC-AR-LIFECYCLE-OBSERVABILITY"/><RESULT ref="AC-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
+            <RESULT ref="AC-AR-LIFECYCLE"/><RESULT ref="AC-AR-LIFECYCLE-OBSERVABILITY"/><RESULT ref="AC-AR-MODE-NEUTRAL-LAUNCH"/>
         </GRAPH_BRANCH>
         <GRAPH_BRANCH id="GRAPH-HOST-INTEGRATION-AND-LIFECYCLE">
             <GOAL ref="GOAL-P3D-001"/><ACTOR ref="ACTOR-HOST-PAGE"/><USE_CASE ref="UC-HOST-PAGE-INITIALIZE-WIDGET"/>
@@ -645,7 +644,7 @@
                 <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/>
                 <REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER"/>
                 <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/>
-                <REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
+                <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/>
                 <REQUIREMENT ref="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1"/>
             </REQUIREMENTS>
             <RESULT ref="AC-SINGLE-PRODUCT-INSTANCE"/>
@@ -655,18 +654,22 @@
             <RESULT ref="AC-WEBGL-CONTEXT-RECOVERY"/>
             <RESULT ref="AC-HOST-NOTIFICATION-ORDER"/>
             <RESULT ref="AC-AR-LIFECYCLE-OBSERVABILITY"/>
-            <RESULT ref="AC-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
+            <RESULT ref="AC-AR-MODE-NEUTRAL-LAUNCH"/>
         </GRAPH_BRANCH>
     </SEMANTIC_GRAPH>
 
-    <APPROVAL_GATE status="APPROVED">
-        <PREVIOUS_APPROVAL status="SUPERSEDED">
-            <APPROVED_REVISION>65977ee23b11c429f2bf398f3426316f85b62e55</APPROVED_REVISION>
-            <APPROVAL_COMMIT>ec204cfd023215985ed68964c2c895081c5e56dd</APPROVAL_COMMIT>
-        </PREVIOUS_APPROVAL>
-        <APPROVED_REVISION>7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3</APPROVED_REVISION>
-        <APPROVED_AT>2026-07-31T13:17:00+03:00</APPROVED_AT>
-        <APPROVAL_STATEMENT>Утверждаю RequirementsAnalysis.xml в редакции commit 7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3, включая обновлённую семантику WebXR и внешних AR-средств.</APPROVAL_STATEMENT>
-        <APPROVED_SCOPE>Полная редакция RequirementsAnalysis.xml, включая фактические launched/returned для WebXR, наблюдаемый lifecycle handoff-started, фактически наблюдаемую handoff-failed, page-resumed только после hidden → visible и немедленный возврат внешних AR-режимов в STATE-READY.</APPROVED_SCOPE>
+    <APPROVAL_GATE status="PENDING">
+        <APPROVAL_HISTORY>
+            <APPROVAL status="SUPERSEDED">
+                <APPROVED_REVISION>65977ee23b11c429f2bf398f3426316f85b62e55</APPROVED_REVISION>
+                <APPROVAL_COMMIT>ec204cfd023215985ed68964c2c895081c5e56dd</APPROVAL_COMMIT>
+            </APPROVAL>
+            <APPROVAL status="SUPERSEDED_FOR_AR_MODE_NEUTRAL_REAPPROVAL">
+                <APPROVED_REVISION>7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3</APPROVED_REVISION>
+                <APPROVAL_COMMIT>6d9e316832b22be4eae11e8b31ced3606737829d</APPROVAL_COMMIT>
+            </APPROVAL>
+        </APPROVAL_HISTORY>
+        <REVISION_SCOPE>Удаление обязанности предварительно знать фактически выбранный AR-канал, отдельного состояния запуска AR, событий внешней передачи и Page Visibility lifecycle. AR-запрос становится режим-нейтральным; только фактически наблюдаемые начало и завершение WebXR изменяют состояние и формируют launched/returned. Для Scene Viewer и Quick Look жизненный цикл не выводится по косвенным признакам.</REVISION_SCOPE>
+        <READY_STATE>READY_FOR_HUMAN_REAPPROVAL</READY_STATE>
     </APPROVAL_GATE>
 </REQUIREMENTS_ANALYSIS>

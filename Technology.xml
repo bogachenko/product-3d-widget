@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="DRAFT">
     <PURPOSE>Зафиксировать технологические решения для реализации утверждённого RequirementsAnalysis.xml без изменения утверждённого поведения системы.</PURPOSE>
 
     <BASED_ON_REQUIREMENTS>
         <ARTIFACT>RequirementsAnalysis.xml</ARTIFACT>
         <APPROVED_REVISION>7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3</APPROVED_REVISION>
         <APPROVAL_COMMIT>6d9e316832b22be4eae11e8b31ced3606737829d</APPROVAL_COMMIT>
+        <STATUS>SUPERSEDED_BY_PENDING_AR_MODE_NEUTRAL_REVISION</STATUS>
     </BASED_ON_REQUIREMENTS>
 
     <TECHNOLOGY_PRINCIPLES>
@@ -13,7 +14,7 @@
             <DESCRIPTION>Публикуемый product-3d-widget выполняется полностью в браузере. Обязательный сервер приложения, backend API и постоянно работающий Node.js-процесс отсутствуют.</DESCRIPTION>
         </PRINCIPLE>
         <PRINCIPLE id="TECH-PRINCIPLE-PUBLIC-DEPENDENCY-APIS">
-            <DESCRIPTION>Компонент использует только публичные API Three.js, model-viewer и Web Platform. Доступ к внутренней Three.js-сцене model-viewer, внутренним символам, непубличным полям и неподдерживаемым расширениям запрещён.</DESCRIPTION>
+            <DESCRIPTION>Компонент использует только публичные API Three.js, model-viewer и Web Platform. model-viewer самостоятельно выбирает применимый AR-канал. Компонент не читает внутренний выбранный режим, не обращается к внутренней Three.js-сцене model-viewer, внутренним символам, непубличным полям или неподдерживаемым расширениям.</DESCRIPTION>
         </PRINCIPLE>
         <PRINCIPLE id="TECH-PRINCIPLE-EXACT-VERSIONS">
             <DESCRIPTION>Все прямые runtime-, build- и test-зависимости фиксируются точными версиями без диапазонов ^ и ~. Источником воспроизводимого графа зависимостей является package-lock.json.</DESCRIPTION>
@@ -28,7 +29,7 @@
             <NAME>Современная браузерная Web Platform</NAME>
             <STATUS>SELECTED</STATUS>
             <VERSION>Последние две основные стабильные версии поддерживаемых браузеров на дату выпуска компонента.</VERSION>
-            <RESPONSIBILITY>Runtime Web Component, DOM, события, загрузка ресурсов, Page Visibility API, ResizeObserver и браузерный рендеринг.</RESPONSIBILITY>
+            <RESPONSIBILITY>Runtime Web Component, DOM, события, загрузка ресурсов, ResizeObserver и браузерный рендеринг.</RESPONSIBILITY>
             <LINKS>
                 <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/>
                 <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT"/>
@@ -82,16 +83,6 @@
             <LINKS><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></LINKS>
         </TECHNOLOGY>
 
-        <TECHNOLOGY id="TECH-PAGE-VISIBILITY">
-            <NAME>Page Visibility API</NAME>
-            <STATUS>SELECTED</STATUS>
-            <RESPONSIBILITY>Наблюдение последовательности hidden → visible после handoff-started для Scene Viewer и Quick Look.</RESPONSIBILITY>
-            <CONSTRAINT>visibilitychange не подтверждает запуск, использование или завершение внешнего AR. page-resumed формируется только после фактически наблюдённой последовательности hidden → visible.</CONSTRAINT>
-            <LINKS>
-                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/>
-                <REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
-            </LINKS>
-        </TECHNOLOGY>
 
         <TECHNOLOGY id="TECH-CSS-SHADOW-PARTS">
             <NAME>CSS Shadow Parts и CSS custom properties</NAME>
@@ -133,17 +124,19 @@
             <NAME>@google/model-viewer</NAME>
             <STATUS>SELECTED</STATUS>
             <VERSION>4.3.1</VERSION>
-            <RESPONSIBILITY>Только публичный AR-адаптер: определение доступного канала, передача применимых GLB/USDZ-ресурсов и запуск WebXR, Android Scene Viewer или Apple Quick Look.</RESPONSIBILITY>
+            <RESPONSIBILITY>Только публичный режим-нейтральный AR-адаптер: самостоятельный выбор применимого WebXR, Android Scene Viewer или Apple Quick Look, передача применимых GLB/USDZ-ресурсов и запуск AR через публичный activateAR().</RESPONSIBILITY>
             <CONSTRAINTS>
                 <CONSTRAINT>model-viewer не используется как основной 3D-просмотр.</CONSTRAINT>
-                <CONSTRAINT>Внутренняя Three.js-сцена model-viewer и непубличные API не используются.</CONSTRAINT>
-                <CONSTRAINT>Перенос цветов и структурных вариантов в AR выполняется только в пределах публично поддерживаемых возможностей выбранного AR-канала.</CONSTRAINT>
-                <CONSTRAINT>canActivateAR и отсутствие ошибки внешнего средства не считаются доказательством фактического запуска AR.</CONSTRAINT>
+                <CONSTRAINT>Компонент не определяет заранее, не принуждает и не читает фактически выбранный model-viewer AR-канал.</CONSTRAINT>
+                <CONSTRAINT>Внутренняя Three.js-сцена model-viewer, внутренний выбранный режим и непубличные API не используются.</CONSTRAINT>
+                <CONSTRAINT>Перенос цветов и структурных вариантов в AR выполняется только в пределах публично поддерживаемых возможностей самостоятельно выбранного AR-канала.</CONSTRAINT>
+                <CONSTRAINT>canActivateAR, разрешение activateAR(), изменение видимости страницы и отсутствие ошибки не считаются доказательством фактического запуска внешнего AR.</CONSTRAINT>
             </CONSTRAINTS>
             <LINKS>
                 <REQUIREMENT ref="FR-AR-LAUNCH"/>
                 <REQUIREMENT ref="FR-AR-ASSET-MAPPING"/>
                 <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/>
+                <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/>
                 <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/>
                 <REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET"/>
                 <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/>
@@ -151,24 +144,26 @@
         </TECHNOLOGY>
 
         <AR_OBSERVABILITY id="TECH-AR-OBSERVABILITY">
+            <AR_REQUEST>
+                <MODE_SELECTION>model-viewer самостоятельно выбирает применимый AR-канал. Компонент использует единый публичный activateAR() и не определяет выбранный режим до или после вызова.</MODE_SELECTION>
+                <COMPONENT_STATE>Принятый AR-запрос не создаёт отдельного состояния запуска. После синхронизации ресурсов и вызова activateAR() компонент находится в STATE-READY, пока публичное событие не подтвердит фактическое начало WebXR-сессии.</COMPONENT_STATE>
+                <OBSERVABLE_FAILURE>Наблюдаемое отклонение публичного AR-запроса или публичное событие ошибки сообщается как общая ошибка AR без утверждения о выбранном канале.</OBSERVABLE_FAILURE>
+            </AR_REQUEST>
             <WEBXR>
-                <LAUNCHED>Формируется только после фактического начала WebXR-сессии.</LAUNCHED>
-                <RETURNED>Формируется только после фактического завершения WebXR-сессии.</RETURNED>
-                <STATE_PATH>STATE-AR-LAUNCHING → STATE-AR-ACTIVE → STATE-READY.</STATE_PATH>
+                <LAUNCHED>Формируется только после публично наблюдаемого фактического начала WebXR-сессии.</LAUNCHED>
+                <RETURNED>Формируется только после публично наблюдаемого фактического завершения ранее начавшейся WebXR-сессии.</RETURNED>
+                <STATE_PATH>STATE-READY → STATE-AR-ACTIVE → STATE-READY.</STATE_PATH>
             </WEBXR>
             <EXTERNAL_MODES>
                 <MODES>Android Scene Viewer и Apple Quick Look.</MODES>
-                <HANDOFF_STARTED>Формируется после инициирования передачи управления внешнему средству.</HANDOFF_STARTED>
-                <HANDOFF_FAILED>Формируется только при фактически наблюдаемой ошибке.</HANDOFF_FAILED>
-                <PAGE_RESUMED>Формируется только после handoff-started и фактически наблюдённой последовательности hidden → visible.</PAGE_RESUMED>
-                <STATE_PATH>STATE-AR-LAUNCHING → handoff-started → STATE-READY. Ожидание handoff-failed и page-resumed хранится отдельно и не блокирует STATE-READY.</STATE_PATH>
-                <NON_GUARANTEES>handoff-started, page-resumed и отсутствие handoff-failed не подтверждают успешный запуск, нахождение пользователя в AR или корректное завершение внешнего средства.</NON_GUARANTEES>
+                <OBSERVABILITY>Компонент не формирует события запуска, передачи управления, возврата или завершения внешнего AR и не меняет состояние жизненного цикла на основании Promise activateAR(), изменения видимости страницы или отсутствия ошибки.</OBSERVABILITY>
+                <NON_GUARANTEES>Фактический выбранный внешний канал, запуск, использование и завершение внешнего AR веб-страницей надёжно не наблюдаются.</NON_GUARANTEES>
             </EXTERNAL_MODES>
             <USER_ACTIVATION>Команда запуска AR должна вызываться из применимого пользовательского действия. При отсутствии требуемой transient user activation команда отклоняется до принятия.</USER_ACTIVATION>
             <LINKS>
                 <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/>
                 <REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/>
-                <REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
+                <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH"/>
                 <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/>
             </LINKS>
         </AR_OBSERVABILITY>
@@ -300,13 +295,13 @@
                 <NAME>Android Scene Viewer</NAME>
                 <TARGET>Android-среда при фактической доступности внешнего канала.</TARGET>
                 <REQUIREMENTS>Применимая transient user activation и доступный внешний обработчик.</REQUIREMENTS>
-                <OBSERVABILITY>handoff-started, только наблюдаемая handoff-failed и возможная page-resumed.</OBSERVABILITY>
+                <OBSERVABILITY>Режим-специфические события запуска, возврата и завершения не формируются; наблюдаемая ошибка сообщается только как общая ошибка AR.</OBSERVABILITY>
             </AR_MODE>
             <AR_MODE id="TECH-AR-MODE-QUICK-LOOK">
                 <NAME>Apple Quick Look</NAME>
                 <TARGET>Safari iOS/iPadOS при фактической доступности Quick Look.</TARGET>
                 <REQUIREMENTS>Применимая transient user activation и доступный внешний обработчик.</REQUIREMENTS>
-                <OBSERVABILITY>handoff-started, только наблюдаемая handoff-failed и возможная page-resumed.</OBSERVABILITY>
+                <OBSERVABILITY>Режим-специфические события запуска, возврата и завершения не формируются; наблюдаемая ошибка сообщается только как общая ошибка AR.</OBSERVABILITY>
             </AR_MODE>
         </AR_MATRIX>
 
@@ -336,12 +331,12 @@
         <TEST_LEVEL id="TECH-REAL-DEVICE-AR-TESTS">
             <NAME>Проверки на реальных устройствах</NAME>
             <STATUS>REQUIRED</STATUS>
-            <RESPONSIBILITY>Подтверждение WebXR на совместимом Android-устройстве, Scene Viewer на Android и Quick Look на iPhone/iPad.</RESPONSIBILITY>
+            <RESPONSIBILITY>Подтверждение WebXR на совместимом Android-устройстве, Scene Viewer на Android и Quick Look на iPhone/iPad без доступа к внутреннему выбранному режиму model-viewer.</RESPONSIBILITY>
             <EVIDENCE>
-                <ITEM>WebXR: фактическое начало и завершение сессии.</ITEM>
-                <ITEM>Scene Viewer и Quick Look: handoff-started, возможная наблюдаемая ошибка, hidden → visible и отсутствие ложных гарантий.</ITEM>
-                <ITEM>Отсутствие hidden → visible не формирует page-resumed.</ITEM>
-                <ITEM>После handoff-started компонент остаётся доступен в STATE-READY.</ITEM>
+                <ITEM>WebXR: публично наблюдаемое фактическое начало и завершение сессии формируют launched и returned и изменяют STATE-AR-ACTIVE.</ITEM>
+                <ITEM>Scene Viewer и Quick Look: принятый запрос не создаёт состояния запуска или активного AR и не формирует режим-специфических lifecycle-событий.</ITEM>
+                <ITEM>Изменение видимости страницы не трактуется как доказательство запуска или возврата из внешнего AR.</ITEM>
+                <ITEM>Наблюдаемая ошибка внешнего запуска сообщается только как общая ошибка AR без утверждения о выбранном канале.</ITEM>
             </EVIDENCE>
         </TEST_LEVEL>
 
@@ -412,8 +407,8 @@
 
     <UNRESOLVED_DECISIONS/>
 
-    <APPROVAL_GATE status="PENDING">
-        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
-        <CONDITION>Утвердить полный Technology.xml после проверки точных версий, browser/device matrix, build output, declaration generation, single-copy Three.js invariant и границ автоматических и real-device тестов.</CONDITION>
+    <APPROVAL_GATE status="BLOCKED">
+        <BLOCKER>RequirementsAnalysis.xml изменяется для режим-нейтрального запуска AR и должен быть переутверждён до повторного перевода Technology.xml в READY_FOR_APPROVAL.</BLOCKER>
+        <READY_STATE>NOT_READY_PENDING_REQUIREMENTS_REAPPROVAL</READY_STATE>
     </APPROVAL_GATE>
 </TECHNOLOGY_SELECTION>
