@@ -232,7 +232,7 @@
             <NAME>InitializationResult</NAME>
             <FIELDS>
                 <FIELD name="ready" type="{ accepted: true; outcome: 'ready'; state: Product3DWidgetState }" required="N/A">Configuration accepted and primary viewer reached ready.</FIELD>
-                <FIELD name="rejected" type="{ accepted: false; outcome: 'rejected'; errors: readonly WidgetError[]; state: Product3DWidgetState }" required="N/A">Second configuration, disconnected call or invalid mandatory configuration.</FIELD>
+                <FIELD name="rejected" type="{ accepted: false; outcome: 'rejected'; errors: readonly WidgetError[]; state: Product3DWidgetState; reason?: 'disconnected' | 'already-configured' | 'terminal-error' }" required="N/A">Second configuration, disconnected call, terminal instance or invalid mandatory configuration. Lifecycle rejection includes reason and an empty errors array; mandatory validation rejection omits reason and includes validation errors.</FIELD>
                 <FIELD name="failed" type="{ accepted: true; outcome: 'failed'; error: WidgetError; state: Product3DWidgetState }" required="N/A">Accepted configuration reached terminal GLB/WebGL failure.</FIELD>
             </FIELDS>
             <RULES>

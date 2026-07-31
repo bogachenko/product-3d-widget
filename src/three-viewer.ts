@@ -1,0 +1,782 @@
+import {
+  AmbientLight,
+  AnimationAction,
+  AnimationClip,
+  AnimationMixer,
+  Box3,
+  Color,
+  DirectionalLight,
+  LoopOnce,
+  Material,
+  Mesh,
+  MeshStandardMaterial,
+  Object3D,
+  PerspectiveCamera,
+  Quaternion,
+  Scene,
+  Texture,
+  Vector3,
+  WebGLRenderer,
+} from 'three';
+import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import type {
+  ConfirmedSelection,
+  WidgetError,
+} from './product-3d-widget.js';
+import type {
+  NormalizedAnimation,
+  NormalizedProductConfiguration,
+  NormalizedScenario,
+} from './configuration.js';
+
+export type ViewerInitializationResult =
+  | Readonly<{
+      ok: true;
+      selection: ConfirmedSelection;
+      enabledColorIds: readonly string[];
+      enabledVariantIds: readonly string[];
+      enabledAnimationIds: readonly string[];
+      enabledScenarioIds: readonly string[];
+      localErrors: readonly WidgetError[];
+    }>
+  | Readonly<{ ok: false; terminal: boolean; error: WidgetError }>;
+
+export type ViewerOperationResult = Readonly<{ ok: true }> | Readonly<{ ok: false; error: WidgetError }>;
+export type ViewerPlaybackResult =
+  | Readonly<{ ok: true; animationId: string; status: 'started' }>
+  | Readonly<{ ok: false; error: WidgetError }>;
+export type ViewerScenarioResult =
+  | Readonly<{
+      ok: true;
+      scenarioId: string;
+      stepIndex: number;
+      status: 'playing';
+      canGoBack: boolean;
+      canGoNext: boolean;
+    }>
+  | Readonly<{ ok: false; error: WidgetError }>;
+export type ViewerRecoveryResult = Readonly<{ ok: true }> | Readonly<{ ok: false; error: WidgetError }>;
+
+type ViewerCallbacks = Readonly<{
+  onAnimationCompleted(animationId: string): void;
+  onScenarioStepCompleted(scenarioId: string, stepIndex: number): void;
+  onRecoveryResult(result: ViewerRecoveryResult): void;
+}>;
+
+type TransformSnapshot = Readonly<{
+  position: Vector3;
+  quaternion: Quaternion;
+  scale: Vector3;
+  morphTargetInfluences: readonly number[] | null;
+}>;
+
+type CameraSnapshot = Readonly<{
+  position: Vector3;
+  quaternion: Quaternion;
+  target: Vector3;
+}>;
+
+type Playback = {
+  kind: 'animation' | 'scenario';
+  animationId: string;
+  scenarioId: string | null;
+  stepIndex: number | null;
+  action: AnimationAction;
+  startSeconds: number;
+  endSeconds: number;
+};
+
+const viewerError = (
+  code: WidgetError['code'],
+  message: string,
+  entityId?: string,
+): WidgetError => Object.freeze(entityId === undefined
+  ? { code, scope: 'blocking' as const, message }
+  : { code, scope: code === 'VIEWER_OPERATION_FAILED' ? 'animation' as const : 'blocking' as const, message, entityId });
+
+const localError = (
+  code: WidgetError['code'],
+  scope: WidgetError['scope'],
+  message: string,
+  entityId: string,
+): WidgetError => Object.freeze({ code, scope, message, entityId });
+
+// <SEMANTIC_BLOCK id="CFC-CLASS-THREE-VIEWER">
+// <INTENT>Own exactly one Three.js viewer and all of its resources.</INTENT>
+// <LINKS><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-INITIALIZE"/></LINKS>
+export class ThreeViewer {
+  readonly #container: HTMLElement;
+  readonly #callbacks: ViewerCallbacks;
+
+  #config: NormalizedProductConfiguration | null = null;
+  #renderer: WebGLRenderer | null = null;
+  #scene: Scene | null = null;
+  #camera: PerspectiveCamera | null = null;
+  #controls: OrbitControls | null = null;
+  #gltf: GLTF | null = null;
+  #root: Object3D | null = null;
+  #mixer: AnimationMixer | null = null;
+  #resizeObserver: ResizeObserver | null = null;
+  #rafId: number | null = null;
+  #lastFrameTime = 0;
+  #playback: Playback | null = null;
+  #disposed = false;
+  #contextRecoveryAttempted = false;
+  #currentSelection: ConfirmedSelection = Object.freeze({ colorId: null, variantId: null });
+
+  readonly #nodesByName = new Map<string, Object3D>();
+  readonly #materialsByName = new Map<string, MeshStandardMaterial[]>();
+  readonly #baseTransforms = new Map<Object3D, TransformSnapshot>();
+  readonly #baseVisibility = new Map<Object3D, boolean>();
+  readonly #baseMaterialColors = new Map<MeshStandardMaterial, Color>();
+  readonly #clipsByName = new Map<string, AnimationClip>();
+  readonly #enabledColors = new Set<string>();
+  readonly #enabledVariants = new Set<string>();
+  readonly #enabledAnimations = new Set<string>();
+  readonly #enabledScenarios = new Set<string>();
+
+  readonly #handleControlsChange = (): void => this.#render();
+  readonly #handleContextLost = (event: Event): void => {
+    event.preventDefault();
+    void this.#recoverContext();
+  };
+
+  constructor(container: HTMLElement, callbacks: ViewerCallbacks) {
+    this.#container = container;
+    this.#callbacks = callbacks;
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-INITIALIZE">
+  async initialize(
+    config: NormalizedProductConfiguration,
+    selection: ConfirmedSelection,
+  ): Promise<ViewerInitializationResult> {
+    if (this.#disposed || this.#renderer !== null) {
+      return Object.freeze({
+        ok: false,
+        terminal: false,
+        error: viewerError('VIEWER_INITIALIZATION_FAILED', 'The 3D viewer cannot be initialized in its current lifecycle.'),
+      });
+    }
+    this.#config = config;
+    this.#currentSelection = Object.freeze({ ...selection });
+    return this.#initializeResources(null);
+  }
+  // </SEMANTIC_BLOCK>
+
+  async #initializeResources(cameraSnapshot: CameraSnapshot | null): Promise<ViewerInitializationResult> {
+    const canvas = document.createElement('canvas');
+    canvas.setAttribute('aria-label', 'Interactive 3D product view');
+    const context = canvas.getContext('webgl2', {
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance',
+    });
+    if (context === null) {
+      return Object.freeze({
+        ok: false,
+        terminal: false,
+        error: viewerError('WEBGL2_UNAVAILABLE', 'WebGL 2 is unavailable. The 3D product view cannot be displayed.'),
+      });
+    }
+
+    try {
+      const renderer = new WebGLRenderer({ canvas, context, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0x000000, 0);
+      this.#renderer = renderer;
+      this.#container.append(canvas);
+      canvas.addEventListener('webglcontextlost', this.#handleContextLost);
+
+      this.#scene = new Scene();
+      this.#camera = new PerspectiveCamera(45, 4 / 3, 0.01, 10_000);
+      this.#camera.position.set(0, 0, 3);
+      this.#controls = new OrbitControls(this.#camera, canvas);
+      this.#controls.enableDamping = false;
+      this.#controls.enablePan = true;
+      this.#controls.addEventListener('change', this.#handleControlsChange);
+      this.#scene.add(new AmbientLight(0xffffff, 2));
+      const keyLight = new DirectionalLight(0xffffff, 3);
+      keyLight.position.set(2, 3, 4);
+      this.#scene.add(keyLight);
+    } catch (cause) {
+      this.#releaseResources();
+      return Object.freeze({
+        ok: false,
+        terminal: false,
+        error: viewerError(
+          'VIEWER_INITIALIZATION_FAILED',
+          `The 3D viewer could not initialize: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ),
+      });
+    }
+
+    try {
+      const loader = new GLTFLoader();
+      this.#gltf = await loader.loadAsync(this.#config!.glbUrl);
+      if (this.#disposed) throw new Error('Viewer disposed during GLB loading.');
+    } catch (cause) {
+      this.#releaseResources();
+      return Object.freeze({
+        ok: false,
+        terminal: true,
+        error: viewerError(
+          'PRIMARY_GLB_FAILED',
+          `The primary GLB model could not be loaded: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ),
+      });
+    }
+
+    try {
+      this.#root = this.#gltf.scene;
+      this.#scene!.add(this.#root);
+      this.#mixer = new AnimationMixer(this.#root);
+      this.#indexModel();
+      const result = this.#validateModelBoundCapabilities();
+      this.#currentSelection = result.selection;
+      this.#restoreBasePose();
+      this.#applySelectionDirect();
+      this.#frameModel(cameraSnapshot);
+
+      this.#resizeObserver = new ResizeObserver(() => this.resize());
+      this.#resizeObserver.observe(this.#container);
+      this.resize();
+      this.#render();
+      return result;
+    } catch (cause) {
+      this.#releaseResources();
+      return Object.freeze({
+        ok: false,
+        terminal: false,
+        error: viewerError(
+          'VIEWER_INITIALIZATION_FAILED',
+          `The loaded 3D model could not initialize: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ),
+      });
+    }
+  }
+
+  #indexModel(): void {
+    this.#nodesByName.clear();
+    this.#materialsByName.clear();
+    this.#baseTransforms.clear();
+    this.#baseVisibility.clear();
+    this.#baseMaterialColors.clear();
+    this.#clipsByName.clear();
+
+    this.#root!.traverse((object) => {
+      if (object.name) this.#nodesByName.set(object.name, object);
+      const morphTargetInfluences = object instanceof Mesh && object.morphTargetInfluences !== undefined
+        ? Object.freeze([...object.morphTargetInfluences])
+        : null;
+      this.#baseTransforms.set(object, Object.freeze({
+        position: object.position.clone(),
+        quaternion: object.quaternion.clone(),
+        scale: object.scale.clone(),
+        morphTargetInfluences,
+      }));
+      this.#baseVisibility.set(object, object.visible);
+      if (object instanceof Mesh) {
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          if (!(material instanceof MeshStandardMaterial)) continue;
+          const name = material.name;
+          if (!this.#materialsByName.has(name)) this.#materialsByName.set(name, []);
+          this.#materialsByName.get(name)!.push(material);
+          if (!this.#baseMaterialColors.has(material)) this.#baseMaterialColors.set(material, material.color.clone());
+        }
+      }
+    });
+    for (const clip of this.#gltf!.animations) this.#clipsByName.set(clip.name, clip);
+  }
+
+  #validateModelBoundCapabilities(): Extract<ViewerInitializationResult, { ok: true }> {
+    const localErrors: WidgetError[] = [];
+    this.#enabledColors.clear();
+    this.#enabledVariants.clear();
+    this.#enabledAnimations.clear();
+    this.#enabledScenarios.clear();
+
+    for (const color of this.#config!.colorsById.values()) {
+      if (color.isBase || color.materialNames.every((name) => this.#materialsByName.has(name))) {
+        this.#enabledColors.add(color.id);
+      } else {
+        localErrors.push(localError('COLOR_DISABLED', 'color', `Color "${color.id}" references a missing material.`, color.id));
+      }
+    }
+    const defaultColor = [...this.#config!.colorsById.values()].find((color) => color.isDefault)?.id ?? null;
+    if (defaultColor !== null && !this.#enabledColors.has(defaultColor)) {
+      this.#enabledColors.clear();
+      localErrors.push(localError('COLOR_DISABLED', 'color', 'The color group default is unavailable in the loaded model.', defaultColor));
+    }
+
+    for (const variant of this.#config!.variantsById.values()) {
+      const names = [...variant.visibleNodeNames, ...variant.hiddenNodeNames];
+      if (variant.isBase || names.every((name) => this.#nodesByName.has(name))) {
+        this.#enabledVariants.add(variant.id);
+      } else {
+        localErrors.push(localError('VARIANT_DISABLED', 'variant', `Structural variant "${variant.id}" references a missing node.`, variant.id));
+      }
+    }
+    const defaultVariant = [...this.#config!.variantsById.values()].find((variant) => variant.isDefault)?.id ?? null;
+    if (defaultVariant !== null && !this.#enabledVariants.has(defaultVariant)) {
+      this.#enabledVariants.clear();
+      localErrors.push(localError('VARIANT_DISABLED', 'variant', 'The structural variant group default is unavailable in the loaded model.', defaultVariant));
+    }
+
+    for (const animation of this.#config!.animationsById.values()) {
+      const clip = this.#clipsByName.get(animation.source.clipName);
+      const rangeValid = animation.source.kind === 'clip' || (clip !== undefined && animation.source.endSeconds <= clip.duration);
+      const hasCompatibleVariant = [...animation.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));
+      if (clip !== undefined && rangeValid && hasCompatibleVariant) {
+        this.#enabledAnimations.add(animation.id);
+      } else {
+        localErrors.push(localError('ANIMATION_DISABLED', 'animation', `Animation "${animation.id}" is unavailable in the loaded model.`, animation.id));
+      }
+    }
+
+    for (const scenario of this.#config!.scenariosById.values()) {
+      const allAnimationsEnabled = scenario.steps.every((step) => this.#enabledAnimations.has(step.animationId));
+      const hasCompatibleVariant = [...scenario.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));
+      if (allAnimationsEnabled && hasCompatibleVariant) {
+        this.#enabledScenarios.add(scenario.id);
+      } else {
+        localErrors.push(localError('SCENARIO_DISABLED', 'scenario', `Scenario "${scenario.id}" is unavailable in the loaded model.`, scenario.id));
+      }
+    }
+
+    const selection = Object.freeze({
+      colorId: this.#currentSelection.colorId !== null && this.#enabledColors.has(this.#currentSelection.colorId)
+        ? this.#currentSelection.colorId
+        : null,
+      variantId: this.#currentSelection.variantId !== null && this.#enabledVariants.has(this.#currentSelection.variantId)
+        ? this.#currentSelection.variantId
+        : null,
+    });
+    return Object.freeze({
+      ok: true,
+      selection,
+      enabledColorIds: Object.freeze([...this.#enabledColors]),
+      enabledVariantIds: Object.freeze([...this.#enabledVariants]),
+      enabledAnimationIds: Object.freeze([...this.#enabledAnimations]),
+      enabledScenarioIds: Object.freeze([...this.#enabledScenarios]),
+      localErrors: Object.freeze(localErrors),
+    });
+  }
+
+  #frameModel(snapshot: CameraSnapshot | null): void {
+    if (snapshot !== null) {
+      this.#camera!.position.copy(snapshot.position);
+      this.#camera!.quaternion.copy(snapshot.quaternion);
+      this.#controls!.target.copy(snapshot.target);
+      this.#controls!.update();
+      return;
+    }
+    const box = new Box3().setFromObject(this.#root!);
+    const center = box.getCenter(new Vector3());
+    const size = box.getSize(new Vector3());
+    const radius = Math.max(size.length() * 0.5, 0.1);
+    this.#camera!.near = Math.max(radius / 100, 0.001);
+    this.#camera!.far = Math.max(radius * 100, 100);
+    this.#camera!.position.copy(center).add(new Vector3(0, radius * 0.35, radius * 2.5));
+    this.#controls!.target.copy(center);
+    this.#controls!.minDistance = radius * 0.1;
+    this.#controls!.maxDistance = radius * 20;
+    this.#camera!.updateProjectionMatrix();
+    this.#controls!.update();
+  }
+
+  #captureCamera(): CameraSnapshot {
+    return Object.freeze({
+      position: this.#camera!.position.clone(),
+      quaternion: this.#camera!.quaternion.clone(),
+      target: this.#controls!.target.clone(),
+    });
+  }
+
+  #restoreCamera(snapshot: CameraSnapshot): void {
+    this.#camera!.position.copy(snapshot.position);
+    this.#camera!.quaternion.copy(snapshot.quaternion);
+    this.#controls!.target.copy(snapshot.target);
+    this.#controls!.update();
+  }
+
+  #restoreBasePose(): void {
+    this.#mixer?.stopAllAction();
+    for (const [object, snapshot] of this.#baseTransforms) {
+      object.position.copy(snapshot.position);
+      object.quaternion.copy(snapshot.quaternion);
+      object.scale.copy(snapshot.scale);
+      if (object instanceof Mesh && object.morphTargetInfluences !== undefined && snapshot.morphTargetInfluences !== null) {
+        object.morphTargetInfluences.splice(0, object.morphTargetInfluences.length, ...snapshot.morphTargetInfluences);
+      }
+    }
+  }
+
+  #applySelectionDirect(): void {
+    for (const [object, visible] of this.#baseVisibility) object.visible = visible;
+    const variant = this.#currentSelection.variantId === null
+      ? undefined
+      : this.#config!.variantsById.get(this.#currentSelection.variantId);
+    if (variant !== undefined && !variant.isBase) {
+      for (const name of variant.visibleNodeNames) this.#nodesByName.get(name)!.visible = true;
+      for (const name of variant.hiddenNodeNames) this.#nodesByName.get(name)!.visible = false;
+    }
+
+    for (const [material, color] of this.#baseMaterialColors) material.color.copy(color);
+    const color = this.#currentSelection.colorId === null
+      ? undefined
+      : this.#config!.colorsById.get(this.#currentSelection.colorId);
+    if (color !== undefined && !color.isBase) {
+      for (const name of color.materialNames) {
+        for (const material of this.#materialsByName.get(name) ?? []) material.color.setStyle(color.swatch);
+      }
+    }
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-APPLY-COLOR">
+  async applyColor(colorId: string): Promise<ViewerOperationResult> {
+    if (!this.#enabledColors.has(colorId)) return this.#operationFailure('color', colorId);
+    const previous = this.#currentSelection;
+    try {
+      this.#currentSelection = Object.freeze({ colorId, variantId: previous.variantId });
+      this.#applySelectionDirect();
+      this.#render();
+      return Object.freeze({ ok: true });
+    } catch (cause) {
+      this.#currentSelection = previous;
+      this.#applySelectionDirect();
+      return this.#operationFailure('color', colorId, cause);
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-APPLY-VARIANT">
+  async applyVariant(variantId: string): Promise<ViewerOperationResult> {
+    if (!this.#enabledVariants.has(variantId)) return this.#operationFailure('variant', variantId);
+    const previous = this.#currentSelection;
+    try {
+      this.#currentSelection = Object.freeze({ colorId: previous.colorId, variantId });
+      this.#applySelectionDirect();
+      this.#render();
+      return Object.freeze({ ok: true });
+    } catch (cause) {
+      this.#currentSelection = previous;
+      this.#applySelectionDirect();
+      return this.#operationFailure('variant', variantId, cause);
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  #operationFailure(scope: WidgetError['scope'], entityId: string, cause?: unknown): Extract<ViewerOperationResult, { ok: false }> {
+    const suffix = cause instanceof Error ? `: ${cause.message}` : '';
+    return Object.freeze({
+      ok: false,
+      error: Object.freeze({
+        code: 'VIEWER_OPERATION_FAILED' as const,
+        scope,
+        message: `The viewer operation for "${entityId}" failed${suffix}.`,
+        entityId,
+      }),
+    });
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-PLAY-ANIMATION">
+  async playAnimation(animationId: string): Promise<ViewerPlaybackResult> {
+    const animation = this.#config?.animationsById.get(animationId);
+    if (animation === undefined || !this.#enabledAnimations.has(animationId)) {
+      return Object.freeze({ ok: false, error: this.#operationFailure('animation', animationId).error });
+    }
+    try {
+      await this.stopAnimationAndReset('replacement');
+      this.#startPlayback(animation, 'animation', null, null);
+      return Object.freeze({ ok: true, animationId, status: 'started' });
+    } catch (cause) {
+      this.#restoreOrdinaryPose();
+      return Object.freeze({ ok: false, error: this.#operationFailure('animation', animationId, cause).error });
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-STOP-ANIMATION">
+  async stopAnimationAndReset(_reason: 'replacement' | 'scenario' | 'ar' | 'cleanup'): Promise<ViewerOperationResult> {
+    if (this.#playback?.kind !== 'animation') return Object.freeze({ ok: true });
+    try {
+      this.#restoreOrdinaryPose();
+      return Object.freeze({ ok: true });
+    } catch (cause) {
+      return this.#operationFailure('animation', this.#playback?.animationId ?? 'active-animation', cause);
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-START-SCENARIO">
+  async startScenario(
+    scenarioId: string,
+    _mode: 'start' | 'replace' | 'restart',
+  ): Promise<ViewerScenarioResult> {
+    const scenario = this.#config?.scenariosById.get(scenarioId);
+    if (scenario === undefined || !this.#enabledScenarios.has(scenarioId)) {
+      return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenarioId).error });
+    }
+    try {
+      this.#restoreOrdinaryPose();
+      return this.#startScenarioStep(scenario, 0);
+    } catch (cause) {
+      this.#restoreOrdinaryPose();
+      return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenarioId, cause).error });
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-GO-SCENARIO-STEP">
+  async goToScenarioStep(direction: 'back' | 'next'): Promise<ViewerScenarioResult> {
+    const playback = this.#playback;
+    if (playback?.kind !== 'scenario' || playback.scenarioId === null || playback.stepIndex === null) {
+      return Object.freeze({ ok: false, error: this.#operationFailure('scenario', 'active-scenario').error });
+    }
+    const scenario = this.#config!.scenariosById.get(playback.scenarioId)!;
+    const stepIndex = playback.stepIndex + (direction === 'back' ? -1 : 1);
+    if (stepIndex < 0 || stepIndex >= scenario.steps.length) {
+      return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenario.id).error });
+    }
+    try {
+      this.#restoreOrdinaryPose();
+      return this.#startScenarioStep(scenario, stepIndex);
+    } catch (cause) {
+      this.#restoreOrdinaryPose();
+      return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenario.id, cause).error });
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  #startScenarioStep(scenario: NormalizedScenario, stepIndex: number): Extract<ViewerScenarioResult, { ok: true }> {
+    const step = scenario.steps[stepIndex]!;
+    const animation = this.#config!.animationsById.get(step.animationId)!;
+    this.#startPlayback(animation, 'scenario', scenario.id, stepIndex);
+    return Object.freeze({
+      ok: true,
+      scenarioId: scenario.id,
+      stepIndex,
+      status: 'playing',
+      canGoBack: stepIndex > 0,
+      canGoNext: stepIndex < scenario.steps.length - 1,
+    });
+  }
+
+  #startPlayback(
+    animation: NormalizedAnimation,
+    kind: Playback['kind'],
+    scenarioId: string | null,
+    stepIndex: number | null,
+  ): void {
+    const clip = this.#clipsByName.get(animation.source.clipName);
+    if (clip === undefined || this.#mixer === null) throw new Error('Animation clip is unavailable.');
+    const action = this.#mixer.clipAction(clip);
+    action.reset();
+    action.enabled = true;
+    action.clampWhenFinished = kind === 'scenario';
+    action.setLoop(LoopOnce, 1);
+    const startSeconds = animation.source.kind === 'range' ? animation.source.startSeconds : 0;
+    const endSeconds = animation.source.kind === 'range' ? animation.source.endSeconds : clip.duration;
+    action.time = startSeconds;
+    action.play();
+    this.#playback = {
+      kind,
+      animationId: animation.id,
+      scenarioId,
+      stepIndex,
+      action,
+      startSeconds,
+      endSeconds,
+    };
+    this.#lastFrameTime = performance.now();
+    this.#scheduleFrame();
+  }
+
+  #scheduleFrame(): void {
+    if (this.#rafId === null && !this.#disposed) this.#rafId = requestAnimationFrame(this.#tick);
+  }
+
+  readonly #tick = (now: number): void => {
+    this.#rafId = null;
+    const playback = this.#playback;
+    if (playback === null || this.#mixer === null || this.#disposed) return;
+    const delta = Math.max(0, Math.min((now - this.#lastFrameTime) / 1000, 0.1));
+    this.#lastFrameTime = now;
+    this.#mixer.update(delta);
+    if (playback.action.time >= playback.endSeconds) {
+      playback.action.time = playback.endSeconds;
+      this.#mixer.update(0);
+      this.#render();
+      if (playback.kind === 'scenario') {
+        playback.action.paused = true;
+        this.#callbacks.onScenarioStepCompleted(playback.scenarioId!, playback.stepIndex!);
+      } else {
+        const animationId = playback.animationId;
+        this.#restoreOrdinaryPose();
+        this.#callbacks.onAnimationCompleted(animationId);
+      }
+      return;
+    }
+    this.#render();
+    this.#scheduleFrame();
+  };
+
+  #restoreOrdinaryPose(): void {
+    if (this.#rafId !== null) cancelAnimationFrame(this.#rafId);
+    this.#rafId = null;
+    const camera = this.#camera !== null && this.#controls !== null ? this.#captureCamera() : null;
+    this.#playback?.action.stop();
+    this.#playback = null;
+    this.#restoreBasePose();
+    this.#applySelectionDirect();
+    if (camera !== null) this.#restoreCamera(camera);
+    this.#render();
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-STOP-SCENARIO">
+  async stopScenario(): Promise<ViewerOperationResult> {
+    if (this.#playback?.kind !== 'scenario') return Object.freeze({ ok: true });
+    try {
+      this.#restoreOrdinaryPose();
+      return Object.freeze({ ok: true });
+    } catch (cause) {
+      return this.#operationFailure('scenario', 'active-scenario', cause);
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-RESIZE">
+  resize(): void {
+    if (this.#renderer === null || this.#camera === null) return;
+    const width = this.#container.clientWidth;
+    if (width <= 0) return;
+    const height = this.#container.clientHeight > 0 ? this.#container.clientHeight : width * 0.75;
+    this.#renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
+    this.#renderer.setSize(width, height, false);
+    this.#camera.aspect = width / height;
+    this.#camera.updateProjectionMatrix();
+    this.#render();
+  }
+  // </SEMANTIC_BLOCK>
+
+  #render(): void {
+    if (this.#renderer !== null && this.#scene !== null && this.#camera !== null) {
+      this.#renderer.render(this.#scene, this.#camera);
+    }
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-RECOVER-CONTEXT">
+  async #recoverContext(): Promise<void> {
+    if (this.#disposed) return;
+    if (this.#contextRecoveryAttempted) {
+      this.#disposed = true;
+      this.#releaseResources();
+      this.#callbacks.onRecoveryResult(Object.freeze({
+        ok: false,
+        error: viewerError('WEBGL_RECOVERY_FAILED', 'The WebGL context was lost again after the single recovery attempt.'),
+      }));
+      return;
+    }
+    this.#contextRecoveryAttempted = true;
+    const camera = this.#camera !== null && this.#controls !== null ? this.#captureCamera() : null;
+    this.#releaseResources();
+    const result = await this.#initializeResources(camera);
+    if (this.#disposed) return;
+    if (result.ok) this.#callbacks.onRecoveryResult(Object.freeze({ ok: true }));
+    else this.#callbacks.onRecoveryResult(Object.freeze({
+      ok: false,
+      error: Object.freeze({
+        code: 'WEBGL_RECOVERY_FAILED',
+        scope: 'blocking',
+        message: result.error.message,
+      }),
+    }));
+  }
+  // </SEMANTIC_BLOCK>
+
+  #releaseResources(): void {
+    if (this.#rafId !== null) {
+      try { cancelAnimationFrame(this.#rafId); } catch { /* cleanup continues */ }
+    }
+    this.#rafId = null;
+    try { this.#playback?.action.stop(); } catch { /* cleanup continues */ }
+    this.#playback = null;
+    try { this.#resizeObserver?.disconnect(); } catch { /* cleanup continues */ }
+    this.#resizeObserver = null;
+    try { this.#controls?.removeEventListener('change', this.#handleControlsChange); } catch { /* cleanup continues */ }
+    try { this.#controls?.dispose(); } catch { /* cleanup continues */ }
+    this.#controls = null;
+    const canvas = this.#renderer?.domElement;
+    if (canvas instanceof HTMLCanvasElement) {
+      try { canvas.removeEventListener('webglcontextlost', this.#handleContextLost); } catch { /* cleanup continues */ }
+    }
+
+    const disposedTextures = new Set<Texture>();
+    const disposedGeometries = new Set<object>();
+    const disposedMaterials = new Set<Material>();
+    try {
+      this.#root?.traverse((object) => {
+        if (!(object instanceof Mesh)) return;
+        if (!disposedGeometries.has(object.geometry)) {
+          disposedGeometries.add(object.geometry);
+          try { object.geometry.dispose(); } catch { /* cleanup continues */ }
+        }
+        const materials: Material[] = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          if (disposedMaterials.has(material)) continue;
+          disposedMaterials.add(material);
+          for (const value of Object.values(material)) {
+            if (value instanceof Texture && !disposedTextures.has(value)) {
+              disposedTextures.add(value);
+              try { value.dispose(); } catch { /* cleanup continues */ }
+            }
+          }
+          try { material.dispose(); } catch { /* cleanup continues */ }
+        }
+      });
+    } catch { /* cleanup continues */ }
+    try { this.#mixer?.stopAllAction(); } catch { /* cleanup continues */ }
+    if (this.#root !== null) {
+      try { this.#mixer?.uncacheRoot(this.#root); } catch { /* cleanup continues */ }
+    }
+    try { this.#renderer?.dispose(); } catch { /* cleanup continues */ }
+    try { this.#renderer?.forceContextLoss(); } catch { /* cleanup continues */ }
+    if (canvas instanceof HTMLElement) {
+      try { canvas.remove(); } catch { /* cleanup continues */ }
+    }
+
+    this.#renderer = null;
+    this.#scene = null;
+    this.#camera = null;
+    this.#gltf = null;
+    this.#root = null;
+    this.#mixer = null;
+    this.#nodesByName.clear();
+    this.#materialsByName.clear();
+    this.#baseTransforms.clear();
+    this.#baseVisibility.clear();
+    this.#baseMaterialColors.clear();
+    this.#clipsByName.clear();
+    this.#enabledColors.clear();
+    this.#enabledVariants.clear();
+    this.#enabledAnimations.clear();
+    this.#enabledScenarios.clear();
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-DISPOSE">
+  dispose(): void {
+    if (this.#disposed) return;
+    this.#disposed = true;
+    try {
+      this.#releaseResources();
+    } finally {
+      this.#config = null;
+      this.#currentSelection = Object.freeze({ colorId: null, variantId: null });
+    }
+  }
+  // </SEMANTIC_BLOCK>
+}
+// </SEMANTIC_BLOCK>

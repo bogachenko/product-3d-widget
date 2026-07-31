@@ -1,0 +1,184 @@
+import { describe, expect, it } from 'vitest';
+import { normalizeProductConfiguration } from '../src/configuration.js';
+import type { ProductConfiguration } from '../src/product-3d-widget.js';
+
+const validConfiguration = (): ProductConfiguration => ({
+  productId: 'product-1',
+  glbUrl: '/tests/fixtures/product.gltf',
+  colors: [
+    { id: 'original', label: 'Original', swatch: '#3366cc', isDefault: true, isBase: true, materialNames: [] },
+    { id: 'red', label: 'Red', swatch: 'red', isDefault: false, isBase: false, materialNames: ['Body'] },
+  ],
+  variants: [
+    { id: 'base', label: 'Base', isDefault: true, isBase: true, visibleNodeNames: [], hiddenNodeNames: [] },
+    { id: 'alt', label: 'Alternative', isDefault: false, isBase: false, visibleNodeNames: ['AltNode'], hiddenNodeNames: ['BaseNode'] },
+  ],
+  animations: [
+    { id: 'pulse-all', label: 'Pulse', source: { kind: 'clip', clipName: 'Pulse' }, compatibleVariantIds: ['base', 'alt'] },
+    { id: 'pulse-base', label: 'Base pulse', source: { kind: 'range', clipName: 'Pulse', startSeconds: 0.1, endSeconds: 0.8 }, compatibleVariantIds: ['base'] },
+  ],
+  scenarios: [
+    {
+      id: 'tour',
+      label: 'Tour',
+      steps: [
+        { id: 'first', description: 'First step', animationId: 'pulse-all' },
+        { id: 'second', description: 'Second step', animationId: 'pulse-base' },
+      ],
+    },
+  ],
+  ar: { enabled: true },
+});
+
+describe('normalizeProductConfiguration', () => {
+  it('rejects a non-object without a partial configuration', () => {
+    const result = normalizeProductConfiguration(null);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.map((error) => error.code)).toEqual(['CONFIGURATION_INVALID']);
+  });
+
+  it('rejects missing mandatory productId and glbUrl together', () => {
+    const result = normalizeProductConfiguration({});
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toHaveLength(2);
+  });
+
+  it('rejects unsupported asset URL protocols', () => {
+    const result = normalizeProductConfiguration({ productId: 'p', glbUrl: 'javascript:alert(1)' });
+    expect(result.ok).toBe(false);
+  });
+
+  it('does not mutate the input and is deterministic', () => {
+    const input = validConfiguration();
+    const before = structuredClone(input);
+    const first = normalizeProductConfiguration(input);
+    const second = normalizeProductConfiguration(input);
+    expect(input).toEqual(before);
+    expect(first).toEqual(second);
+  });
+
+  it('ignores unknown fields', () => {
+    const result = normalizeProductConfiguration({ ...validConfiguration(), unknown: { nested: true } });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect('unknown' in result.configuration).toBe(false);
+  });
+
+  it('disables only an invalid non-default color', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: [...input.colors!, { id: 'bad', label: 'Bad', swatch: 'linear-gradient(red, blue)', isDefault: false, isBase: false, materialNames: ['Body'] }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect([...result.configuration.colorsById.keys()]).toEqual(['original', 'red']);
+      expect(result.configuration.localErrors.some((error) => error.entityId === 'bad')).toBe(true);
+    }
+  });
+
+  it('disables the color group when its declared default is invalid', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: input.colors!.map((color) => color.id === 'original' ? { ...color, swatch: '' } : color),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.colorsById.size).toBe(0);
+  });
+
+  it('disables a structural variant with overlapping visibility lists', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      variants: [...input.variants!, { id: 'overlap', label: 'Overlap', isDefault: false, isBase: false, visibleNodeNames: ['BaseNode'], hiddenNodeNames: ['BaseNode'] }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.variantsById.has('overlap')).toBe(false);
+  });
+
+  it('disables the structural group when the default variant is invalid', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      variants: input.variants!.map((variant) => variant.id === 'base'
+        ? { ...variant, visibleNodeNames: ['BaseNode'], hiddenNodeNames: ['BaseNode'] }
+        : variant),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.variantsById.size).toBe(0);
+      expect(result.configuration.animationsById.size).toBe(0);
+    }
+  });
+
+  it('disables animations with an invalid range', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      animations: [{ id: 'bad-range', label: 'Bad', source: { kind: 'range', clipName: 'Pulse', startSeconds: 1, endSeconds: 1 }, compatibleVariantIds: ['base'] }],
+      scenarios: undefined,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.animationsById.size).toBe(0);
+  });
+
+  it('disables animations with an empty or unknown structural whitelist', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      animations: [
+        { id: 'empty', label: 'Empty', source: { kind: 'clip', clipName: 'Pulse' }, compatibleVariantIds: [] },
+        { id: 'unknown', label: 'Unknown', source: { kind: 'clip', clipName: 'Pulse' }, compatibleVariantIds: ['missing'] },
+      ],
+      scenarios: undefined,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.animationsById.size).toBe(0);
+  });
+
+  it('disables a scenario that references an unavailable animation', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      scenarios: [{ id: 'bad', label: 'Bad', steps: [{ id: 'one', description: 'One', animationId: 'missing' }] }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.scenariosById.size).toBe(0);
+  });
+
+  it('computes the exact scenario compatibility intersection', () => {
+    const result = normalizeProductConfiguration(validConfiguration());
+    expect(result.ok).toBe(true);
+    if (result.ok) expect([...result.configuration.scenariosById.get('tour')!.compatibleVariantIds]).toEqual(['base']);
+  });
+
+  it('disables a scenario with an empty compatibility intersection', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      animations: [
+        { id: 'base-only', label: 'Base', source: { kind: 'clip', clipName: 'Pulse' }, compatibleVariantIds: ['base'] },
+        { id: 'alt-only', label: 'Alt', source: { kind: 'clip', clipName: 'Pulse' }, compatibleVariantIds: ['alt'] },
+      ],
+      scenarios: [{
+        id: 'empty-intersection',
+        label: 'Empty',
+        steps: [
+          { id: 'one', description: 'One', animationId: 'base-only' },
+          { id: 'two', description: 'Two', animationId: 'alt-only' },
+        ],
+      }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.scenariosById.size).toBe(0);
+  });
+
+  it('keeps GLB-to-USDZ fallback when the optional USDZ URL is unusable', () => {
+    const result = normalizeProductConfiguration({ ...validConfiguration(), usdzUrl: 'javascript:bad' });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.usdzUrl).toBeNull();
+      expect(result.configuration.localErrors.some((error) => error.code === 'USDZ_UNUSABLE')).toBe(true);
+    }
+  });
+});
