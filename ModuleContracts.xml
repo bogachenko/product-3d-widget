@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<MODULE_CONTRACTS id="MC-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<MODULE_CONTRACTS id="MC-PRODUCT-3D-WIDGET" status="APPROVED">
     <PURPOSE>Зафиксировать минимальные контракты четырёх утверждённых runtime-модулей без введения классов, функций, файлов или абстракций, не требуемых DevelopmentPlan.xml.</PURPOSE>
     <BASED_ON>
         <REQUIREMENTS artifact="RequirementsAnalysis.xml" approved_revision="dbdacbd45007690b454e2f14a325bc7c06f7358f" approval_commit="8fc4558fc4b1c2d13c9354d4054a662281a3d2fd" />
@@ -661,8 +661,10 @@
         <CHECK id="MC-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS пуст перед утверждением.</CHECK>
     </VALIDATION_EXPECTATIONS>
     <UNRESOLVED_DECISIONS />
-    <APPROVAL_GATE status="PENDING">
-        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
-        <CONDITION>Утвердить четыре module contracts, их state/resource ownership, входы и выходы, side effects, failure/cleanup behavior, dependency asymmetry, requirement traceability и lazy implementation constraints. После утверждения создавать ClassFunctionContracts.xml; реализация по-прежнему запрещена.</CONDITION>
+    <APPROVAL_GATE status="APPROVED">
+        <APPROVED_REVISION>14f452de0e4a075b99aeaa9c3ae2aff101920ef8</APPROVED_REVISION>
+        <APPROVED_AT>2026-07-31T15:30:00+03:00</APPROVED_AT>
+        <APPROVAL_STATEMENT>Утверждаю ModuleContracts.xml в редакции commit 14f452de0e4a075b99aeaa9c3ae2aff101920ef8, включая четыре контракта утверждённых runtime-модулей, единственного владельца подтверждённого публичного состояния и host events, изоляцию leaf-модулей, асимметричный граф зависимостей, минимальную последовательность адресных leaf-операций для одной публичной команды, широковещательный вызов только для cleanup, явные входы и выходы, state/resource ownership, разрешённые и запрещённые побочные эффекты, failure и cleanup behavior, точное распределение 86 функциональных требований и lazy senior implementation constraints.</APPROVAL_STATEMENT>
+        <APPROVED_SCOPE>Полная редакция ModuleContracts.xml: четыре module contracts; controller как единственный владелец публичного состояния и host events; изолированные leaf-модули; асимметричные зависимости; минимальная последовательность адресных leaf-операций; broadcast только для cleanup; явные inputs/outputs, state/resource ownership, side effects, failure и cleanup behavior; точное владение 86 функциональными требованиями; lazy senior constraints.</APPROVED_SCOPE>
     </APPROVAL_GATE>
 </MODULE_CONTRACTS>
