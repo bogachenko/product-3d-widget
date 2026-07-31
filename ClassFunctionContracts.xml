@@ -10,11 +10,16 @@
     <LAZY_IMPLEMENTATION_BOUNDARY>
         <RULE id="CFC-LAZY-ONLY-THREE-CLASSES">Создать только Product3DWidget, ThreeViewer и ModelViewerArAdapter. Конфигурационная логика остаётся одной чистой функцией; дополнительные runtime-классы запрещены без изменения контракта.</RULE>
         <RULE id="CFC-LAZY-ONLY-FOUR-SOURCE-FILES">Начальная runtime-реализация использует ровно четыре исходных файла: src/product-3d-widget.ts, src/configuration.ts, src/three-viewer.ts и src/ar-adapter.ts. Отдельные index.ts, types.ts, events.ts, state.ts, utils.ts и manager-файлы не создаются.</RULE>
-        <RULE id="CFC-LAZY-NO-EXTRA-NAMED-FUNCTIONS">Новые нетривиальные именованные функции или методы запрещены до добавления их контрактов. Тривиальная inline closure допустима только для прямой передачи аргументов/результата без ветвления, состояния или преобразования.</RULE>
+        <RULE id="CFC-LAZY-LOCAL-HELPERS">Публичные и межмодульные операции ограничены контрактами этого артефакта. Private implementation-local helper допустим без отдельного контракта только когда он не экспортируется, не владеет самостоятельным состоянием или ресурсом, не вводит новый side effect, error policy или dependency и декомпозирует ровно одну contracted operation. Иначе сначала изменяется ClassFunctionContracts.xml.</RULE>
         <RULE id="CFC-LAZY-NATIVE-FIRST">Custom Elements lifecycle, Shadow DOM, CustomEvent, Promise, ResizeObserver, Set/Map и platform user activation используются напрямую без wrapper.</RULE>
         <RULE id="CFC-LAZY-NO-PUBLIC-STOP-ANIMATION">Публичный stopAnimation не создаётся: утверждённые требования предусматривают завершение, replacement, scenario/AR stop и cleanup, но не отдельную host-команду остановки обычной анимации.</RULE>
         <RULE id="CFC-LAZY-PONYTAIL">Известный потолок внутри конкретной реализации маркируется PONYTAIL-комментарием по утверждённому формату; общий speculative comment не создаётся.</RULE>
     </LAZY_IMPLEMENTATION_BOUNDARY>
+    <PROJECT_PROCESS_DECISION id="CFC-DECISION-DIRECT-IMPLEMENTATION">
+        <DECISION>Separate MentalScenarios.xml and VerificationCriteria.xml artifacts are omitted for this project by explicit human project-owner instruction.</DECISION>
+        <PRESERVED_GUARANTEES>Scenario reasoning and deterministic verification properties remain embedded in FUNCTION_CONTRACT preconditions, postconditions, failure behavior, MINIMUM_RUNNABLE_CHECK and the later executable tests; skipping separate files does not waive tests or contract verification.</PRESERVED_GUARANTEES>
+        <CONSEQUENCE>After human approval of this completed ClassFunctionContracts.xml, implementation and executable tests may begin directly.</CONSEQUENCE>
+    </PROJECT_PROCESS_DECISION>
     <SOURCE_LAYOUT>
         <SOURCE_FILE path="src/product-3d-widget.ts">Public Product3DWidget, exported public types/events and customElements registration.</SOURCE_FILE>
         <SOURCE_FILE path="src/configuration.ts">Pure normalizeProductConfiguration and internal normalized types used only where imports require them.</SOURCE_FILE>
@@ -23,7 +28,51 @@
         <REGISTRATION>src/product-3d-widget.ts registers product-3d-widget once using the native Custom Elements registry; no separate entry wrapper is created.</REGISTRATION>
         <DECLARATIONS>Public declarations are emitted by tsc from exported types in src/product-3d-widget.ts; no handwritten .d.ts exists.</DECLARATIONS>
     </SOURCE_LAYOUT>
+    <PUBLIC_STYLING_API>
+        <OWNER module_contract="CONTRACT-MOD-THREE-VIEWER" />
+        <IMPLEMENTATION_PARTICIPANTS>
+            <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET">Exposes stable Shadow DOM parts and applies loading/error visibility.</CLASS_CONTRACT>
+            <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER">Fills and resizes the viewer area from the actual host-controlled container.</CLASS_CONTRACT>
+        </IMPLEMENTATION_PARTICIPANTS>
+        <HOST_ELEMENT selector="product-3d-widget">
+            <RULE>The host page owns the element width and any applicable explicit height through ordinary CSS.</RULE>
+            <RULE>The component behaves as a block-level content container and does not impose a fixed pixel size.</RULE>
+            <RULE>When no applicable height is supplied, the component uses the fallback aspect ratio from --product-3d-aspect-ratio.</RULE>
+        </HOST_ELEMENT>
+        <CSS_PART name="viewer" selector="product-3d-widget::part(viewer)" presence="STABLE">
+            <PURPOSE>Style the complete internal 3D-viewer area, including its background and container-level presentation, without exposing the internal canvas structure.</PURPOSE>
+            <RULE>The part fills the complete available width and height of the component content area.</RULE>
+        </CSS_PART>
+        <CSS_PART name="loading" selector="product-3d-widget::part(loading)" presence="STABLE">
+            <PURPOSE>Style the loading-state surface shown during configuration and primary-model loading.</PURPOSE>
+            <RULE>The part occupies the same complete content area as viewer and is hidden when no loading state is active.</RULE>
+        </CSS_PART>
+        <CSS_PART name="error" selector="product-3d-widget::part(error)" presence="STABLE">
+            <PURPOSE>Style the blocking-error message surface without changing the error text or state semantics.</PURPOSE>
+            <RULE>The part occupies the same complete content area as viewer and is hidden when no blocking error is active.</RULE>
+        </CSS_PART>
+        <CSS_CUSTOM_PROPERTY name="--product-3d-aspect-ratio" consumed_by="aspect-ratio" default="4 / 3">
+            <PURPOSE>Override only the fallback aspect ratio used when the host has not supplied an applicable height.</PURPOSE>
+            <RULE>An explicit applicable host height takes precedence over the fallback ratio.</RULE>
+            <RULE>An absent custom property uses 4 / 3; invalid custom-property values follow ordinary CSS invalid-value behavior.</RULE>
+        </CSS_CUSTOM_PROPERTY>
+        <DEFAULT_STYLE_CONTRACT>
+            <RULE>Default presentation is minimal, functional and neutral, with no brand palette, decorative theme or product controls.</RULE>
+            <RULE>Loading and error text use host-compatible typography and currentColor-compatible presentation unless the host overrides their parts.</RULE>
+            <RULE>Internal Shadow DOM selectors, element nesting, canvas markup, spacing, colors and loading animation remain implementation details and are not public API.</RULE>
+        </DEFAULT_STYLE_CONTRACT>
+        <REQUIREMENTS>
+            <REQUIREMENT ref="FR-COMPONENT-STYLING-API" />
+            <REQUIREMENT ref="FR-DEFAULT-MINIMAL-STYLING" />
+            <REQUIREMENT ref="FR-NEUTRAL-DEFAULT-STYLING" />
+            <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT" />
+            <REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER" />
+            <REQUIREMENT ref="FR-VIEWER-RESIZE" />
+            <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO" />
+        </REQUIREMENTS>
+    </PUBLIC_STYLING_API>
     <PUBLIC_EVENTS>
+        <EVENT_NAME_TYPE ref="CFC-TYPE-WIDGET-EVENT-NAME" />
         <EVENT name="product-3d-state-change">
             <WHEN>Every committed public snapshot change.</WHEN>
             <DETAIL>Product3DWidgetState</DETAIL>
@@ -153,9 +202,9 @@
             <FIELDS>
                 <FIELD name="lifecycle" type="LifecycleState" required="YES">One of STATE-NOT-CONFIGURED, STATE-LOADING-CONFIGURATION, STATE-LOADING-MODEL, STATE-READY, STATE-ANIMATION-PLAYING, STATE-SCENARIO-ACTIVE, STATE-AR-ACTIVE, STATE-ERROR or STATE-DISCONNECTED.</FIELD>
                 <FIELD name="productId" type="string | null" required="YES">Accepted product id or null before configuration acceptance.</FIELD>
-                <FIELD name="selection" type="Readonly&lt;{ colorId: string | null; variantId: string | null }&gt;" required="YES">Last confirmed independent selections.</FIELD>
+                <FIELD name="selection" type="ConfirmedSelection" required="YES">Last confirmed independent selections.</FIELD>
                 <FIELD name="animation" type="Readonly&lt;{ id: string | null; status: 'idle' | 'playing' }&gt;" required="YES">Confirmed regular-animation state.</FIELD>
-                <FIELD name="scenario" type="Readonly&lt;{ id: string | null; stepIndex: number | null; canGoBack: boolean; canGoNext: boolean }&gt;" required="YES">Confirmed scenario state.</FIELD>
+                <FIELD name="scenario" type="Readonly&lt;{ id: string | null; stepIndex: number | null; status: 'idle' | 'playing' | 'holding-final-frame'; canGoBack: boolean; canGoNext: boolean }&gt;" required="YES">Confirmed scenario identity, current step, playback phase and navigation boundaries.</FIELD>
                 <FIELD name="availability" type="Readonly&lt;AvailabilityState&gt;" required="YES">Current operation availability and enabled ids derived from confirmed state and validated capabilities.</FIELD>
                 <FIELD name="capabilities" type="Readonly&lt;CapabilityState&gt;" required="YES">Enabled color, variant, animation and scenario descriptors plus AR configured/available state and local capability errors.</FIELD>
                 <FIELD name="ar" type="Readonly&lt;{ available: boolean; webxrActive: boolean }&gt;" required="YES">No selected external AR mode field exists.</FIELD>
@@ -214,7 +263,7 @@
                 <FIELD name="variantsById" type="ReadonlyMap&lt;string, NormalizedStructuralVariant&gt;" required="YES">Enabled structurally valid variants.</FIELD>
                 <FIELD name="animationsById" type="ReadonlyMap&lt;string, NormalizedAnimation&gt;" required="YES">Enabled structurally valid animations.</FIELD>
                 <FIELD name="scenariosById" type="ReadonlyMap&lt;string, NormalizedScenario&gt;" required="YES">Enabled scenarios with computed compatibility intersections.</FIELD>
-                <FIELD name="initialSelection" type="Readonly&lt;{ colorId: string | null; variantId: string | null }&gt;" required="YES">Validated defaults.</FIELD>
+                <FIELD name="initialSelection" type="ConfirmedSelection" required="YES">Validated defaults.</FIELD>
                 <FIELD name="localErrors" type="readonly WidgetError[]" required="YES">Non-blocking configuration errors.</FIELD>
                 <FIELD name="arEnabled" type="boolean" required="YES">Configured AR capability; no per-channel setting.</FIELD>
             </FIELDS>
@@ -222,6 +271,272 @@
                 <RULE>Maps are internal lookup structures, not a public serialization format.</RULE>
                 <RULE>The normalized value is created once per initialization cycle and never mutated.</RULE>
             </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-LIFECYCLE-STATE" visibility="PUBLIC" kind="string literal union">
+            <NAME>LifecycleState</NAME>
+            <VALUES>
+                <VALUE ref="STATE-NOT-CONFIGURED">STATE-NOT-CONFIGURED</VALUE>
+                <VALUE ref="STATE-LOADING-CONFIGURATION">STATE-LOADING-CONFIGURATION</VALUE>
+                <VALUE ref="STATE-LOADING-MODEL">STATE-LOADING-MODEL</VALUE>
+                <VALUE ref="STATE-READY">STATE-READY</VALUE>
+                <VALUE ref="STATE-ANIMATION-PLAYING">STATE-ANIMATION-PLAYING</VALUE>
+                <VALUE ref="STATE-SCENARIO-ACTIVE">STATE-SCENARIO-ACTIVE</VALUE>
+                <VALUE ref="STATE-AR-ACTIVE">STATE-AR-ACTIVE</VALUE>
+                <VALUE ref="STATE-ERROR">STATE-ERROR</VALUE>
+                <VALUE ref="STATE-DISCONNECTED">STATE-DISCONNECTED</VALUE>
+            </VALUES>
+            <RULES>
+                <RULE>No AR-launching or external-AR handoff state exists.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-CONFIRMED-SELECTION" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>ConfirmedSelection</NAME>
+            <FIELDS>
+                <FIELD name="colorId" type="string | null" required="YES">Confirmed enabled color id, or null when the color group is absent or disabled.</FIELD>
+                <FIELD name="variantId" type="string | null" required="YES">Confirmed enabled structural variant id, or null when the structural group is absent or disabled.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Color and structural selection are independent.</RULE>
+                <RULE>The value changes only after the corresponding viewer operation succeeds.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-AVAILABILITY-STATE" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>AvailabilityState</NAME>
+            <FIELDS>
+                <FIELD name="canConfigure" type="boolean" required="YES">True only while no configuration has passed mandatory validation, the element is connected and the instance is not terminal.</FIELD>
+                <FIELD name="canSelectColor" type="boolean" required="YES">Current lifecycle and scenario gate permit an enabled color request.</FIELD>
+                <FIELD name="canSelectVariant" type="boolean" required="YES">Current lifecycle and operation compatibility may permit an enabled structural-variant request.</FIELD>
+                <FIELD name="canPlayAnimation" type="boolean" required="YES">At least one enabled regular animation may be requested in the current lifecycle.</FIELD>
+                <FIELD name="canStartScenario" type="boolean" required="YES">At least one enabled scenario may be requested in the current lifecycle.</FIELD>
+                <FIELD name="canGoBack" type="boolean" required="YES">An active scenario has a previous step.</FIELD>
+                <FIELD name="canGoNext" type="boolean" required="YES">An active scenario has a next step.</FIELD>
+                <FIELD name="canStopScenario" type="boolean" required="YES">A scenario is active.</FIELD>
+                <FIELD name="canLaunchAR" type="boolean" required="YES">AR is configured, publicly available and not blocked by lifecycle/scenario state; transient activation is still checked at call time.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Availability is descriptive and does not replace validation of the concrete id or transient user activation at command time.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-CAPABILITY-STATE" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>CapabilityState</NAME>
+            <FIELDS>
+                <FIELD name="colors" type="readonly Readonly&lt;{ id: string; label: string }&gt;[]" required="YES">Enabled color descriptors.</FIELD>
+                <FIELD name="variants" type="readonly Readonly&lt;{ id: string; label: string }&gt;[]" required="YES">Enabled structural-variant descriptors.</FIELD>
+                <FIELD name="animations" type="readonly Readonly&lt;{ id: string; label: string; compatibleVariantIds: readonly string[] }&gt;[]" required="YES">Enabled regular animations and their explicit structural compatibility.</FIELD>
+                <FIELD name="scenarios" type="readonly Readonly&lt;{ id: string; label: string; compatibleVariantIds: readonly string[] }&gt;[]" required="YES">Enabled scenarios and their computed structural compatibility intersections.</FIELD>
+                <FIELD name="arConfigured" type="boolean" required="YES">Whether AR was enabled by accepted configuration.</FIELD>
+                <FIELD name="localErrors" type="readonly WidgetError[]" required="YES">Non-blocking capability errors accumulated during configuration, model-bound validation or optional AR setup.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>Only enabled capabilities appear in the descriptor arrays.</RULE>
+                <RULE>Selected external AR mode is never present.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-COMMAND-REJECTION-REASON" visibility="PUBLIC" kind="string literal union">
+            <NAME>CommandRejectionReason</NAME>
+            <VALUES>
+                <VALUE>disconnected</VALUE>
+                <VALUE>not-ready</VALUE>
+                <VALUE>terminal-error</VALUE>
+                <VALUE>already-configured</VALUE>
+                <VALUE>unknown-color</VALUE>
+                <VALUE>unknown-variant</VALUE>
+                <VALUE>unknown-animation</VALUE>
+                <VALUE>unknown-scenario</VALUE>
+                <VALUE>scenario-active</VALUE>
+                <VALUE>no-active-scenario</VALUE>
+                <VALUE>scenario-boundary</VALUE>
+                <VALUE>incompatible-variant</VALUE>
+                <VALUE>incompatible-animation</VALUE>
+                <VALUE>incompatible-scenario</VALUE>
+                <VALUE>ar-not-configured</VALUE>
+                <VALUE>ar-unavailable</VALUE>
+                <VALUE>user-activation-required</VALUE>
+            </VALUES>
+            <RULES>
+                <RULE>Rejection occurs before accepted mutation and never emits product-3d-error.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-WIDGET-ERROR-CODE" visibility="PUBLIC" kind="string literal union">
+            <NAME>WidgetErrorCode</NAME>
+            <VALUES>
+                <VALUE>CONFIGURATION_INVALID</VALUE>
+                <VALUE>COLOR_DISABLED</VALUE>
+                <VALUE>VARIANT_DISABLED</VALUE>
+                <VALUE>ANIMATION_DISABLED</VALUE>
+                <VALUE>SCENARIO_DISABLED</VALUE>
+                <VALUE>USDZ_UNUSABLE</VALUE>
+                <VALUE>WEBGL2_UNAVAILABLE</VALUE>
+                <VALUE>PRIMARY_GLB_FAILED</VALUE>
+                <VALUE>VIEWER_INITIALIZATION_FAILED</VALUE>
+                <VALUE>VIEWER_OPERATION_FAILED</VALUE>
+                <VALUE>WEBGL_RECOVERY_FAILED</VALUE>
+                <VALUE>AR_INITIALIZATION_FAILED</VALUE>
+                <VALUE>AR_SYNC_FAILED</VALUE>
+                <VALUE>AR_REQUEST_FAILED</VALUE>
+            </VALUES>
+            <RULES>
+                <RULE>entityId and message carry the precise affected configured entity and reason.</RULE>
+                <RULE>No code asserts Scene Viewer or Quick Look lifecycle.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-WIDGET-EVENT-NAME" visibility="PUBLIC" kind="string literal union">
+            <NAME>WidgetEventName</NAME>
+            <VALUES>
+                <VALUE>product-3d-state-change</VALUE>
+                <VALUE>product-3d-selection-change</VALUE>
+                <VALUE>product-3d-animation-change</VALUE>
+                <VALUE>product-3d-scenario-change</VALUE>
+                <VALUE>product-3d-ar-availability-change</VALUE>
+                <VALUE>product-3d-ar-launched</VALUE>
+                <VALUE>product-3d-ar-returned</VALUE>
+                <VALUE>product-3d-error</VALUE>
+            </VALUES>
+            <RULES>
+                <RULE>The value set is identical to PUBLIC_EVENTS.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-SPECIALIZED-WIDGET-EVENT-NAME" visibility="INTERNAL" kind="string literal union">
+            <NAME>SpecializedWidgetEventName</NAME>
+            <VALUES>
+                <VALUE>product-3d-selection-change</VALUE>
+                <VALUE>product-3d-animation-change</VALUE>
+                <VALUE>product-3d-scenario-change</VALUE>
+                <VALUE>product-3d-ar-availability-change</VALUE>
+                <VALUE>product-3d-ar-launched</VALUE>
+                <VALUE>product-3d-ar-returned</VALUE>
+                <VALUE>product-3d-error</VALUE>
+            </VALUES>
+            <RULES>
+                <RULE>product-3d-state-change is deliberately excluded because commitAndNotify always dispatches it first.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-CLIP-SOURCE" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>ClipSource</NAME>
+            <FIELDS>
+                <FIELD name="kind" type="'clip'" required="YES">Discriminator.</FIELD>
+                <FIELD name="clipName" type="string" required="YES">Non-empty animation clip name from the primary GLB.</FIELD>
+            </FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-RANGE-SOURCE" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>RangeSource</NAME>
+            <FIELDS>
+                <FIELD name="kind" type="'range'" required="YES">Discriminator.</FIELD>
+                <FIELD name="clipName" type="string" required="YES">Non-empty source animation clip name.</FIELD>
+                <FIELD name="startSeconds" type="number" required="YES">Finite non-negative start time.</FIELD>
+                <FIELD name="endSeconds" type="number" required="YES">Finite end time strictly greater than startSeconds and not beyond the resolved clip duration.</FIELD>
+            </FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-SCENARIO-STEP-CONFIG" visibility="PUBLIC" kind="deeply readonly interface">
+            <NAME>ScenarioStepConfig</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Unique non-empty id within the scenario.</FIELD>
+                <FIELD name="description" type="string" required="YES">Host-facing step description.</FIELD>
+                <FIELD name="animationId" type="string" required="YES">Configured regular-animation id used by this step.</FIELD>
+            </FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-NORMALIZED-COLOR" visibility="INTERNAL" kind="deeply readonly interface">
+            <NAME>NormalizedColorVariant</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Validated unique id.</FIELD>
+                <FIELD name="label" type="string" required="YES">Validated label.</FIELD>
+                <FIELD name="swatch" type="string" required="YES">Validated solid CSS color.</FIELD>
+                <FIELD name="isDefault" type="boolean" required="YES">Validated group default marker.</FIELD>
+                <FIELD name="isBase" type="boolean" required="YES">Base-state marker.</FIELD>
+                <FIELD name="materialNames" type="readonly string[]" required="YES">Deduplicated explicit target material names.</FIELD>
+            </FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-NORMALIZED-VARIANT" visibility="INTERNAL" kind="deeply readonly interface">
+            <NAME>NormalizedStructuralVariant</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Validated unique id.</FIELD>
+                <FIELD name="label" type="string" required="YES">Validated label.</FIELD>
+                <FIELD name="isDefault" type="boolean" required="YES">Validated group default marker.</FIELD>
+                <FIELD name="isBase" type="boolean" required="YES">Base-state marker.</FIELD>
+                <FIELD name="visibleNodeNames" type="readonly string[]" required="YES">Deduplicated explicit visible nodes.</FIELD>
+                <FIELD name="hiddenNodeNames" type="readonly string[]" required="YES">Deduplicated explicit hidden nodes with no overlap.</FIELD>
+            </FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-NORMALIZED-ANIMATION" visibility="INTERNAL" kind="deeply readonly interface">
+            <NAME>NormalizedAnimation</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Validated unique id.</FIELD>
+                <FIELD name="label" type="string" required="YES">Validated label.</FIELD>
+                <FIELD name="source" type="ClipSource | RangeSource" required="YES">Validated discriminated source.</FIELD>
+                <FIELD name="compatibleVariantIds" type="ReadonlySet&lt;string&gt;" required="YES">Validated explicit structural whitelist.</FIELD>
+            </FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-NORMALIZED-SCENARIO" visibility="INTERNAL" kind="deeply readonly interface">
+            <NAME>NormalizedScenario</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Validated unique id.</FIELD>
+                <FIELD name="label" type="string" required="YES">Validated label.</FIELD>
+                <FIELD name="steps" type="readonly ScenarioStepConfig[]" required="YES">Validated non-empty ordered steps.</FIELD>
+                <FIELD name="compatibleVariantIds" type="ReadonlySet&lt;string&gt;" required="YES">Exact non-empty intersection across all step animations.</FIELD>
+            </FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-CONFIGURATION-VALIDATION-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ConfigurationValidationResult</NAME>
+            <VARIANTS>
+                <VARIANT name="valid" type="{ ok: true; configuration: NormalizedProductConfiguration }">Mandatory configuration is accepted; local optional errors are contained in configuration.localErrors.</VARIANT>
+                <VARIANT name="invalid" type="{ ok: false; errors: readonly WidgetError[] }">Mandatory validation failed and no product assignment is accepted.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-VIEWER-INITIALIZATION-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ViewerInitializationResult</NAME>
+            <VARIANTS>
+                <VARIANT name="ready" type="{ ok: true; selection: ConfirmedSelection; enabledColorIds: readonly string[]; enabledVariantIds: readonly string[]; enabledAnimationIds: readonly string[]; enabledScenarioIds: readonly string[]; localErrors: readonly WidgetError[] }">Primary viewer is ready after model-bound capability validation.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; terminal: boolean; error: WidgetError }">Blocking viewer initialization failed; terminal is true for primary GLB failure.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-VIEWER-OPERATION-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ViewerOperationResult</NAME>
+            <VARIANTS>
+                <VARIANT name="completed" type="{ ok: true }">Requested synchronous viewer mutation is complete.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; error: WidgetError }">Accepted viewer mutation failed observably.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-VIEWER-PLAYBACK-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ViewerPlaybackResult</NAME>
+            <VARIANTS>
+                <VARIANT name="started" type="{ ok: true; animationId: string; status: 'started' }">Regular animation started; natural completion is reported through the constructor callback after base-pose restoration.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; error: WidgetError }">Accepted animation start failed.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-VIEWER-SCENARIO-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ViewerScenarioResult</NAME>
+            <VARIANTS>
+                <VARIANT name="started" type="{ ok: true; scenarioId: string; stepIndex: number; status: 'playing'; canGoBack: boolean; canGoNext: boolean }">Target scenario step started.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; error: WidgetError }">Accepted scenario operation failed.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-VIEWER-RECOVERY-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ViewerRecoveryResult</NAME>
+            <VARIANTS>
+                <VARIANT name="recovered" type="{ ok: true }">The single automatic recovery restored the last confirmed selection and camera.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; error: WidgetError }">Recovery failed and no further automatic attempt is permitted.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-AR-INITIALIZATION-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ArInitializationResult</NAME>
+            <VARIANTS>
+                <VARIANT name="ready" type="{ ok: true; available: boolean; localErrors: readonly WidgetError[] }">Mode-neutral adapter is ready; optional USDZ errors are local.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; error: WidgetError }">AR setup failed and only AR is disabled.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-AR-SYNC-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ArSyncResult</NAME>
+            <VARIANTS>
+                <VARIANT name="completed" type="{ ok: true }">Publicly supported asset and selection synchronization completed.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; error: WidgetError }">Observable mode-neutral synchronization failed.</VARIANT>
+            </VARIANTS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-AR-REQUEST-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
+            <NAME>ArRequestResult</NAME>
+            <VARIANTS>
+                <VARIANT name="initiated" type="{ ok: true; outcome: 'initiated' }">activateAR() initiation completed without claiming selected channel or external launch.</VARIANT>
+                <VARIANT name="failed" type="{ ok: false; error: WidgetError }">Observable generic request failure.</VARIANT>
+            </VARIANTS>
         </DATA_CONTRACT>
     </DATA_CONTRACTS>
     <STANDALONE_FUNCTIONS>
@@ -272,7 +587,9 @@
             <MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER" />
             <INTENT>The only public runtime class and confirmed-state owner.</INTENT>
             <CONSTRUCTOR_CONTRACT>
+                <SIGNATURE>constructor()</SIGNATURE>
                 <RULE>attachShadow({ mode: 'open' }) and create only viewer/loading/error containers.</RULE>
+                <RULE>Expose the stable part tokens viewer, loading and error exactly as defined by PUBLIC_STYLING_API.</RULE>
                 <RULE>Do not load assets, register global listeners or accept a product in the constructor.</RULE>
             </CONSTRUCTOR_CONTRACT>
             <OWNED_STATE>
@@ -666,7 +983,7 @@
                 </FUNCTION_CONTRACT>
                 <FUNCTION_CONTRACT id="CFC-FN-WIDGET-COMMIT-NOTIFY" visibility="PRIVATE">
                     <NAME>commitAndNotify</NAME>
-                    <SIGNATURE>commitAndNotify(next: Product3DWidgetState, specializedEvent?: WidgetEventName): Product3DWidgetState</SIGNATURE>
+                    <SIGNATURE>commitAndNotify(next: Product3DWidgetState, specializedEvent?: SpecializedWidgetEventName): Product3DWidgetState</SIGNATURE>
                     <CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET" />
                     <INTENT>Atomically replace the confirmed snapshot and enforce general-event → specialized-event ordering.</INTENT>
                     <PRECONDITIONS>
@@ -751,7 +1068,9 @@
             <MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER" />
             <INTENT>The single concrete owner of Three.js scene, renderer, camera, controls, mixer and GPU resources.</INTENT>
             <CONSTRUCTOR_CONTRACT>
-                <RULE>Receive the concrete container and a narrow readonly callback object.</RULE>
+                <SIGNATURE>constructor(container: HTMLElement, callbacks: Readonly&lt;{ onAnimationCompleted(animationId: string): void; onScenarioStepCompleted(scenarioId: string, stepIndex: number): void; onRecoveryResult(result: ViewerRecoveryResult): void }&gt;)</SIGNATURE>
+                <RULE>Receive the concrete viewer-part container and only the three narrow callbacks declared in the constructor signature.</RULE>
+                <RULE>onScenarioStepCompleted is invoked only after the final frame is held and lets the controller commit status='holding-final-frame'.</RULE>
                 <RULE>Do not create resources until initialize().</RULE>
             </CONSTRUCTOR_CONTRACT>
             <OWNED_STATE>
@@ -924,7 +1243,7 @@
                         <CONDITION>Controller has validated selected structural compatibility before stopping prior execution.</CONDITION>
                     </PRECONDITIONS>
                     <POSTCONDITIONS>
-                        <CONDITION>Success leaves scenario step zero active.</CONDITION>
+                        <CONDITION>Success leaves scenario step zero active with status='playing'; its natural completion holds the final frame and reports completion through onScenarioStepCompleted.</CONDITION>
                         <CONDITION>Restart/replacement is one viewer operation.</CONDITION>
                         <CONDITION>Accepted first-step failure restores ordinary base pose and leaves no scenario execution.</CONDITION>
                     </POSTCONDITIONS>
@@ -952,7 +1271,7 @@
                         <CONDITION>Target step exists.</CONDITION>
                     </PRECONDITIONS>
                     <POSTCONDITIONS>
-                        <CONDITION>Target step starts at its initial pose/time.</CONDITION>
+                        <CONDITION>Target step starts at its initial pose/time with status='playing'; natural completion holds its final frame before the callback.</CONDITION>
                         <CONDITION>Camera and selection are preserved.</CONDITION>
                         <CONDITION>Final frame remains after target completion.</CONDITION>
                     </POSTCONDITIONS>
@@ -1022,7 +1341,7 @@
                         <REQUIREMENT ref="FR-VIEWER-RESIZE" />
                         <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO" />
                     </REQUIREMENTS>
-                    <MINIMUM_RUNNABLE_CHECK>Width-only host sizing uses 4/3; explicit height overrides it.</MINIMUM_RUNNABLE_CHECK>
+                    <MINIMUM_RUNNABLE_CHECK>Width-only host sizing uses --product-3d-aspect-ratio with default 4 / 3; a valid override changes the fallback and an explicit host height takes precedence.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
                 <FUNCTION_CONTRACT id="CFC-FN-VIEWER-RECOVER-CONTEXT" visibility="PRIVATE">
                     <NAME>recoverContext</NAME>
@@ -1129,7 +1448,8 @@
             <MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER" />
             <INTENT>The single concrete wrapper around model-viewer public AR API.</INTENT>
             <CONSTRUCTOR_CONTRACT>
-                <RULE>Receive the owned hidden-DOM parent and narrow callbacks for availability, WebXR start/end and generic error.</RULE>
+                <SIGNATURE>constructor(hiddenHost: HTMLElement, callbacks: Readonly&lt;{ onAvailabilityChange(available: boolean): void; onWebXRStart(): void; onWebXREnd(): void; onError(error: WidgetError): void }&gt;)</SIGNATURE>
+                <RULE>Receive the owned hidden-DOM parent and only the four narrow callbacks declared in the constructor signature.</RULE>
                 <RULE>Do not accept channel-specific adapters or strategies.</RULE>
             </CONSTRUCTOR_CONTRACT>
             <OWNED_STATE>
@@ -1321,12 +1641,16 @@
         <CHECK id="CFC-VALIDATE-REQUIREMENT-COVERAGE">Class-level module requirement sets plus the configuration function reproduce all 86 functional requirements exactly once by architectural owner.</CHECK>
         <CHECK id="CFC-VALIDATE-METHOD-REFS">Every method requirement is a functional requirement and may link cross-module behavior only where the method orchestrates the approved leaf operation; class-level ownership remains exact.</CHECK>
         <CHECK id="CFC-VALIDATE-NO-AR-MODE">No public type, method, event or state field exposes selected Scene Viewer or Quick Look mode/lifecycle.</CHECK>
-        <CHECK id="CFC-VALIDATE-NAMED-FUNCTION-CLOSURE">Implementation may not add non-trivial named functions or methods absent from this artifact.</CHECK>
+        <CHECK id="CFC-VALIDATE-TYPE-CLOSURE">Every non-platform type referenced by a field, method signature or constructor signature has exactly one DATA_CONTRACT and every public referenced type is visibility=PUBLIC.</CHECK>
+        <CHECK id="CFC-VALIDATE-STYLING-API">The only public styling extension points are parts viewer/loading/error and --product-3d-aspect-ratio with default 4 / 3; internal Shadow DOM and CSS remain private.</CHECK>
+        <CHECK id="CFC-VALIDATE-SCENARIO-PLAYBACK-PHASE">Product3DWidgetState distinguishes scenario step status playing from holding-final-frame and the viewer callback occurs only after the final frame is held.</CHECK>
+        <CHECK id="CFC-VALIDATE-DIRECT-IMPLEMENTATION-DECISION">The explicit project-owner decision omits separate MentalScenarios.xml and VerificationCriteria.xml while preserving function-level checks and mandatory executable tests.</CHECK>
+        <CHECK id="CFC-VALIDATE-LOCAL-HELPERS">Only public and cross-module operations require exact listed contracts; a private local helper is permitted solely under CFC-LAZY-LOCAL-HELPERS and cannot add state, resources, side effects, error policy or dependencies.</CHECK>
         <CHECK id="CFC-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS is empty before approval.</CHECK>
     </VALIDATION_EXPECTATIONS>
     <UNRESOLVED_DECISIONS />
     <APPROVAL_GATE status="PENDING">
         <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
-        <CONDITION>Approve the exact public API, events and data contracts; three concrete runtime classes; one pure configuration function; four-file layout; method pre/postconditions, side effects, failure behavior, requirement links and minimum runnable checks. After approval create MentalScenarios.xml; implementation remains forbidden.</CONDITION>
+        <CONDITION>Approve the exact public API, public events, closed public/internal data types, styling API, three concrete runtime classes, one pure configuration function, four-file layout, constructor and method signatures, pre/postconditions, side effects, failure behavior, requirement links, scenario playback phase and minimum runnable checks. After approval implementation may proceed directly under these contracts; no additional design artifact is required by this project decision.</CONDITION>
     </APPROVAL_GATE>
 </CLASS_FUNCTION_CONTRACTS>
