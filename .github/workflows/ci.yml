@@ -4,93 +4,23 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/implement-product-3d-widget
-          fetch-depth: 0
-      - name: Apply verified implementation payload
-        shell: bash
-        run: |
-          if [ -d .iteration-2 ]; then
-            cat .iteration-2/part-00 .iteration-2/part-01 .iteration-2/part-02 .iteration-2/part-03 | base64 --decode > /tmp/iteration-2.tar.gz
-            gzip -t /tmp/iteration-2.tar.gz
-            tar -xzf /tmp/iteration-2.tar.gz --exclude='./.github/workflows/ci.yml'
-            rm -rf .iteration-2 ci-result.txt
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add --all
-            git commit -m 'Apply verified product-3d-widget implementation [skip ci]'
-            git push origin HEAD:agent/implement-product-3d-widget
-          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 24.18.1
-      - run: npm install
-      - name: Run fast verification
-        id: fast
-        shell: bash
-        run: |
-          set +e
-          : > ci-result.txt
-          status=0
-          for script in typecheck build build:types verify:api test:unit verify:three; do
-            npm run "$script" > "/tmp/${script//:/-}.log" 2>&1
-            code=$?
-            printf '%s %s\n' "$script" "$([ "$code" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
-            if [ "$code" -ne 0 ]; then
-              printf '\n--- %s output ---\n' "$script" >> ci-result.txt
-              tail -n 240 "/tmp/${script//:/-}.log" >> ci-result.txt
-              status=$code
-              break
-            fi
-          done
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-      - name: Install Playwright browsers
-        if: steps.fast.outputs.status == '0'
-        run: npx playwright install --with-deps chromium firefox webkit
-      - name: Run Playwright
-        if: steps.fast.outputs.status == '0'
-        id: e2e
-        shell: bash
-        run: |
-          set +e
-          xvfb-run --auto-servernum npm run test:e2e > /tmp/test-e2e.log 2>&1
-          status=$?
-          printf 'test:e2e %s\n' "$([ "$status" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
-          if [ "$status" -ne 0 ]; then
-            printf '\n--- test:e2e output ---\n' >> ci-result.txt
-            tail -n 300 /tmp/test-e2e.log >> ci-result.txt
-          fi
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-      - name: Publish verification result
-        if: always()
-        shell: bash
-        run: |
-          result_file=$(mktemp)
-          if [ -f ci-result.txt ]; then cp ci-result.txt "$result_file"; else printf 'bootstrap FAIL\n' > "$result_file"; fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-
-          published=false
-          for attempt in 1 2 3; do
-            git fetch origin agent/implement-product-3d-widget
-            git reset --hard origin/agent/implement-product-3d-widget
-            cp "$result_file" ci-result.txt
-            git add ci-result.txt
-            git commit -m 'Record CI verification result [skip ci]' || true
-            if git push origin HEAD:agent/implement-product-3d-widget; then
-              published=true
-              break
-            fi
-          done
-          test "$published" = true
-          test "${{ steps.fast.outputs.status }}" = '0'
-          if [ -n "${{ steps.e2e.outputs.status }}" ]; then
-            test "${{ steps.e2e.outputs.status }}" = '0'
-          fi
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run build:types
+      - run: npm run verify:api
+      - run: npm run test:unit
+      - run: npm run verify:three
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: xvfb-run --auto-servernum npm run test:e2e
