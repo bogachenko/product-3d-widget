@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="APPROVED">
     <PROJECT_GOAL id="GOAL-P3D-001">
         Создать настраиваемый Web Component product-3d-widget для встраивания на веб-страницу интерактивной 3D-карточки товара, позволяющей просматривать и настраивать 3D-модель товара на странице, запускать её анимации и пошаговые сценарии, а также размещать товар в реальном пространстве в AR-режиме.
     </PROJECT_GOAL>
@@ -659,12 +659,14 @@
         </GRAPH_BRANCH>
     </SEMANTIC_GRAPH>
 
-    <APPROVAL_GATE status="PENDING">
-        <PREVIOUS_APPROVAL status="SUPERSEDED_FOR_AR_REAPPROVAL">
+    <APPROVAL_GATE status="APPROVED">
+        <PREVIOUS_APPROVAL status="SUPERSEDED">
             <APPROVED_REVISION>65977ee23b11c429f2bf398f3426316f85b62e55</APPROVED_REVISION>
             <APPROVAL_COMMIT>ec204cfd023215985ed68964c2c895081c5e56dd</APPROVAL_COMMIT>
         </PREVIOUS_APPROVAL>
-        <REVISION_SCOPE>Точечная замена недостижимой гарантии фактических launched/returned и гарантированной ошибки для Scene Viewer и Quick Look на наблюдаемый lifecycle внешней передачи управления: handoff-started, фактически наблюдаемая handoff-failed и page-resumed только после hidden → visible. После handoff-started внешний режим немедленно возвращает компонент в STATE-READY, а ожидание последующих наблюдений хранится отдельно и не блокирует обычные операции. WebXR сохраняет фактические launched/returned.</REVISION_SCOPE>
-        <READY_STATE>READY_FOR_HUMAN_REAPPROVAL</READY_STATE>
+        <APPROVED_REVISION>7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3</APPROVED_REVISION>
+        <APPROVED_AT>2026-07-31T13:17:00+03:00</APPROVED_AT>
+        <APPROVAL_STATEMENT>Утверждаю RequirementsAnalysis.xml в редакции commit 7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3, включая обновлённую семантику WebXR и внешних AR-средств.</APPROVAL_STATEMENT>
+        <APPROVED_SCOPE>Полная редакция RequirementsAnalysis.xml, включая фактические launched/returned для WebXR, наблюдаемый lifecycle handoff-started, фактически наблюдаемую handoff-failed, page-resumed только после hidden → visible и немедленный возврат внешних AR-режимов в STATE-READY.</APPROVED_SCOPE>
     </APPROVAL_GATE>
 </REQUIREMENTS_ANALYSIS>
