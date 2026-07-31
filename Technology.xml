@@ -1,76 +1,384 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="DRAFT">
-    <PURPOSE>Зафиксировать технологические решения, вынесенные из RequirementsAnalysis.xml, не изменяя утверждённое поведение системы.</PURPOSE>
+<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+    <PURPOSE>Зафиксировать технологические решения для реализации утверждённого RequirementsAnalysis.xml без изменения утверждённого поведения системы.</PURPOSE>
+
+    <BASED_ON_REQUIREMENTS>
+        <ARTIFACT>RequirementsAnalysis.xml</ARTIFACT>
+        <APPROVED_REVISION>7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3</APPROVED_REVISION>
+        <APPROVAL_COMMIT>6d9e316832b22be4eae11e8b31ced3606737829d</APPROVAL_COMMIT>
+    </BASED_ON_REQUIREMENTS>
+
+    <TECHNOLOGY_PRINCIPLES>
+        <PRINCIPLE id="TECH-PRINCIPLE-BROWSER-RUNTIME">
+            <DESCRIPTION>Публикуемый product-3d-widget выполняется полностью в браузере. Обязательный сервер приложения, backend API и постоянно работающий Node.js-процесс отсутствуют.</DESCRIPTION>
+        </PRINCIPLE>
+        <PRINCIPLE id="TECH-PRINCIPLE-PUBLIC-DEPENDENCY-APIS">
+            <DESCRIPTION>Компонент использует только публичные API Three.js, model-viewer и Web Platform. Доступ к внутренней Three.js-сцене model-viewer, внутренним символам, непубличным полям и неподдерживаемым расширениям запрещён.</DESCRIPTION>
+        </PRINCIPLE>
+        <PRINCIPLE id="TECH-PRINCIPLE-EXACT-VERSIONS">
+            <DESCRIPTION>Все прямые runtime-, build- и test-зависимости фиксируются точными версиями без диапазонов ^ и ~. Источником воспроизводимого графа зависимостей является package-lock.json.</DESCRIPTION>
+        </PRINCIPLE>
+        <PRINCIPLE id="TECH-PRINCIPLE-CAPABILITY-FIRST">
+            <DESCRIPTION>Доступность 3D и AR определяется проверкой фактических возможностей среды. Название или версия браузера сами по себе не являются доказательством доступности WebGL 2, WebXR, Scene Viewer или Quick Look.</DESCRIPTION>
+        </PRINCIPLE>
+    </TECHNOLOGY_PRINCIPLES>
 
     <RUNTIME_ENVIRONMENT>
         <TECHNOLOGY id="TECH-BROWSER-WEB-PLATFORM">
             <NAME>Современная браузерная Web Platform</NAME>
             <STATUS>SELECTED</STATUS>
-            <VERSION>Поддерживаемая матрица браузеров должна быть зафиксирована отдельно.</VERSION>
-            <RATIONALE>Компонент предназначен для встраивания непосредственно в веб-страницу.</RATIONALE>
-            <LINKS><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/><REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT"/></LINKS>
+            <VERSION>Последние две основные стабильные версии поддерживаемых браузеров на дату выпуска компонента.</VERSION>
+            <RESPONSIBILITY>Runtime Web Component, DOM, события, загрузка ресурсов, Page Visibility API, ResizeObserver и браузерный рендеринг.</RESPONSIBILITY>
+            <LINKS>
+                <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/>
+                <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT"/>
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/>
+            </LINKS>
         </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-WEBGL2">
+            <NAME>WebGL 2</NAME>
+            <STATUS>REQUIRED</STATUS>
+            <VERSION>Браузерная реализация WebGL 2.</VERSION>
+            <RESPONSIBILITY>Обязательный графический runtime основного 3D-просмотра Three.js.</RESPONSIBILITY>
+            <CONSTRAINT>WebGL 1 fallback не поддерживается. Отсутствие применимого WebGL 2 является блокирующей недоступностью 3D-просмотра.</CONSTRAINT>
+            <LINKS>
+                <REQUIREMENT ref="FR-MODEL-INTERACTION"/>
+                <REQUIREMENT ref="FR-ERROR-MESSAGES"/>
+            </LINKS>
+        </TECHNOLOGY>
+
         <TECHNOLOGY id="TECH-CUSTOM-ELEMENTS">
             <NAME>Custom Elements</NAME>
             <STATUS>SELECTED</STATUS>
-            <VERSION>Стандарт Web Components; минимальная версия браузеров не зафиксирована.</VERSION>
-            <RATIONALE>product-3d-widget является встраиваемым пользовательским элементом.</RATIONALE>
+            <VERSION>Стандарт Web Components в поддерживаемой браузерной матрице.</VERSION>
+            <RESPONSIBILITY>Регистрация и жизненный цикл элемента product-3d-widget.</RESPONSIBILITY>
             <LINKS><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/></LINKS>
         </TECHNOLOGY>
+
         <TECHNOLOGY id="TECH-SHADOW-DOM">
             <NAME>Open Shadow DOM</NAME>
             <STATUS>SELECTED</STATUS>
-            <RATIONALE>Изолирует внутреннюю область просмотра и служебные состояния, сохраняя доступ к публичной стилизации.</RATIONALE>
+            <VERSION>Стандарт Web Components в поддерживаемой браузерной матрице.</VERSION>
+            <RESPONSIBILITY>Изоляция внутренней области просмотра и служебных состояний при сохранении утверждённой поверхности стилизации.</RESPONSIBILITY>
             <LINKS><REQUIREMENT ref="FR-COMPONENT-STYLING-API"/></LINKS>
         </TECHNOLOGY>
+
         <TECHNOLOGY id="TECH-DOM-CUSTOM-EVENT">
             <NAME>DOM CustomEvent</NAME>
             <STATUS>SELECTED</STATUS>
-            <RATIONALE>Используется как транспорт публичных уведомлений хост-странице.</RATIONALE>
-            <LINKS><REQUIREMENT ref="FR-HOST-STATE-EVENTS"/><REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION"/></LINKS>
+            <RESPONSIBILITY>Транспорт публичных уведомлений хост-странице.</RESPONSIBILITY>
+            <LINKS>
+                <REQUIREMENT ref="FR-HOST-STATE-EVENTS"/>
+                <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION"/>
+                <REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER"/>
+            </LINKS>
         </TECHNOLOGY>
+
         <TECHNOLOGY id="TECH-JS-PROMISE">
             <NAME>JavaScript Promise</NAME>
             <STATUS>SELECTED</STATUS>
-            <RATIONALE>Используется для принятия или отклонения публичных команд управления.</RATIONALE>
+            <RESPONSIBILITY>Асинхронный результат принятия или отклонения публичных команд.</RESPONSIBILITY>
             <LINKS><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></LINKS>
         </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-PAGE-VISIBILITY">
+            <NAME>Page Visibility API</NAME>
+            <STATUS>SELECTED</STATUS>
+            <RESPONSIBILITY>Наблюдение последовательности hidden → visible после handoff-started для Scene Viewer и Quick Look.</RESPONSIBILITY>
+            <CONSTRAINT>visibilitychange не подтверждает запуск, использование или завершение внешнего AR. page-resumed формируется только после фактически наблюдённой последовательности hidden → visible.</CONSTRAINT>
+            <LINKS>
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/>
+                <REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
+            </LINKS>
+        </TECHNOLOGY>
+
         <TECHNOLOGY id="TECH-CSS-SHADOW-PARTS">
             <NAME>CSS Shadow Parts и CSS custom properties</NAME>
             <STATUS>SELECTED</STATUS>
-            <RATIONALE>Позволяют хост-странице стилизовать разрешённые внутренние части компонента без раскрытия внутренней DOM-структуры.</RATIONALE>
-            <LINKS><REQUIREMENT ref="FR-COMPONENT-STYLING-API"/></LINKS>
+            <RESPONSIBILITY>Публичная стилизация разрешённых внутренних частей без раскрытия внутренней DOM-структуры.</RESPONSIBILITY>
+            <LINKS>
+                <REQUIREMENT ref="FR-COMPONENT-STYLING-API"/>
+                <REQUIREMENT ref="FR-DEFAULT-MINIMAL-STYLING"/>
+                <REQUIREMENT ref="FR-NEUTRAL-DEFAULT-STYLING"/>
+            </LINKS>
         </TECHNOLOGY>
     </RUNTIME_ENVIRONMENT>
 
     <THREE_D_AND_AR>
         <TECHNOLOGY id="TECH-THREE-JS">
             <NAME>Three.js</NAME>
-            <STATUS>SELECTED_VERSION_PENDING</STATUS>
-            <VERSION>Не зафиксирована.</VERSION>
-            <RESPONSIBILITY>Непосредственное отображение GLB-модели, камера, анимации и применение визуальных состояний.</RESPONSIBILITY>
-            <LINKS><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/><REQUIREMENT ref="FR-MODEL-INTERACTION"/><REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT"/></LINKS>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>0.183.2</VERSION>
+            <RESPONSIBILITY>Основной встроенный 3D-просмотр: загрузка GLB, WebGLRenderer, сцена, камера, управление ракурсом, материалы и цвета, видимость узлов структурных вариантов, AnimationMixer, именованные клипы, временные диапазоны, восстановление состояния и обработка потери WebGL-контекста.</RESPONSIBILITY>
+            <CONSTRAINT>Three.js является единственным средством основного 3D-рендеринга. WebGPU renderer и альтернативный renderer в первой версии не используются.</CONSTRAINT>
+            <LINKS>
+                <REQUIREMENT ref="FR-GLB-MODEL-LOADING"/>
+                <REQUIREMENT ref="FR-MODEL-INTERACTION"/>
+                <REQUIREMENT ref="FR-COLOR-SELECTION"/>
+                <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION"/>
+                <REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT"/>
+                <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/>
+            </LINKS>
         </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-THREE-TYPES">
+            <NAME>@types/three</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>0.183.1</VERSION>
+            <RESPONSIBILITY>TypeScript-декларации для выбранной линии Three.js 0.183.x.</RESPONSIBILITY>
+        </TECHNOLOGY>
+
         <TECHNOLOGY id="TECH-MODEL-VIEWER-AR">
-            <NAME>model-viewer и поддерживаемые им AR-каналы</NAME>
-            <STATUS>SELECTED_VERSION_PENDING</STATUS>
-            <VERSION>Не зафиксирована.</VERSION>
-            <RESPONSIBILITY>Делегированное определение доступного AR-режима и запуск WebXR, Android Scene Viewer или Apple Quick Look.</RESPONSIBILITY>
-            <LINKS><REQUIREMENT ref="FR-AR-LAUNCH"/><REQUIREMENT ref="FR-AR-ASSET-MAPPING"/><REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/></LINKS>
+            <NAME>@google/model-viewer</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>4.3.1</VERSION>
+            <RESPONSIBILITY>Только публичный AR-адаптер: определение доступного канала, передача применимых GLB/USDZ-ресурсов и запуск WebXR, Android Scene Viewer или Apple Quick Look.</RESPONSIBILITY>
+            <CONSTRAINTS>
+                <CONSTRAINT>model-viewer не используется как основной 3D-просмотр.</CONSTRAINT>
+                <CONSTRAINT>Внутренняя Three.js-сцена model-viewer и непубличные API не используются.</CONSTRAINT>
+                <CONSTRAINT>Перенос цветов и структурных вариантов в AR выполняется только в пределах публично поддерживаемых возможностей выбранного AR-канала.</CONSTRAINT>
+                <CONSTRAINT>canActivateAR и отсутствие ошибки внешнего средства не считаются доказательством фактического запуска AR.</CONSTRAINT>
+            </CONSTRAINTS>
+            <LINKS>
+                <REQUIREMENT ref="FR-AR-LAUNCH"/>
+                <REQUIREMENT ref="FR-AR-ASSET-MAPPING"/>
+                <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/>
+                <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/>
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET"/>
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/>
+            </LINKS>
         </TECHNOLOGY>
+
+        <AR_OBSERVABILITY id="TECH-AR-OBSERVABILITY">
+            <WEBXR>
+                <LAUNCHED>Формируется только после фактического начала WebXR-сессии.</LAUNCHED>
+                <RETURNED>Формируется только после фактического завершения WebXR-сессии.</RETURNED>
+                <STATE_PATH>STATE-AR-LAUNCHING → STATE-AR-ACTIVE → STATE-READY.</STATE_PATH>
+            </WEBXR>
+            <EXTERNAL_MODES>
+                <MODES>Android Scene Viewer и Apple Quick Look.</MODES>
+                <HANDOFF_STARTED>Формируется после инициирования передачи управления внешнему средству.</HANDOFF_STARTED>
+                <HANDOFF_FAILED>Формируется только при фактически наблюдаемой ошибке.</HANDOFF_FAILED>
+                <PAGE_RESUMED>Формируется только после handoff-started и фактически наблюдённой последовательности hidden → visible.</PAGE_RESUMED>
+                <STATE_PATH>STATE-AR-LAUNCHING → handoff-started → STATE-READY. Ожидание handoff-failed и page-resumed хранится отдельно и не блокирует STATE-READY.</STATE_PATH>
+                <NON_GUARANTEES>handoff-started, page-resumed и отсутствие handoff-failed не подтверждают успешный запуск, нахождение пользователя в AR или корректное завершение внешнего средства.</NON_GUARANTEES>
+            </EXTERNAL_MODES>
+            <USER_ACTIVATION>Команда запуска AR должна вызываться из применимого пользовательского действия. При отсутствии требуемой transient user activation команда отклоняется до принятия.</USER_ACTIVATION>
+            <LINKS>
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/>
+                <REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/>
+                <REQUIREMENT ref="FR-EXTERNAL-AR-HANDOFF-NONBLOCKING"/>
+                <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/>
+            </LINKS>
+        </AR_OBSERVABILITY>
     </THREE_D_AND_AR>
+
+    <SOURCE_LANGUAGE_AND_BUILD>
+        <TECHNOLOGY id="TECH-TYPESCRIPT">
+            <NAME>TypeScript</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>6.0.3</VERSION>
+            <RESPONSIBILITY>Язык всех исходных файлов компонента, публичных типов, конфигурационных типов и тестового кода.</RESPONSIBILITY>
+            <CONSTRAINT>TypeScript 7 не используется в первой версии; выбран стабильный компилятор TypeScript 6.0.3.</CONSTRAINT>
+        </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-NODEJS-BUILD-RUNTIME">
+            <NAME>Node.js LTS</NAME>
+            <STATUS>SELECTED_BUILD_ONLY</STATUS>
+            <VERSION>24.18.1 LTS</VERSION>
+            <RESPONSIBILITY>Только локальная разработка, npm, сборка, генерация деклараций, тестирование и CI.</RESPONSIBILITY>
+            <NON_RESPONSIBILITIES>
+                <NON_RESPONSIBILITY>Не является production runtime публикуемого Web Component.</NON_RESPONSIBILITY>
+                <NON_RESPONSIBILITY>Не является сервером приложения или обязательным процессом на сайте клиента.</NON_RESPONSIBILITY>
+                <NON_RESPONSIBILITY>Не требуется для выполнения готового ESM-бандла в браузере.</NON_RESPONSIBILITY>
+            </NON_RESPONSIBILITIES>
+        </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-NPM">
+            <NAME>npm и package-lock.json</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>npm, поставляемый с Node.js 24.18.1; lockfileVersion определяется этой поставкой.</VERSION>
+            <RESPONSIBILITY>Установка точных зависимостей и воспроизводимый dependency graph.</RESPONSIBILITY>
+            <CONSTRAINTS>
+                <CONSTRAINT>package-lock.json обязателен и коммитится в репозиторий.</CONSTRAINT>
+                <CONSTRAINT>CI использует npm ci.</CONSTRAINT>
+                <CONSTRAINT>Прямые зависимости задаются точными версиями без ^ и ~.</CONSTRAINT>
+            </CONSTRAINTS>
+        </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-VITE">
+            <NAME>Vite library mode</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>8.2.0</VERSION>
+            <RESPONSIBILITY>Сборка публикуемого Web Component в ESM library bundle и локальный статический dev/preview server.</RESPONSIBILITY>
+            <CONSTRAINTS>
+                <CONSTRAINT>Production-выход — ESM-only.</CONSTRAINT>
+                <CONSTRAINT>UMD, CommonJS и legacy bundle не создаются.</CONSTRAINT>
+                <CONSTRAINT>Публичная библиотечная точка входа одна.</CONSTRAINT>
+                <CONSTRAINT>Runtime-зависимости включаются в публикуемую сборку, чтобы хост-страница загружала готовый Web Component без собственного npm dependency graph.</CONSTRAINT>
+            </CONSTRAINTS>
+        </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-TSC-DECLARATIONS">
+            <NAME>Отдельный tsc-шаг генерации деклараций</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>TypeScript 6.0.3</VERSION>
+            <RESPONSIBILITY>Создание .d.ts независимо от Vite library build.</RESPONSIBILITY>
+            <CONFIGURATION>
+                <SETTING>declaration: true</SETTING>
+                <SETTING>emitDeclarationOnly: true</SETTING>
+                <SETTING>Отдельный tsconfig для деклараций.</SETTING>
+                <SETTING>Запуск обычного tsc отдельной командой до проверки publish artifacts.</SETTING>
+            </CONFIGURATION>
+            <CONSTRAINT>Vite library mode не считается генератором TypeScript-деклараций.</CONSTRAINT>
+        </TECHNOLOGY>
+
+        <DEPENDENCY_INVARIANT id="TECH-THREE-SINGLE-COPY">
+            <DESCRIPTION>В итоговом графе зависимостей и production-сборке присутствует ровно одна версия Three.js — 0.183.2.</DESCRIPTION>
+            <ENFORCEMENT>
+                <CONTROL>Точная версия three 0.183.2 в package.json и package-lock.json.</CONTROL>
+                <CONTROL>Совместимый peer dependency @google/model-viewer 4.3.1: three ^0.183.0.</CONTROL>
+                <CONTROL>Vite resolve.dedupe: ['three'] как дополнительная настройка.</CONTROL>
+            </ENFORCEMENT>
+            <PROOF>
+                <CHECK>npm ls three должен показывать только three@0.183.2 без второй установленной версии.</CHECK>
+                <CHECK>Анализ итоговой production-сборки должен подтверждать отсутствие второй копии Three.js.</CHECK>
+                <CHECK>Одна только настройка resolve.dedupe не считается доказательством.</CHECK>
+            </PROOF>
+        </DEPENDENCY_INVARIANT>
+
+        <PUBLISH_FORMAT id="TECH-PUBLISH-FORMAT">
+            <MODULE_TYPE>ESM</MODULE_TYPE>
+            <RUNTIME_REQUIREMENTS>Статический файл JavaScript и связанные статические ресурсы, доступные браузеру.</RUNTIME_REQUIREMENTS>
+            <TYPE_ARTIFACTS>Публичные .d.ts, созданные отдельным tsc-шагом.</TYPE_ARTIFACTS>
+            <SERVER_REQUIREMENT>Отсутствует. Допустим любой статический хостинг или CDN с корректными MIME, HTTPS и CORS.</SERVER_REQUIREMENT>
+        </PUBLISH_FORMAT>
+    </SOURCE_LANGUAGE_AND_BUILD>
+
+    <BROWSER_AND_DEVICE_SUPPORT>
+        <SUPPORT_POLICY id="TECH-BROWSER-SUPPORT-POLICY">
+            <POLICY>Поддерживаются последние две основные стабильные версии каждого перечисленного браузера на дату выпуска компонента.</POLICY>
+            <CAPABILITY_OVERRIDE>Фактическая проверка возможностей имеет приоритет над заявленной версией браузера.</CAPABILITY_OVERRIDE>
+        </SUPPORT_POLICY>
+
+        <BROWSER_MATRIX>
+            <BROWSER id="TECH-BROWSER-CHROME-DESKTOP">
+                <NAME>Google Chrome desktop</NAME>
+                <SUPPORT>Основной 3D-просмотр при доступном WebGL 2.</SUPPORT>
+            </BROWSER>
+            <BROWSER id="TECH-BROWSER-EDGE-DESKTOP">
+                <NAME>Microsoft Edge desktop</NAME>
+                <SUPPORT>Основной 3D-просмотр при доступном WebGL 2.</SUPPORT>
+            </BROWSER>
+            <BROWSER id="TECH-BROWSER-FIREFOX-DESKTOP">
+                <NAME>Mozilla Firefox desktop</NAME>
+                <SUPPORT>Основной 3D-просмотр при доступном WebGL 2.</SUPPORT>
+            </BROWSER>
+            <BROWSER id="TECH-BROWSER-SAFARI-MACOS">
+                <NAME>Safari macOS</NAME>
+                <SUPPORT>Основной 3D-просмотр при доступном WebGL 2.</SUPPORT>
+            </BROWSER>
+            <BROWSER id="TECH-BROWSER-CHROME-ANDROID">
+                <NAME>Google Chrome Android</NAME>
+                <SUPPORT>Основной 3D-просмотр; WebXR или Scene Viewer только при фактической доступности соответствующего канала.</SUPPORT>
+            </BROWSER>
+            <BROWSER id="TECH-BROWSER-SAFARI-IOS">
+                <NAME>Safari iOS/iPadOS</NAME>
+                <SUPPORT>Основной 3D-просмотр; Quick Look только при фактической доступности канала.</SUPPORT>
+            </BROWSER>
+        </BROWSER_MATRIX>
+
+        <AR_MATRIX>
+            <AR_MODE id="TECH-AR-MODE-WEBXR">
+                <NAME>WebXR immersive-ar</NAME>
+                <TARGET>Совместимый Chromium-браузер Android на AR-совместимом устройстве.</TARGET>
+                <REQUIREMENTS>HTTPS, применимая transient user activation и фактическая поддержка immersive-ar.</REQUIREMENTS>
+                <OBSERVABILITY>Фактические launched и returned.</OBSERVABILITY>
+            </AR_MODE>
+            <AR_MODE id="TECH-AR-MODE-SCENE-VIEWER">
+                <NAME>Android Scene Viewer</NAME>
+                <TARGET>Android-среда при фактической доступности внешнего канала.</TARGET>
+                <REQUIREMENTS>Применимая transient user activation и доступный внешний обработчик.</REQUIREMENTS>
+                <OBSERVABILITY>handoff-started, только наблюдаемая handoff-failed и возможная page-resumed.</OBSERVABILITY>
+            </AR_MODE>
+            <AR_MODE id="TECH-AR-MODE-QUICK-LOOK">
+                <NAME>Apple Quick Look</NAME>
+                <TARGET>Safari iOS/iPadOS при фактической доступности Quick Look.</TARGET>
+                <REQUIREMENTS>Применимая transient user activation и доступный внешний обработчик.</REQUIREMENTS>
+                <OBSERVABILITY>handoff-started, только наблюдаемая handoff-failed и возможная page-resumed.</OBSERVABILITY>
+            </AR_MODE>
+        </AR_MATRIX>
+
+        <IFRAME_CONSTRAINT>При встраивании в iframe для WebXR требуется разрешение xr-spatial-tracking через Permissions Policy/allow. Отсутствие разрешения делает WebXR недоступным, но не блокирует основной 3D-просмотр.</IFRAME_CONSTRAINT>
+    </BROWSER_AND_DEVICE_SUPPORT>
+
+    <TEST_TOOLCHAIN>
+        <TECHNOLOGY id="TECH-VITEST">
+            <NAME>Vitest</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>4.1.10</VERSION>
+            <RESPONSIBILITY>Детерминированные unit-тесты чистой логики без браузерного DOM: валидация конфигурации, совместимость, пересечения, state transitions, команды, временные диапазоны и сценарии.</RESPONSIBILITY>
+            <CONSTRAINT>jsdom и happy-dom не используются как доказательство корректности Web Component, WebGL или браузерного жизненного цикла.</CONSTRAINT>
+        </TECHNOLOGY>
+
+        <TECHNOLOGY id="TECH-PLAYWRIGHT">
+            <NAME>Playwright</NAME>
+            <STATUS>SELECTED</STATUS>
+            <VERSION>1.62.1</VERSION>
+            <RESPONSIBILITY>Интеграционные проверки в реальных browser engines Chromium, Firefox и WebKit: Custom Elements, Shadow DOM, CustomEvent, ResizeObserver, загрузка GLB, WebGL 2, публичный API и наблюдаемое состояние.</RESPONSIBILITY>
+            <CONSTRAINTS>
+                <CONSTRAINT>Playwright WebKit не считается доказательством поведения Safari Quick Look.</CONSTRAINT>
+                <CONSTRAINT>Эмуляция мобильного viewport не считается проверкой внешнего AR-средства.</CONSTRAINT>
+            </CONSTRAINTS>
+        </TECHNOLOGY>
+
+        <TEST_LEVEL id="TECH-REAL-DEVICE-AR-TESTS">
+            <NAME>Проверки на реальных устройствах</NAME>
+            <STATUS>REQUIRED</STATUS>
+            <RESPONSIBILITY>Подтверждение WebXR на совместимом Android-устройстве, Scene Viewer на Android и Quick Look на iPhone/iPad.</RESPONSIBILITY>
+            <EVIDENCE>
+                <ITEM>WebXR: фактическое начало и завершение сессии.</ITEM>
+                <ITEM>Scene Viewer и Quick Look: handoff-started, возможная наблюдаемая ошибка, hidden → visible и отсутствие ложных гарантий.</ITEM>
+                <ITEM>Отсутствие hidden → visible не формирует page-resumed.</ITEM>
+                <ITEM>После handoff-started компонент остаётся доступен в STATE-READY.</ITEM>
+            </EVIDENCE>
+        </TEST_LEVEL>
+
+        <TEST_LEVEL id="TECH-DEPENDENCY-BUILD-CHECKS">
+            <NAME>Проверки dependency graph и publish artifacts</NAME>
+            <STATUS>REQUIRED</STATUS>
+            <CHECKS>
+                <CHECK>npm ci воспроизводимо устанавливает lock-файл.</CHECK>
+                <CHECK>npm ls three подтверждает единственную three@0.183.2.</CHECK>
+                <CHECK>Анализ production bundle подтверждает отсутствие второй копии Three.js.</CHECK>
+                <CHECK>ESM bundle импортируется браузером без Node.js runtime.</CHECK>
+                <CHECK>Отдельный tsc-шаг создаёт публичные .d.ts.</CHECK>
+            </CHECKS>
+        </TEST_LEVEL>
+    </TEST_TOOLCHAIN>
 
     <DATA_FORMATS>
         <FORMAT id="FORMAT-GLB" status="SELECTED">
             <NAME>GLB</NAME>
             <USAGE>Обязательная основная 3D-модель и встроенные анимационные клипы.</USAGE>
-            <LINKS><REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED"/><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/></LINKS>
+            <DELIVERY>Same-origin либо CORS-разрешённый HTTPS-ресурс.</DELIVERY>
+            <LINKS>
+                <REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED"/>
+                <REQUIREMENT ref="FR-GLB-MODEL-LOADING"/>
+            </LINKS>
         </FORMAT>
+
         <FORMAT id="FORMAT-USDZ" status="SELECTED_OPTIONAL">
             <NAME>USDZ</NAME>
             <USAGE>Необязательный отдельный ресурс Apple Quick Look.</USAGE>
-            <LINKS><REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/></LINKS>
+            <DELIVERY>Same-origin либо доступный Quick Look HTTPS-ресурс.</DELIVERY>
+            <LINKS>
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET"/>
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/>
+            </LINKS>
         </FORMAT>
+
         <FORMAT id="FORMAT-CSS-SOLID-COLOR" status="SELECTED">
             <NAME>Допустимое CSS-значение сплошного цвета</NAME>
             <USAGE>Формат значения образца цветового варианта во внешнем интерфейсе.</USAGE>
@@ -80,9 +388,32 @@
         </FORMAT>
     </DATA_FORMATS>
 
-    <UNRESOLVED_DECISIONS>
-        <DECISION id="TECH-UNRESOLVED-VERSIONS">Зафиксировать точные версии Three.js и model-viewer.</DECISION>
-        <DECISION id="TECH-UNRESOLVED-BROWSER-MATRIX">Зафиксировать поддерживаемую матрицу браузеров и устройств.</DECISION>
-        <DECISION id="TECH-UNRESOLVED-BUILD-TOOLCHAIN">Выбрать язык исходников и систему сборки.</DECISION>
-    </UNRESOLVED_DECISIONS>
+    <VERSION_LOCK>
+        <DEPENDENCY name="@google/model-viewer" version="4.3.1"/>
+        <DEPENDENCY name="three" version="0.183.2"/>
+        <DEPENDENCY name="@types/three" version="0.183.1"/>
+        <DEPENDENCY name="node" version="24.18.1"/>
+        <DEPENDENCY name="typescript" version="6.0.3"/>
+        <DEPENDENCY name="vite" version="8.2.0"/>
+        <DEPENDENCY name="vitest" version="4.1.10"/>
+        <DEPENDENCY name="playwright" version="1.62.1"/>
+    </VERSION_LOCK>
+
+    <SOURCE_EVIDENCE>
+        <SOURCE id="TECH-SOURCE-MODEL-VIEWER-PACKAGE">https://github.com/google/model-viewer/blob/v4.3.1/packages/model-viewer/package.json</SOURCE>
+        <SOURCE id="TECH-SOURCE-THREE-PACKAGE">https://github.com/mrdoob/three.js/blob/r183/package.json</SOURCE>
+        <SOURCE id="TECH-SOURCE-NODE-VERSION">https://github.com/nodejs/node/blob/v24.18.1/src/node_version.h</SOURCE>
+        <SOURCE id="TECH-SOURCE-TYPESCRIPT-PACKAGE">https://github.com/microsoft/TypeScript/blob/v6.0.3/package.json</SOURCE>
+        <SOURCE id="TECH-SOURCE-TYPESCRIPT-7-ANNOUNCEMENT">https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/</SOURCE>
+        <SOURCE id="TECH-SOURCE-VITE-PACKAGE">https://github.com/vitejs/vite/blob/v8.2.0/packages/vite/package.json</SOURCE>
+        <SOURCE id="TECH-SOURCE-VITEST-PACKAGE">https://github.com/vitest-dev/vitest/blob/v4.1.10/packages/vitest/package.json</SOURCE>
+        <SOURCE id="TECH-SOURCE-PLAYWRIGHT-PACKAGE">https://github.com/microsoft/playwright/blob/v1.62.1/package.json</SOURCE>
+    </SOURCE_EVIDENCE>
+
+    <UNRESOLVED_DECISIONS/>
+
+    <APPROVAL_GATE status="PENDING">
+        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
+        <CONDITION>Утвердить полный Technology.xml после проверки точных версий, browser/device matrix, build output, declaration generation, single-copy Three.js invariant и границ автоматических и real-device тестов.</CONDITION>
+    </APPROVAL_GATE>
 </TECHNOLOGY_SELECTION>
