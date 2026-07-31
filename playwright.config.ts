@@ -23,6 +23,7 @@ export default defineConfig({
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
+        headless: false,
         launchOptions: {
           env: {
             ...process.env,
