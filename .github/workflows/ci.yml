@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           if [ -d .iteration-2 ]; then
-            cat .iteration-2/part-* | base64 --decode > /tmp/iteration-2.tar.gz
+            cat .iteration-2/part-00 .iteration-2/part-01 .iteration-2/part-02 .iteration-2/part-03 | base64 --decode > /tmp/iteration-2.tar.gz
             gzip -t /tmp/iteration-2.tar.gz
             tar -xzf /tmp/iteration-2.tar.gz
             rm -rf .iteration-2 ci-result.txt
@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           result_file=$(mktemp)
-          cp ci-result.txt "$result_file"
+          if [ -f ci-result.txt ]; then cp ci-result.txt "$result_file"; else printf 'bootstrap FAIL\n' > "$result_file"; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
