@@ -18,14 +18,14 @@ jobs:
         with:
           node-version: 24.18.1
       - run: npm install
-      - run: npx playwright install --with-deps chromium firefox webkit
-      - name: Run verification and publish the first failure
+      - name: Run fast verification
+        id: fast
         shell: bash
         run: |
           set +e
           : > ci-result.txt
           status=0
-          for script in typecheck build build:types verify:api test:unit test:e2e verify:three; do
+          for script in typecheck build build:types verify:api test:unit verify:three; do
             npm run "$script" > "/tmp/${script//:/-}.log" 2>&1
             code=$?
             printf '%s %s\n' "$script" "$([ "$code" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
@@ -36,10 +36,34 @@ jobs:
               break
             fi
           done
-
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Install Playwright browsers
+        if: steps.fast.outputs.status == '0'
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run Playwright
+        if: steps.fast.outputs.status == '0'
+        id: e2e
+        shell: bash
+        run: |
+          set +e
+          npm run test:e2e > /tmp/test-e2e.log 2>&1
+          status=$?
+          printf 'test:e2e %s\n' "$([ "$status" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
+          if [ "$status" -ne 0 ]; then
+            printf '\n--- test:e2e output ---\n' >> ci-result.txt
+            tail -n 240 /tmp/test-e2e.log >> ci-result.txt
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Publish verification result and lockfile
+        if: always()
+        shell: bash
+        run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ci-result.txt
+          git add ci-result.txt package-lock.json
           git commit -m 'Record CI verification result [skip ci]' || true
           git push origin HEAD:agent/implement-product-3d-widget
-          exit "$status"
+          test "${{ steps.fast.outputs.status }}" = '0'
+          if [ -n "${{ steps.e2e.outputs.status }}" ]; then
+            test "${{ steps.e2e.outputs.status }}" = '0'
+          fi
