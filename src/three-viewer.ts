@@ -105,6 +105,9 @@ const localError = (
   entityId: string,
 ): WidgetError => Object.freeze({ code, scope, message, entityId });
 
+const animationTimeTolerance = (duration: number): number =>
+  Math.max(1e-6, Math.abs(duration) * 1e-7);
+
 // <SEMANTIC_BLOCK id="CFC-CLASS-THREE-VIEWER">
 // <INTENT>Own exactly one Three.js viewer and all of its resources.</INTENT>
 // <LINKS><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-INITIALIZE"/></LINKS>
@@ -375,7 +378,9 @@ export class ThreeViewer {
 
     for (const animation of this.#config!.animationsById.values()) {
       const clip = this.#clipsByName.get(animation.source.clipName);
-      const rangeValid = animation.source.kind === 'clip' || (clip !== undefined && animation.source.endSeconds <= clip.duration);
+      const rangeValid = animation.source.kind === 'clip'
+        || (clip !== undefined
+          && animation.source.endSeconds <= clip.duration + animationTimeTolerance(clip.duration));
       const hasCompatibleVariant = [...animation.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));
       if (clip !== undefined && rangeValid && hasCompatibleVariant) {
         this.#enabledAnimations.add(animation.id);
@@ -633,7 +638,8 @@ export class ThreeViewer {
     action.clampWhenFinished = kind === 'scenario';
     action.setLoop(LoopOnce, 1);
     const startSeconds = animation.source.kind === 'range' ? animation.source.startSeconds : 0;
-    const endSeconds = animation.source.kind === 'range' ? animation.source.endSeconds : clip.duration;
+    const configuredEndSeconds = animation.source.kind === 'range' ? animation.source.endSeconds : clip.duration;
+    const endSeconds = Math.min(configuredEndSeconds, clip.duration);
     action.time = startSeconds;
     action.play();
     this.#playback = {
