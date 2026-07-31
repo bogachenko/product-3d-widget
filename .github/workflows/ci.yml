@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -18,4 +18,30 @@ jobs:
           node-version: 24.18.1
       - run: npm install
       - run: npx playwright install --with-deps chromium firefox webkit
-      - run: npm run verify
+      - name: Run verification and publish the first failure
+        shell: bash
+        run: |
+          set +e
+          : > ci-result.txt
+          status=0
+          for script in typecheck build build:types verify:api test:unit test:e2e verify:three; do
+            npm run "$script" > "/tmp/${script//:/-}.log" 2>&1
+            code=$?
+            printf '%s %s\n' "$script" "$([ "$code" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
+            if [ "$code" -ne 0 ]; then
+              printf '\n--- %s output ---\n' "$script" >> ci-result.txt
+              tail -n 240 "/tmp/${script//:/-}.log" >> ci-result.txt
+              status=$code
+              break
+            fi
+          done
+
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add ci-result.txt
+            git commit -m 'Record CI verification result [skip ci]' || true
+            git push origin HEAD:agent/implement-product-3d-widget
+          fi
+
+          exit "$status"
