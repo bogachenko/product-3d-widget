@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="DRAFT">
+<TECHNOLOGY_SELECTION id="TECH-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
     <PURPOSE>Зафиксировать технологические решения для реализации утверждённого RequirementsAnalysis.xml без изменения утверждённого поведения системы.</PURPOSE>
 
     <BASED_ON_REQUIREMENTS>
         <ARTIFACT>RequirementsAnalysis.xml</ARTIFACT>
-        <APPROVED_REVISION>7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3</APPROVED_REVISION>
-        <APPROVAL_COMMIT>6d9e316832b22be4eae11e8b31ced3606737829d</APPROVAL_COMMIT>
-        <STATUS>SUPERSEDED_BY_PENDING_AR_MODE_NEUTRAL_REVISION</STATUS>
+        <APPROVED_REVISION>dbdacbd45007690b454e2f14a325bc7c06f7358f</APPROVED_REVISION>
+        <APPROVAL_COMMIT>8fc4558fc4b1c2d13c9354d4054a662281a3d2fd</APPROVAL_COMMIT>
     </BASED_ON_REQUIREMENTS>
 
     <TECHNOLOGY_PRINCIPLES>
@@ -407,8 +406,8 @@
 
     <UNRESOLVED_DECISIONS/>
 
-    <APPROVAL_GATE status="BLOCKED">
-        <BLOCKER>RequirementsAnalysis.xml изменяется для режим-нейтрального запуска AR и должен быть переутверждён до повторного перевода Technology.xml в READY_FOR_APPROVAL.</BLOCKER>
-        <READY_STATE>NOT_READY_PENDING_REQUIREMENTS_REAPPROVAL</READY_STATE>
+    <APPROVAL_GATE status="PENDING">
+        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
+        <CONDITION>Утвердить полный Technology.xml после проверки точных версий, browser/device matrix, ESM library build, отдельной генерации деклараций, single-copy Three.js invariant, режим-нейтрального model-viewer AR-адаптера и границ автоматических и real-device тестов.</CONDITION>
     </APPROVAL_GATE>
 </TECHNOLOGY_SELECTION>
