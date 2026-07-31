@@ -16,8 +16,6 @@ RequirementsAnalysis.xml
 → DevelopmentPlan.xml
 → ModuleContracts.xml
 → ClassFunctionContracts.xml
-→ MentalScenarios.xml
-→ VerificationCriteria.xml
 → код
 → тесты
 → семантические логи и трассы
