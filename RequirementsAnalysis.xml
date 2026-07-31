@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="APPROVED">
     <PROJECT_GOAL id="GOAL-P3D-001">
         Создать настраиваемый Web Component product-3d-widget для встраивания на веб-страницу интерактивной 3D-карточки товара, позволяющей просматривать и настраивать 3D-модель товара на странице, запускать её анимации и пошаговые сценарии, а также размещать товар в реальном пространстве в AR-режиме.
     </PROJECT_GOAL>
@@ -658,18 +658,20 @@
         </GRAPH_BRANCH>
     </SEMANTIC_GRAPH>
 
-    <APPROVAL_GATE status="PENDING">
+    <APPROVAL_GATE status="APPROVED">
         <APPROVAL_HISTORY>
             <APPROVAL status="SUPERSEDED">
                 <APPROVED_REVISION>65977ee23b11c429f2bf398f3426316f85b62e55</APPROVED_REVISION>
                 <APPROVAL_COMMIT>ec204cfd023215985ed68964c2c895081c5e56dd</APPROVAL_COMMIT>
             </APPROVAL>
-            <APPROVAL status="SUPERSEDED_FOR_AR_MODE_NEUTRAL_REAPPROVAL">
+            <APPROVAL status="SUPERSEDED">
                 <APPROVED_REVISION>7e4af75a17a2f03ca3ac0d6719ee0433ede2b2c3</APPROVED_REVISION>
                 <APPROVAL_COMMIT>6d9e316832b22be4eae11e8b31ced3606737829d</APPROVAL_COMMIT>
             </APPROVAL>
         </APPROVAL_HISTORY>
-        <REVISION_SCOPE>Удаление обязанности предварительно знать фактически выбранный AR-канал, отдельного состояния запуска AR, событий внешней передачи и Page Visibility lifecycle. AR-запрос становится режим-нейтральным; только фактически наблюдаемые начало и завершение WebXR изменяют состояние и формируют launched/returned. Для Scene Viewer и Quick Look жизненный цикл не выводится по косвенным признакам.</REVISION_SCOPE>
-        <READY_STATE>READY_FOR_HUMAN_REAPPROVAL</READY_STATE>
+        <APPROVED_REVISION>dbdacbd45007690b454e2f14a325bc7c06f7358f</APPROVED_REVISION>
+        <APPROVED_AT>2026-07-31T14:18:00+03:00</APPROVED_AT>
+        <APPROVAL_STATEMENT>Утверждаю RequirementsAnalysis.xml в редакции commit dbdacbd45007690b454e2f14a325bc7c06f7358f, включая режим-нейтральный запуск AR: компонент не определяет выбранный AR-канал; отдельное состояние запуска и lifecycle-события Scene Viewer и Quick Look отсутствуют; только фактически наблюдаемые начало и завершение WebXR изменяют AR-состояние.</APPROVAL_STATEMENT>
+        <APPROVED_SCOPE>Полная редакция RequirementsAnalysis.xml с режим-нейтральным запуском AR: компонент не определяет выбранный AR-канал; отдельное состояние запуска отсутствует; Scene Viewer и Quick Look не создают lifecycle-событий компонента; только фактически наблюдаемые начало и завершение WebXR изменяют AR-состояние.</APPROVED_SCOPE>
     </APPROVAL_GATE>
 </REQUIREMENTS_ANALYSIS>
