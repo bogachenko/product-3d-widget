@@ -4,42 +4,23 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/implement-product-3d-widget
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24.18.1
-      - run: npm install
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run build:types
+      - run: npm run verify:api
+      - run: npm run test:unit
+      - run: npm run verify:three
       - run: npx playwright install --with-deps chromium firefox webkit
-      - name: Run verification and publish the first failure
-        shell: bash
-        run: |
-          set +e
-          : > ci-result.txt
-          status=0
-          for script in typecheck build build:types verify:api test:unit test:e2e verify:three; do
-            npm run "$script" > "/tmp/${script//:/-}.log" 2>&1
-            code=$?
-            printf '%s %s\n' "$script" "$([ "$code" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
-            if [ "$code" -ne 0 ]; then
-              printf '\n--- %s output ---\n' "$script" >> ci-result.txt
-              tail -n 240 "/tmp/${script//:/-}.log" >> ci-result.txt
-              status=$code
-              break
-            fi
-          done
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ci-result.txt
-          git commit -m 'Record CI verification result [skip ci]' || true
-          git push origin HEAD:agent/implement-product-3d-widget
-          exit "$status"
+      - run: xvfb-run --auto-servernum npm run test:e2e
