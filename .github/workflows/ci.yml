@@ -54,15 +54,28 @@ jobs:
             tail -n 300 /tmp/test-e2e.log >> ci-result.txt
           fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
-      - name: Publish verification result and lockfile
+      - name: Publish verification result
         if: always()
         shell: bash
         run: |
+          result_file=$(mktemp)
+          cp ci-result.txt "$result_file"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ci-result.txt package-lock.json
-          git commit -m 'Record CI verification result [skip ci]' || true
-          git push origin HEAD:agent/implement-product-3d-widget
+
+          published=false
+          for attempt in 1 2 3; do
+            git fetch origin agent/implement-product-3d-widget
+            git reset --hard origin/agent/implement-product-3d-widget
+            cp "$result_file" ci-result.txt
+            git add ci-result.txt
+            git commit -m 'Record CI verification result [skip ci]' || true
+            if git push origin HEAD:agent/implement-product-3d-widget; then
+              published=true
+              break
+            fi
+          done
+          test "$published" = true
           test "${{ steps.fast.outputs.status }}" = '0'
           if [ -n "${{ steps.e2e.outputs.status }}" ]; then
             test "${{ steps.e2e.outputs.status }}" = '0'
