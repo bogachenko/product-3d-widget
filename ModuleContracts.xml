@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MODULE_CONTRACTS id="MC-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+    <PURPOSE>Зафиксировать минимальные контракты четырёх утверждённых runtime-модулей без введения классов, функций, файлов или абстракций, не требуемых DevelopmentPlan.xml.</PURPOSE>
+    <BASED_ON>
+        <REQUIREMENTS artifact="RequirementsAnalysis.xml" approved_revision="dbdacbd45007690b454e2f14a325bc7c06f7358f" approval_commit="8fc4558fc4b1c2d13c9354d4054a662281a3d2fd" />
+        <TECHNOLOGY artifact="Technology.xml" approved_revision="2fed2843ee692abf401e1999c5bba1e0550245ba" approval_commit="161d967588367b5e0612886b773c39bc0e1c4dda" />
+        <DEVELOPMENT_PLAN artifact="DevelopmentPlan.xml" approved_revision="bf444f172b1be14f2e5877fcbe3cff95ff0a6772" approval_commit="5d6b911292cfb81f884d0d816ade4a87fec76d88" />
+    </BASED_ON>
+    <GLOBAL_CONTRACT_RULES>
+        <RULE id="MC-RULE-MODULE-IS-NOT-FILE">Контракт модуля задаёт границу ответственности и не требует отдельного класса, интерфейса, каталога или файла.</RULE>
+        <RULE id="MC-RULE-LAZY-LADDER">Перед реализацией каждой ответственности применяется утверждённая decision ladder DP-PRINCIPLE-LAZY-SENIOR; код создаётся только после исключения YAGNI, стандартной библиотеки, Web Platform и уже утверждённых зависимостей.</RULE>
+        <RULE id="MC-RULE-NO-NEW-DEPENDENCY">Новая dependency запрещена без отдельного изменения и утверждения Technology.xml.</RULE>
+        <RULE id="MC-RULE-SINGLE-PUBLIC-STATE-OWNER">Только CONTRACT-MOD-WIDGET-CONTROLLER владеет подтверждённым публичным состоянием и отправляет host CustomEvent.</RULE>
+        <RULE id="MC-RULE-LEAF-ISOLATION">Leaf-модули не импортируют, не вызывают и не знают друг друга или контроллер; контроллер вызывает их и принимает явные результаты.</RULE>
+        <RULE id="MC-RULE-NO-INTERNAL-BUS">Внутренний event bus, command bus, DI container, plugin registry и generic adapter hierarchy отсутствуют.</RULE>
+        <RULE id="MC-RULE-EXPECTED-FAILURE-AS-DATA">Ожидаемые validation/rejection/operation failures передаются явным результатом; исключения не используются как обычный управляющий поток.</RULE>
+        <RULE id="MC-RULE-TRUST-BOUNDARY">Недоверенные данные проверяются до использования; trusted module result не освобождает контроллер от проверки соответствия текущей операции и lifecycle.</RULE>
+        <RULE id="MC-RULE-MINIMUM-CHECK">Каждая нетривиальная контрактная логика получает минимальный runnable check в утверждённом Vitest или Playwright harness; тривиальные прямые прокси отдельного теста не требуют.</RULE>
+        <RULE id="MC-RULE-PONYTAIL">Намеренное упрощение с известным потолком получает PONYTAIL-комментарий с пределом, допустимой областью, условием пересмотра и прямым upgrade path.</RULE>
+    </GLOBAL_CONTRACT_RULES>
+    <INTERACTION_MODEL>
+        <COMMAND_PATH>Host → CONTRACT-MOD-WIDGET-CONTROLLER → ровно один необходимый leaf-модуль.</COMMAND_PATH>
+        <RESULT_PATH>Leaf-модуль → явный результат или узкий callback → CONTRACT-MOD-WIDGET-CONTROLLER → commit публичного snapshot → DOM events → Promise.</RESULT_PATH>
+        <FORBIDDEN_PATH>Leaf-модуль → другой leaf-модуль; leaf-модуль → host event; leaf-модуль → импорт контроллера.</FORBIDDEN_PATH>
+        <STATE_COMMIT>Leaf-модуль может изменить только owned internal resources. Публичное состояние считается изменённым только после commit контроллером.</STATE_COMMIT>
+        <CALLBACK_SCOPE>Callback допустим только для фактически асинхронного библиотечного или platform event и должен быть узким, owned и удаляемым при cleanup.</CALLBACK_SCOPE>
+    </INTERACTION_MODEL>
+    <CONTRACTS>
+        <MODULE_CONTRACT id="CONTRACT-MOD-WIDGET-CONTROLLER">
+            <MODULE ref="MOD-WIDGET-CONTROLLER" />
+            <NAME>Контроллер Web Component</NAME>
+            <INTENT>Обеспечить единую публичную точку управления product-3d-widget, которая атомарно координирует конфигурацию, основной 3D viewer и AR, не передавая им владение подтверждённым состоянием хост-страницы.</INTENT>
+            <RESPONSIBILITIES>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-01">Регистрировать и обслуживать lifecycle Custom Element и его открытый Shadow DOM.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-02">Принимать ровно одну полную конфигурацию товара на экземпляр и передавать её MOD-CONFIGURATION.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-03">Владеть подтверждённым публичным состоянием, текущим выбором, активной операцией, доступностью действий и состоянием ошибки.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-04">Проверять lifecycle gate, блокировки сценария и применимость публичной команды до её принятия.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-05">Координировать остановку, замену и последовательность viewer/AR-операций без скрытой очереди команд.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-06">Фиксировать новое подтверждённое состояние только после фактически успешного результата leaf-модуля.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-07">Публиковать общее и специализированное CustomEvent в утверждённом порядке и только затем разрешать Promise принятой команды.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-08">Отклонять недопустимые команды без изменения подтверждённого состояния и без error event.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-09">Инициировать cleanup всех owned resources при disconnect и не возобновлять прежнее runtime-состояние при reconnect.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-WIDGET-CONTROLLER-RESP-10">Фиксировать terminal primary GLB failure так, чтобы тот же экземпляр не переинициализировался.</RESPONSIBILITY>
+            </RESPONSIBILITIES>
+            <NON_RESPONSIBILITIES>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-01">Не загружает и не рендерит GLB напрямую.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-02">Не анализирует внутреннюю Three.js-сцену model-viewer.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-03">Не определяет фактически выбранный AR-канал.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-04">Не содержит generic command bus, event bus или dependency injection container.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-05">Не определяет внутреннюю структуру нормализованной конфигурации сверх данных, необходимых для оркестрации.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-06">Не выполняет рендеринг, AnimationMixer-операции, GLB-разбор или WebGL-восстановление.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-07">Не реализует собственную систему событий поверх DOM CustomEvent.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-08">Не создаёт универсальный command dispatcher, middleware pipeline или state-management framework.</RULE>
+                <RULE id="CONTRACT-MOD-WIDGET-CONTROLLER-NONRESP-09">Не интерпретирует Page Visibility как доказательство AR lifecycle.</RULE>
+            </NON_RESPONSIBILITIES>
+            <INPUTS>
+                <INPUT id="MC-IN-CONTROLLER-CONFIG" trust="UNTRUSTED">Полная внешняя конфигурация одного товара от хост-страницы.</INPUT>
+                <INPUT id="MC-IN-CONTROLLER-COMMAND" trust="UNTRUSTED">Публичная команда с аргументами и фактическим контекстом вызова, включая user activation для AR.</INPUT>
+                <INPUT id="MC-IN-CONTROLLER-CONFIG-RESULT" trust="TRUSTED_MODULE_RESULT">Явный результат проверки и нормализации от MOD-CONFIGURATION.</INPUT>
+                <INPUT id="MC-IN-CONTROLLER-VIEWER-RESULT" trust="TRUSTED_MODULE_RESULT">Фактически наблюдаемый результат загрузки, выбора, анимации, сценария, resize или recovery от MOD-THREE-VIEWER.</INPUT>
+                <INPUT id="MC-IN-CONTROLLER-AR-RESULT" trust="TRUSTED_MODULE_RESULT">Доступность, общий результат запроса, фактические WebXR start/end или общая AR-ошибка от MOD-AR-ADAPTER.</INPUT>
+                <INPUT id="MC-IN-CONTROLLER-DOM-LIFECYCLE" trust="PLATFORM_EVENT">Подключение и отключение Custom Element.</INPUT>
+            </INPUTS>
+            <OUTPUTS>
+                <OUTPUT id="MC-OUT-CONTROLLER-CONFIG-REQUEST">Запрос чистой проверки конфигурации для MOD-CONFIGURATION.</OUTPUT>
+                <OUTPUT id="MC-OUT-CONTROLLER-VIEWER-COMMAND">Минимальная конкретная операция для MOD-THREE-VIEWER вместе с подтверждённым снимком необходимых данных.</OUTPUT>
+                <OUTPUT id="MC-OUT-CONTROLLER-AR-COMMAND">Режим-нейтральный AR-запрос для MOD-AR-ADAPTER с подтверждёнными ресурсами и выбором.</OUTPUT>
+                <OUTPUT id="MC-OUT-CONTROLLER-EVENT">DOM CustomEvent с уже зафиксированным непротиворечивым публичным snapshot.</OUTPUT>
+                <OUTPUT id="MC-OUT-CONTROLLER-PROMISE">Разрешение или отклонение Promise публичной команды после утверждённого порядка наблюдения.</OUTPUT>
+                <OUTPUT id="MC-OUT-CONTROLLER-CLEANUP">Явный запрос leaf-модулям освободить owned resources.</OUTPUT>
+            </OUTPUTS>
+            <STATE_OWNERSHIP>
+                <OWNS>
+                    <STATE_ITEM>Текущее публичное lifecycle state из утверждённого множества состояний.</STATE_ITEM>
+                    <STATE_ITEM>Неизменяемая нормализованная конфигурация принятого товара.</STATE_ITEM>
+                    <STATE_ITEM>Подтверждённые color selection и structural variant selection.</STATE_ITEM>
+                    <STATE_ITEM>Подтверждённая активная обычная анимация либо активный сценарий и шаг; одновременно не более одной взаимоисключающей операции.</STATE_ITEM>
+                    <STATE_ITEM>Наблюдаемая доступность действий и локально отключённых возможностей.</STATE_ITEM>
+                    <STATE_ITEM>Флаг terminal primary GLB failure для текущего экземпляра.</STATE_ITEM>
+                    <STATE_ITEM>Минимальные ссылки на owned listeners и незавершённые операции, необходимые для cleanup.</STATE_ITEM>
+                </OWNS>
+                <DOES_NOT_OWN>
+                    <STATE_ITEM>Three.js scene, renderer, camera, AnimationMixer, GPU resources и внутреннее playback-состояние.</STATE_ITEM>
+                    <STATE_ITEM>Скрытый model-viewer, выбранный им AR-канал и внутреннее состояние внешних AR-приложений.</STATE_ITEM>
+                    <STATE_ITEM>Долговременное состояние между отключением и повторным подключением.</STATE_ITEM>
+                </DOES_NOT_OWN>
+            </STATE_OWNERSHIP>
+            <SIDE_EFFECTS>
+                <ALLOWED>
+                    <EFFECT>Создание и обновление минимального Shadow DOM компонента.</EFFECT>
+                    <EFFECT>Регистрация и удаление собственных DOM listeners.</EFFECT>
+                    <EFFECT>Вызов leaf-модулей по утверждённым зависимостям.</EFFECT>
+                    <EFFECT>Отправка публичных CustomEvent после фиксации состояния.</EFFECT>
+                    <EFFECT>Изменение собственного подтверждённого состояния.</EFFECT>
+                    <EFFECT>Инициирование освобождения ресурсов при disconnect.</EFFECT>
+                </ALLOWED>
+                <FORBIDDEN>
+                    <EFFECT>Мутация внутренней Three.js scene или model-viewer internals.</EFFECT>
+                    <EFFECT>Публикация промежуточного либо противоречивого состояния.</EFFECT>
+                    <EFFECT>Постановка pre-ready или иной отклонённой команды в очередь.</EFFECT>
+                    <EFFECT>Автоматическая смена пользовательского выбора для выполнения команды.</EFFECT>
+                    <EFFECT>Автоматическое возобновление остановленной для AR анимации.</EFFECT>
+                    <EFFECT>Сохранение runtime-состояния для восстановления после reconnect.</EFFECT>
+                </FORBIDDEN>
+            </SIDE_EFFECTS>
+            <FAILURE_BEHAVIOR>
+                <RULE>Ожидаемая недопустимость команды является rejection: состояние и события не меняются.</RULE>
+                <RULE>Ошибка после принятия команды является execution failure и сообщается отдельно от rejection, если она публично наблюдаема.</RULE>
+                <RULE>Блокирующая ошибка конфигурации, основной GLB или неуспешного WebGL recovery переводит компонент в STATE-ERROR.</RULE>
+                <RULE>Primary GLB failure остаётся terminal для текущего экземпляра даже после disconnect/reconnect.</RULE>
+                <RULE>Наблюдаемая AR-ошибка не утверждает выбранный канал и не создаёт внешнего AR lifecycle.</RULE>
+            </FAILURE_BEHAVIOR>
+            <INTERACTION_RULES>
+                <RULE>Контроллер вызывает только конкретную операцию, необходимую для текущей команды; пакетная универсальная команда не вводится.</RULE>
+                <RULE>Leaf-модуль возвращает результат контроллеру и не отправляет публичный CustomEvent.</RULE>
+                <RULE>Порядок принятой команды: фактический результат → commit snapshot → общее событие → специализированное событие → Promise.</RULE>
+                <RULE>При замене операции сначала проверяется новый запрос; недопустимый запрос не прерывает текущую подтверждённую операцию.</RULE>
+                <RULE>Viewer и AR adapter никогда не получают ссылки друг на друга.</RULE>
+            </INTERACTION_RULES>
+            <CLEANUP_CONTRACT>
+                <RULE>Сначала запретить новые операции экземпляра.</RULE>
+                <RULE>Запросить cleanup viewer и AR adapter.</RULE>
+                <RULE>Удалить собственные listeners и ссылки на незавершённые операции.</RULE>
+                <RULE>Зафиксировать STATE-DISCONNECTED без хранения resume snapshot.</RULE>
+                <RULE>Повторный cleanup должен быть безопасным и не создавать новых ресурсов.</RULE>
+            </CLEANUP_CONTRACT>
+            <DEPENDENCIES>
+                <MODULE_CONTRACT ref="CONTRACT-MOD-CONFIGURATION" />
+                <MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER" />
+                <MODULE_CONTRACT ref="CONTRACT-MOD-AR-ADAPTER" />
+            </DEPENDENCIES>
+            <FORBIDDEN_DEPENDENCIES>
+            </FORBIDDEN_DEPENDENCIES>
+            <PRESERVES>
+                <INVARIANT ref="INV-REJECTED-COMMAND-PRESERVES-CONFIRMED-STATE" />
+                <INVARIANT ref="INV-ATOMIC-HOST-OBSERVATION" />
+                <INVARIANT ref="INV-ACTIVE-SCENARIO-EXCLUSIVITY" />
+                <INVARIANT ref="INV-DISCONNECTED-COMPONENT-HAS-NO-OWNED-ACTIVE-OPERATIONS" />
+                <INVARIANT ref="INV-INSTANCE-PRODUCT-IMMUTABILITY" />
+                <INVARIANT ref="INV-PRE-READY-COMMANDS-ARE-NOT-QUEUED" />
+                <INVARIANT ref="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE" />
+                <INVARIANT ref="INV-PRIMARY-GLB-FAILURE-TERMINAL-FOR-INSTANCE" />
+                <INVARIANT ref="INV-HOST-NOTIFICATION-ORDER" />
+                <INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE" />
+                <INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED" />
+            </PRESERVES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION" />
+                <BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION" />
+                <BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK" />
+                <BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION" />
+                <BUSINESS_PROCESS ref="BP-AR-PLACEMENT" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                <REQUIREMENT ref="FR-HOST-STATE-EVENTS" />
+                <REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY" />
+                <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS" />
+                <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                <REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION" />
+                <REQUIREMENT ref="FR-AVAILABILITY-STATES" />
+                <REQUIREMENT ref="FR-ERROR-MESSAGES" />
+                <REQUIREMENT ref="FR-DISCONNECT-CLEANUP" />
+                <REQUIREMENT ref="FR-ANIMATION-INTERRUPTION" />
+                <REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION" />
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT" />
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART" />
+                <REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-REGULAR-ANIMATIONS" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-AR" />
+                <REQUIREMENT ref="FR-ANIMATION-SELECTION-AVAILABILITY" />
+                <REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION" />
+                <REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE" />
+                <REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME" />
+                <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
+                <REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT" />
+                <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                <REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION" />
+                <REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER" />
+            </REQUIREMENTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-CUSTOM-ELEMENTS" />
+                <TECH_REF ref="TECH-SHADOW-DOM" />
+                <TECH_REF ref="TECH-DOM-CUSTOM-EVENT" />
+                <TECH_REF ref="TECH-JS-PROMISE" />
+                <TECH_REF ref="TECH-CSS-SHADOW-PARTS" />
+            </TECHNOLOGIES>
+            <TEST_PROPERTIES>
+                <PROPERTY id="CONTRACT-MOD-WIDGET-CONTROLLER-PROP-01">Любая публичная команда до STATE-READY немедленно отклоняется и никогда не выполняется позднее.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-WIDGET-CONTROLLER-PROP-02">Rejected command сохраняет байт-в-байт эквивалентный подтверждённый snapshot и не отправляет error event.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-WIDGET-CONTROLLER-PROP-03">Хост никогда не наблюдает состояние между mutation и commit.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-WIDGET-CONTROLLER-PROP-04">Для принятой команды порядок уведомлений детерминирован и Promise завершается последним.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-WIDGET-CONTROLLER-PROP-05">Disconnect оставляет ноль owned active operations/listeners после завершения cleanup.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-WIDGET-CONTROLLER-PROP-06">Reconnect после нетерминального disconnect начинает новую инициализацию с исходным выбором.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-WIDGET-CONTROLLER-PROP-07">Reconnect после terminal primary GLB failure не начинает загрузку.</PROPERTY>
+            </TEST_PROPERTIES>
+            <LAZY_IMPLEMENTATION_CONSTRAINTS>
+                <RULE>Реализовать прямым Custom Element controller без внутреннего framework.</RULE>
+                <RULE>Не создавать отдельный command bus, event bus, store, reducer, DI container или abstract coordinator.</RULE>
+                <RULE>Не выделять state machine library: утверждённого конечного набора состояний и прямых guards достаточно.</RULE>
+                <RULE>Разделять файл только если контракт функции или доказанный цикл зависимостей требует этого.</RULE>
+            </LAZY_IMPLEMENTATION_CONSTRAINTS>
+        </MODULE_CONTRACT>
+        <MODULE_CONTRACT id="CONTRACT-MOD-CONFIGURATION">
+            <MODULE ref="MOD-CONFIGURATION" />
+            <NAME>Проверка и нормализация конфигурации</NAME>
+            <INTENT>Преобразовать недоверенную конфигурацию одного товара в явный детерминированный результат: блокирующий отказ либо неизменяемую нормализованную конфигурацию с локально отключёнными необязательными возможностями и вычисленной совместимостью.</INTENT>
+            <RESPONSIBILITIES>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-01">Проверять обязательную структуру, типы, идентификаторы и единственность основной GLB.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-02">Проверять CSS-значения образцов цветов на уровне конфигурации без создания DOM.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-03">Нормализовать base state как допустимый структурный вариант.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-04">Проверять наличие ровно одного корректного default variant в непустой группе и отключать целую неверную группу.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-05">Проверять структурную корректность объявлений анимаций и сценариев до загрузки модели.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-06">Вычислять совместимость сценария как пересечение совместимых structural variants всех шагов.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-07">Игнорировать цветовые варианты при вычислении structural compatibility.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-08">Изолировать ошибки необязательных возможностей и не превращать их в блокирующую ошибку основной GLB.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-09">Сохранять optional USDZ как необязательную ссылку без проверки фактической загрузки.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-CONFIGURATION-RESP-10">Возвращать результат без мутации входного объекта и без runtime side effects.</RESPONSIBILITY>
+            </RESPONSIBILITIES>
+            <NON_RESPONSIBILITIES>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-01">Не создаёт DOM и не отправляет события.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-02">Не загружает GLB или USDZ.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-03">Не мутирует Three.js-объекты.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-04">Не хранит runtime-состояние пользователя.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-05">Не проверяет наличие узлов или animation clips внутри фактически загруженной GLB.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-06">Не проверяет доступность URL по сети.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-07">Не принимает решения о текущем пользовательском выборе после инициализации.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-08">Не создаёт классовую schema framework или универсальный validation DSL.</RULE>
+                <RULE id="CONTRACT-MOD-CONFIGURATION-NONRESP-09">Не отправляет пользовательские сообщения; возвращает структурированные причины контроллеру.</RULE>
+            </NON_RESPONSIBILITIES>
+            <INPUTS>
+                <INPUT id="MC-IN-CONFIG-RAW" trust="UNTRUSTED">Полная внешняя конфигурация одного товара.</INPUT>
+            </INPUTS>
+            <OUTPUTS>
+                <OUTPUT id="MC-OUT-CONFIG-ACCEPTED">Неизменяемая нормализованная конфигурация, исходный выбор, локально отключённые возможности и производные compatibility sets.</OUTPUT>
+                <OUTPUT id="MC-OUT-CONFIG-BLOCKED">Явный блокирующий результат с детерминированными причинами, если обязательная часть недопустима.</OUTPUT>
+            </OUTPUTS>
+            <STATE_OWNERSHIP>
+                <OWNS>
+                    <STATE_ITEM>Постоянное runtime-состояние отсутствует.</STATE_ITEM>
+                    <STATE_ITEM>Допустимы только локальные переменные одного вызова проверки.</STATE_ITEM>
+                </OWNS>
+                <DOES_NOT_OWN>
+                    <STATE_ITEM>DOM, component lifecycle, пользовательский выбор, Three.js resources и AR resources.</STATE_ITEM>
+                    <STATE_ITEM>Кэш между экземплярами или вызовами.</STATE_ITEM>
+                </DOES_NOT_OWN>
+            </STATE_OWNERSHIP>
+            <SIDE_EFFECTS>
+                <ALLOWED>
+                    <EFFECT>Нет runtime side effects.</EFFECT>
+                </ALLOWED>
+                <FORBIDDEN>
+                    <EFFECT>Мутация входной конфигурации.</EFFECT>
+                    <EFFECT>DOM, fetch, timers, storage, CustomEvent и console как часть нормального результата.</EFFECT>
+                    <EFFECT>Создание либо изменение Three.js/model-viewer объектов.</EFFECT>
+                    <EFFECT>Глобальный кэш или registry.</EFFECT>
+                </FORBIDDEN>
+            </SIDE_EFFECTS>
+            <FAILURE_BEHAVIOR>
+                <RULE>Ожидаемая неверная конфигурация возвращается как явный validation result, а не как частично нормализованный успех.</RULE>
+                <RULE>Ошибка только необязательной возможности отключает ровно эту возможность или группу согласно требованиям.</RULE>
+                <RULE>Отсутствующая либо неверная основная GLB блокирует всю инициализацию.</RULE>
+                <RULE>Неожиданное внутреннее исключение не маскируется как валидная конфигурация.</RULE>
+            </FAILURE_BEHAVIOR>
+            <INTERACTION_RULES>
+                <RULE>Модуль вызывается контроллером и синхронно либо через уже необходимый Promise возвращает один полный результат.</RULE>
+                <RULE>Модуль не вызывает контроллер, viewer или AR adapter.</RULE>
+                <RULE>Model-bound validation остаётся за MOD-THREE-VIEWER после фактической загрузки GLB.</RULE>
+                <RULE>Нормализованный результат после принятия рассматривается контроллером как неизменяемый.</RULE>
+            </INTERACTION_RULES>
+            <CLEANUP_CONTRACT>
+                <RULE>Cleanup не требуется, поскольку модуль не владеет ресурсами и состоянием между вызовами.</RULE>
+            </CLEANUP_CONTRACT>
+            <DEPENDENCIES>
+            </DEPENDENCIES>
+            <FORBIDDEN_DEPENDENCIES>
+                <MODULE ref="MOD-WIDGET-CONTROLLER" />
+                <MODULE ref="MOD-THREE-VIEWER" />
+                <MODULE ref="MOD-AR-ADAPTER" />
+            </FORBIDDEN_DEPENDENCIES>
+            <PRESERVES>
+                <INVARIANT ref="INV-PRIMARY-GLB-IS-ONLY-MANDATORY" />
+                <INVARIANT ref="INV-OPTIONAL-CAPABILITY-FAILURE-ISOLATION" />
+                <INVARIANT ref="INV-COMPATIBILITY-USES-STRUCTURAL-VARIANTS-ONLY" />
+                <INVARIANT ref="INV-SCENARIO-COMPATIBILITY-IS-STEP-INTERSECTION" />
+            </PRESERVES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-CONFIGURATION-VALIDATION" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE" />
+                <REQUIREMENT ref="FR-COLOR-SWATCH-REQUIRED" />
+                <REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY" />
+                <REQUIREMENT ref="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION" />
+                <REQUIREMENT ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING" />
+                <REQUIREMENT ref="FR-SCENARIO-INVALID-CONFIGURATION-HANDLING" />
+                <REQUIREMENT ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING" />
+                <REQUIREMENT ref="FR-BASE-STATE-AS-VARIANT" />
+                <REQUIREMENT ref="FR-VARIANT-GROUP-DEFAULT-REQUIRED" />
+                <REQUIREMENT ref="FR-VARIANT-GROUP-INVALID-DEFAULT-HANDLING" />
+                <REQUIREMENT ref="FR-INVALID-DEFAULT-VARIANT-DISABLE-GROUP" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBILITY-STRUCTURAL-VARIANTS-ONLY" />
+                <REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED" />
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET" />
+            </REQUIREMENTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-TYPESCRIPT" />
+                <TECH_REF ref="TECH-PRINCIPLE-EXACT-VERSIONS" />
+            </TECHNOLOGIES>
+            <TEST_PROPERTIES>
+                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-01">Исходный input остаётся неизменным после любого результата.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-02">Только отсутствие или недопустимость primary GLB и иные обязательные ошибки дают blocking result.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-03">Invalid optional scenario/animation/group не отключает независимые возможности.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-04">Scenario compatibility равна точному пересечению structural variants шагов.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-05">Цветовые варианты не влияют на structural compatibility.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-06">Одинаковый input всегда даёт структурно одинаковый result.</PROPERTY>
+            </TEST_PROPERTIES>
+            <LAZY_IMPLEMENTATION_CONSTRAINTS>
+                <RULE>Предпочитать небольшие чистые функции и встроенные Array/Set/Map только там, где они уменьшают код.</RULE>
+                <RULE>Не добавлять schema-validation dependency: она не утверждена Technology.xml.</RULE>
+                <RULE>Не создавать validator classes, visitors, rule registries или plugin hooks.</RULE>
+                <RULE>Линейные проходы допустимы для конфигурационных списков; известный потолок отмечается PONYTAIL только при реальном ограничении.</RULE>
+            </LAZY_IMPLEMENTATION_CONSTRAINTS>
+        </MODULE_CONTRACT>
+        <MODULE_CONTRACT id="CONTRACT-MOD-THREE-VIEWER">
+            <MODULE ref="MOD-THREE-VIEWER" />
+            <NAME>Основной Three.js viewer</NAME>
+            <INTENT>Предоставить единственный основной интерактивный 3D viewer на Three.js, который владеет графическими ресурсами и выполняет конкретные команды контроллера, не становясь владельцем публичного состояния или AR.</INTENT>
+            <RESPONSIBILITIES>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-01">Проверять фактическую доступность WebGL 2 до создания рабочего renderer.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-02">Создавать и владеть WebGLRenderer, scene, camera и утверждённым управлением ракурсом.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-03">Загружать единственную основную GLB и сообщать фактически наблюдаемый результат.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-04">Проверять model-bound ссылки необязательных вариантов, анимаций и сценариев после загрузки GLB.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-05">Применять подтверждённые color и structural variant selections к основной scene.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-06">Воспроизводить именованные clips и утверждённые временные диапазоны через Three.js AnimationMixer.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-07">Управлять обычной анимацией и шагами сценария, включая final-frame, back, next, stop и replacement.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-08">Сохранять camera view и выбор при утверждённых операциях восстановления и замены.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-09">Обеспечивать resize по фактическому контейнеру и fallback aspect ratio 4/3.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-10">Обработать WebGL context loss одной автоматической попыткой восстановления.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-11">Освобождать owned listeners, mixers, geometries, materials, textures, renderer и DOM canvas при cleanup.</RESPONSIBILITY>
+            </RESPONSIBILITIES>
+            <NON_RESPONSIBILITIES>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-01">Не является владельцем подтверждённого состояния хост-страницы.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-02">Не отправляет публичные CustomEvent напрямую.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-03">Не запускает AR и не зависит от model-viewer.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-04">Не создаёт отдельные GLB для структурных вариантов.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-05">Не решает, разрешена ли публичная команда текущим lifecycle/scenario gate.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-06">Не фиксирует публичный snapshot и не определяет порядок host events.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-07">Не хранит конфигурацию другого товара после cleanup/reconnect.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-08">Не сериализует scene в отдельные GLB для вариантов или AR.</RULE>
+                <RULE id="CONTRACT-MOD-THREE-VIEWER-NONRESP-09">Не вводит собственный renderer abstraction или engine-agnostic слой.</RULE>
+            </NON_RESPONSIBILITIES>
+            <INPUTS>
+                <INPUT id="MC-IN-VIEWER-INIT" trust="TRUSTED_CONTROLLER_DATA">Нормализованная конфигурация, контейнер и исходный подтверждённый выбор.</INPUT>
+                <INPUT id="MC-IN-VIEWER-SELECTION" trust="TRUSTED_CONTROLLER_COMMAND">Конкретный подтверждаемый color либо structural variant selection.</INPUT>
+                <INPUT id="MC-IN-VIEWER-ANIMATION" trust="TRUSTED_CONTROLLER_COMMAND">Конкретная операция обычной анимации с именем clip или утверждённым range.</INPUT>
+                <INPUT id="MC-IN-VIEWER-SCENARIO" trust="TRUSTED_CONTROLLER_COMMAND">Конкретная операция сценария: start, replace, restart, back, next или stop.</INPUT>
+                <INPUT id="MC-IN-VIEWER-RESIZE" trust="PLATFORM_EVENT">Фактическое изменение размера контейнера либо результат ResizeObserver.</INPUT>
+                <INPUT id="MC-IN-VIEWER-CLEANUP" trust="TRUSTED_CONTROLLER_COMMAND">Запрос контроллера на освобождение ресурсов.</INPUT>
+            </INPUTS>
+            <OUTPUTS>
+                <OUTPUT id="MC-OUT-VIEWER-LOAD">Результат GLB/WebGL загрузки и model-bound availability необязательных возможностей.</OUTPUT>
+                <OUTPUT id="MC-OUT-VIEWER-SELECTION">Фактический результат применения выбора без самостоятельной фиксации публичного состояния.</OUTPUT>
+                <OUTPUT id="MC-OUT-VIEWER-PLAYBACK">Наблюдаемый start/completion/stop/failure обычной анимации или шага сценария.</OUTPUT>
+                <OUTPUT id="MC-OUT-VIEWER-NAVIGATION">Фактическая доступность back/next и текущий шаг после выполненной операции.</OUTPUT>
+                <OUTPUT id="MC-OUT-VIEWER-RECOVERY">Результат единственной попытки WebGL context recovery.</OUTPUT>
+                <OUTPUT id="MC-OUT-VIEWER-CLEANUP">Подтверждение завершения освобождения owned resources.</OUTPUT>
+            </OUTPUTS>
+            <STATE_OWNERSHIP>
+                <OWNS>
+                    <STATE_ITEM>WebGLRenderer, canvas, Three.js scene graph, camera и controls.</STATE_ITEM>
+                    <STATE_ITEM>Загруженная GLB, доступные model nodes, materials, animation clips и AnimationMixer.</STATE_ITEM>
+                    <STATE_ITEM>Внутреннее transient playback-состояние, необходимое для выполнения текущей команды.</STATE_ITEM>
+                    <STATE_ITEM>Внутренний camera snapshot для утверждённых restore-операций.</STATE_ITEM>
+                    <STATE_ITEM>Флаг использованной автоматической попытки context recovery.</STATE_ITEM>
+                    <STATE_ITEM>ResizeObserver либо иной утверждённый минимальный listener размера, если он размещён в viewer.</STATE_ITEM>
+                </OWNS>
+                <DOES_NOT_OWN>
+                    <STATE_ITEM>Публичное lifecycle state компонента.</STATE_ITEM>
+                    <STATE_ITEM>Подтверждённый host snapshot и Promise публичной команды.</STATE_ITEM>
+                    <STATE_ITEM>Скрытый model-viewer, USDZ и состояние AR.</STATE_ITEM>
+                </DOES_NOT_OWN>
+            </STATE_OWNERSHIP>
+            <SIDE_EFFECTS>
+                <ALLOWED>
+                    <EFFECT>Создание и изменение собственной Three.js scene и canvas.</EFFECT>
+                    <EFFECT>Загрузка primary GLB через утверждённый Three.js loader.</EFFECT>
+                    <EFFECT>Изменение материалов, видимости узлов, animation time и camera в пределах команды.</EFFECT>
+                    <EFFECT>requestAnimationFrame только пока viewer действительно требует rendering/playback.</EFFECT>
+                    <EFFECT>Регистрация минимальных WebGL/resize listeners и их удаление.</EFFECT>
+                    <EFFECT>Освобождение GPU и DOM resources.</EFFECT>
+                </ALLOWED>
+                <FORBIDDEN>
+                    <EFFECT>Отправка публичных DOM CustomEvent.</EFFECT>
+                    <EFFECT>Изменение подтверждённого состояния контроллера.</EFFECT>
+                    <EFFECT>Вызов MOD-AR-ADAPTER или доступ к model-viewer.</EFFECT>
+                    <EFFECT>Создание второй основной scene или другого renderer fallback.</EFFECT>
+                    <EFFECT>Автоматическая смена structural variant при несовместимой команде.</EFFECT>
+                    <EFFECT>Более одной автоматической попытки WebGL context recovery.</EFFECT>
+                </FORBIDDEN>
+            </SIDE_EFFECTS>
+            <FAILURE_BEHAVIOR>
+                <RULE>Отсутствие WebGL 2 возвращается как блокирующая недоступность до рабочего renderer.</RULE>
+                <RULE>Primary GLB load/parse failure возвращается как terminal failure текущего экземпляра.</RULE>
+                <RULE>Неверная model-bound ссылка необязательной возможности локально отключает только эту возможность.</RULE>
+                <RULE>Недопустимая viewer-операция не меняет scene; окончательное rejection решение остаётся у контроллера.</RULE>
+                <RULE>Неуспешная единственная context recovery возвращает blocking failure без повторной автоматической попытки.</RULE>
+            </FAILURE_BEHAVIOR>
+            <INTERACTION_RULES>
+                <RULE>Viewer принимает команды только от контроллера.</RULE>
+                <RULE>Viewer сообщает результат явным return/Promise или узким callback, зарегистрированным контроллером; общего event bus нет.</RULE>
+                <RULE>Viewer не вызывает контроллер через импорт и не знает публичные CustomEvent.</RULE>
+                <RULE>Для replacement сначала предоставляется возможность проверить новый запрос; текущая операция не меняется при недопустимом запросе.</RULE>
+                <RULE>Выбор и camera восстанавливаются из подтверждённых данных контроллера и собственных минимальных snapshots, а не из глобального store.</RULE>
+            </INTERACTION_RULES>
+            <CLEANUP_CONTRACT>
+                <RULE>Остановить animation loop и активный playback.</RULE>
+                <RULE>Удалить owned listeners/observers.</RULE>
+                <RULE>Остановить и отвязать AnimationMixer actions.</RULE>
+                <RULE>Освободить geometries, materials, textures и renderer.</RULE>
+                <RULE>Удалить owned canvas/DOM и ссылки на загруженную GLB.</RULE>
+                <RULE>Повторный cleanup безопасен.</RULE>
+            </CLEANUP_CONTRACT>
+            <DEPENDENCIES>
+            </DEPENDENCIES>
+            <FORBIDDEN_DEPENDENCIES>
+                <MODULE ref="MOD-WIDGET-CONTROLLER" />
+                <MODULE ref="MOD-CONFIGURATION" />
+                <MODULE ref="MOD-AR-ADAPTER" />
+            </FORBIDDEN_DEPENDENCIES>
+            <PRESERVES>
+                <INVARIANT ref="INV-SELECTION-INDEPENDENCE" />
+                <INVARIANT ref="INV-CAMERA-PRESERVATION" />
+                <INVARIANT ref="INV-COMPATIBILITY-USES-STRUCTURAL-VARIANTS-ONLY" />
+                <INVARIANT ref="INV-SCENARIO-COMPATIBILITY-IS-STEP-INTERSECTION" />
+            </PRESERVES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING" />
+                <BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION" />
+                <BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK" />
+                <BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
+                <REQUIREMENT ref="FR-MODEL-INTERACTION" />
+                <REQUIREMENT ref="FR-COLOR-SELECTION" />
+                <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />
+                <REQUIREMENT ref="FR-ANIMATION-CONTROLS" />
+                <REQUIREMENT ref="FR-SCENARIO-CONTROLS" />
+                <REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT" />
+                <REQUIREMENT ref="FR-ANIMATION-RANGE-PLAYBACK" />
+                <REQUIREMENT ref="FR-ANIMATION-RESET-AFTER-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME" />
+                <REQUIREMENT ref="FR-STOP-SCENARIO" />
+                <REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY" />
+                <REQUIREMENT ref="FR-SCENARIO-NEXT-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-NAVIGATION-DURING-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION" />
+                <REQUIREMENT ref="FR-SCENARIO-ALLOW-VIEW-INTERACTION" />
+                <REQUIREMENT ref="FR-ANIMATION-ALLOW-VIEW-INTERACTION" />
+                <REQUIREMENT ref="FR-ANIMATION-PRESERVE-CAMERA-VIEW" />
+                <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
+                <REQUIREMENT ref="FR-ANIMATION-VARIANT-COMPATIBILITY" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANTS-WHITELIST" />
+                <REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE" />
+                <REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE" />
+                <REQUIREMENT ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-ONLY-VIEW" />
+                <REQUIREMENT ref="FR-NO-SEPARATE-CAMERA-CONTROLS" />
+                <REQUIREMENT ref="FR-COMPONENT-STYLING-API" />
+                <REQUIREMENT ref="FR-DEFAULT-MINIMAL-STYLING" />
+                <REQUIREMENT ref="FR-NEUTRAL-DEFAULT-STYLING" />
+                <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT" />
+                <REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER" />
+                <REQUIREMENT ref="FR-VIEWER-RESIZE" />
+                <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING" />
+                <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY" />
+            </REQUIREMENTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-WEBGL2" />
+                <TECH_REF ref="TECH-THREE-JS" />
+                <TECH_REF ref="TECH-THREE-TYPES" />
+                <TECH_REF ref="FORMAT-GLB" />
+            </TECHNOLOGIES>
+            <TEST_PROPERTIES>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-01">Primary GLB-only configuration достигает фактически готового rendered состояния.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-02">Без WebGL 2 рабочий renderer не создаётся.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-03">Primary GLB failure не оставляет частично рабочую scene и помечается terminal для экземпляра.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-04">Color и compatible structural variant применяются без ненужного restart текущей анимации.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-05">Incompatible structural variant не применяется и не меняет scene.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-06">Camera сохраняется через утверждённые animation/scenario операции.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-07">Context loss запускает не более одной автоматической recovery attempt.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-THREE-VIEWER-PROP-08">Cleanup оставляет ноль active RAF/listeners и освобождает renderer resources.</PROPERTY>
+            </TEST_PROPERTIES>
+            <LAZY_IMPLEMENTATION_CONSTRAINTS>
+                <RULE>Использовать Three.js напрямую; не создавать engine wrapper, repository, facade hierarchy или renderer interface.</RULE>
+                <RULE>Использовать один renderer, одну scene и одну camera на экземпляр, если контракт не требует иного.</RULE>
+                <RULE>Не создавать отдельный файл на каждую viewer-операцию; группировать код по реальной ответственности.</RULE>
+                <RULE>Не добавлять tween, state-machine или resource-management dependency.</RULE>
+            </LAZY_IMPLEMENTATION_CONSTRAINTS>
+        </MODULE_CONTRACT>
+        <MODULE_CONTRACT id="CONTRACT-MOD-AR-ADAPTER">
+            <MODULE ref="MOD-AR-ADAPTER" />
+            <NAME>Режим-нейтральный AR adapter</NAME>
+            <INTENT>Изолировать единственную интеграцию с публичным API model-viewer для режим-нейтрального запуска AR, не раскрывая выбранный канал и не выдумывая жизненный цикл Scene Viewer или Quick Look.</INTENT>
+            <RESPONSIBILITIES>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-01">Создавать и владеть одним скрытым model-viewer только для AR.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-02">Отражать публично наблюдаемую способность принять AR-запрос без определения будущего канала.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-03">Синхронизировать применимую primary GLB, optional USDZ и подтверждённый выбор перед запросом.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-04">Использовать публичный activateAR() из применимого пользовательского действия.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-05">Позволять model-viewer самостоятельно выбрать WebXR, Scene Viewer или Quick Look.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-06">Сообщать общую наблюдаемую ошибку AR без mode assertion.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-07">Сообщать launched только после фактически наблюдаемого WebXR start.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-08">Сообщать returned только после фактически наблюдаемого end ранее начавшейся WebXR session.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-09">Не формировать lifecycle для Scene Viewer и Quick Look.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-10">Использовать утверждённый встроенный Quick Look fallback; дополнительная конфигурация fallback в v1 отсутствует.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-AR-ADAPTER-RESP-11">Освобождать hidden DOM и listeners при cleanup.</RESPONSIBILITY>
+            </RESPONSIBILITIES>
+            <NON_RESPONSIBILITIES>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-01">Не используется как основной 3D viewer.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-02">Не определяет, не принуждает и не раскрывает выбранный AR-канал.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-03">Не выводит lifecycle Scene Viewer или Quick Look по Promise, visibility или отсутствию ошибки.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-04">Не обращается к внутренней Three.js-сцене или внутренним символам model-viewer.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-05">Не принимает решение об остановке текущей анимации; это делает контроллер.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-06">Не фиксирует STATE-READY или STATE-AR-ACTIVE публично.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-07">Не генерирует собственный внешний AR launcher.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-08">Не поддерживает настраиваемую стратегию выбора/порядка AR-каналов.</RULE>
+                <RULE id="CONTRACT-MOD-AR-ADAPTER-NONRESP-09">Не гарантирует перенос неподдерживаемых каналом материалов или структурных вариантов.</RULE>
+            </NON_RESPONSIBILITIES>
+            <INPUTS>
+                <INPUT id="MC-IN-AR-SYNC" trust="TRUSTED_CONTROLLER_DATA">Primary GLB, optional USDZ и подтверждённый снимок выбора от контроллера.</INPUT>
+                <INPUT id="MC-IN-AR-LAUNCH" trust="TRUSTED_CONTROLLER_COMMAND">Режим-нейтральный запрос запуска с фактической transient user activation.</INPUT>
+                <INPUT id="MC-IN-AR-CLEANUP" trust="TRUSTED_CONTROLLER_COMMAND">Запрос контроллера удалить owned listeners и hidden DOM.</INPUT>
+                <INPUT id="MC-IN-AR-PUBLIC-EVENT" trust="PLATFORM_OR_LIBRARY_EVENT">Только публично документированное событие model-viewer/WebXR, пригодное как фактическое наблюдение.</INPUT>
+            </INPUTS>
+            <OUTPUTS>
+                <OUTPUT id="MC-OUT-AR-AVAILABILITY">Публично наблюдаемая возможность принять AR-запрос без выбранного mode.</OUTPUT>
+                <OUTPUT id="MC-OUT-AR-REQUEST">Принятие инициирования либо общая наблюдаемая ошибка; выбранный канал отсутствует.</OUTPUT>
+                <OUTPUT id="MC-OUT-AR-WEBXR-START">Фактически наблюдаемый WebXR start без внешних mode-событий.</OUTPUT>
+                <OUTPUT id="MC-OUT-AR-WEBXR-END">Фактически наблюдаемый end ранее начавшейся WebXR session.</OUTPUT>
+                <OUTPUT id="MC-OUT-AR-CLEANUP">Подтверждение удаления owned resources.</OUTPUT>
+            </OUTPUTS>
+            <STATE_OWNERSHIP>
+                <OWNS>
+                    <STATE_ITEM>Один скрытый model-viewer element и его публичная конфигурация AR.</STATE_ITEM>
+                    <STATE_ITEM>Минимальные ссылки на primary GLB/optional USDZ и последний переданный подтверждённый выбор.</STATE_ITEM>
+                    <STATE_ITEM>Owned public-event listeners.</STATE_ITEM>
+                    <STATE_ITEM>Внутренний флаг, что фактический WebXR start был наблюдён и может иметь соответствующий end.</STATE_ITEM>
+                </OWNS>
+                <DOES_NOT_OWN>
+                    <STATE_ITEM>Публичное component state и host snapshot.</STATE_ITEM>
+                    <STATE_ITEM>Выбранный model-viewer AR mode.</STATE_ITEM>
+                    <STATE_ITEM>Lifecycle Scene Viewer или Quick Look.</STATE_ITEM>
+                    <STATE_ITEM>Основная Three.js scene, renderer или camera.</STATE_ITEM>
+                </DOES_NOT_OWN>
+            </STATE_OWNERSHIP>
+            <SIDE_EFFECTS>
+                <ALLOWED>
+                    <EFFECT>Создание и конфигурация одного hidden model-viewer.</EFFECT>
+                    <EFFECT>Вызов публичного activateAR().</EFFECT>
+                    <EFFECT>Регистрация только необходимых публичных AR/WebXR listeners.</EFFECT>
+                    <EFFECT>Передача применимых публично поддерживаемых GLB/USDZ ресурсов и выбора.</EFFECT>
+                    <EFFECT>Удаление owned DOM/listeners при cleanup.</EFFECT>
+                </ALLOWED>
+                <FORBIDDEN>
+                    <EFFECT>Чтение внутренних символов, private fields или внутренней Three.js scene model-viewer.</EFFECT>
+                    <EFFECT>Изменение ar-modes для принуждения одного заранее выбранного канала.</EFFECT>
+                    <EFFECT>Формирование handoff-started, handoff-failed, page-resumed или иных внешних lifecycle-событий.</EFFECT>
+                    <EFFECT>Использование visibilitychange, fulfilled activateAR Promise или отсутствия ошибки как доказательства внешнего AR start/end.</EFFECT>
+                    <EFFECT>Прямой вызов MOD-THREE-VIEWER.</EFFECT>
+                    <EFFECT>Отправка публичных host CustomEvent.</EFFECT>
+                </FORBIDDEN>
+            </SIDE_EFFECTS>
+            <FAILURE_BEHAVIOR>
+                <RULE>Отсутствие transient user activation даёт rejection до принятия команды.</RULE>
+                <RULE>Публично наблюдаемое отклонение activateAR либо error event возвращается как общая AR-ошибка без channel claim.</RULE>
+                <RULE>Optional USDZ failure не блокирует primary GLB fallback path.</RULE>
+                <RULE>Без фактически наблюдаемого WebXR start модуль не формирует start/end lifecycle.</RULE>
+                <RULE>WebXR end без ранее наблюдённого start игнорируется как lifecycle transition.</RULE>
+            </FAILURE_BEHAVIOR>
+            <INTERACTION_RULES>
+                <RULE>AR adapter вызывается только контроллером.</RULE>
+                <RULE>Перед каждым launch контроллер передаёт актуальный подтверждённый snapshot; adapter не читает viewer.</RULE>
+                <RULE>Результаты возвращаются контроллеру явным return/Promise или узкими callbacks; публичные host events отправляет только контроллер.</RULE>
+                <RULE>Никакой output не содержит mode, если mode не является буквально публично наблюдаемым WebXR-фактом; Scene Viewer/Quick Look не идентифицируются.</RULE>
+                <RULE>После initiation внешний канал может быть ненаблюдаем; adapter сохраняет молчание вместо inference.</RULE>
+            </INTERACTION_RULES>
+            <CLEANUP_CONTRACT>
+                <RULE>Удалить публичные event listeners.</RULE>
+                <RULE>Удалить hidden model-viewer из owned DOM.</RULE>
+                <RULE>Очистить ссылки на assets, selection и WebXR-observed flag.</RULE>
+                <RULE>Не пытаться завершить или интерпретировать внешнее AR-приложение.</RULE>
+                <RULE>Повторный cleanup безопасен.</RULE>
+            </CLEANUP_CONTRACT>
+            <DEPENDENCIES>
+            </DEPENDENCIES>
+            <FORBIDDEN_DEPENDENCIES>
+                <MODULE ref="MOD-WIDGET-CONTROLLER" />
+                <MODULE ref="MOD-CONFIGURATION" />
+                <MODULE ref="MOD-THREE-VIEWER" />
+            </FORBIDDEN_DEPENDENCIES>
+            <PRESERVES>
+                <INVARIANT ref="INV-PRIMARY-GLB-IS-ONLY-MANDATORY" />
+                <INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE" />
+                <INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED" />
+            </PRESERVES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-AR-PLACEMENT" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-AR-LAUNCH" />
+                <REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION" />
+                <REQUIREMENT ref="FR-AR-ASSET-MAPPING" />
+                <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION" />
+                <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION" />
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK" />
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY" />
+                <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH" />
+                <REQUIREMENT ref="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1" />
+            </REQUIREMENTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-MODEL-VIEWER-AR" />
+                <TECH_REF ref="TECH-AR-OBSERVABILITY" />
+                <TECH_REF ref="FORMAT-GLB" />
+                <TECH_REF ref="FORMAT-USDZ" />
+            </TECHNOLOGIES>
+            <TEST_PROPERTIES>
+                <PROPERTY id="CONTRACT-MOD-AR-ADAPTER-PROP-01">Launch использует публичный activateAR() и не читает внутренний mode.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-AR-ADAPTER-PROP-02">После принятого запроса без WebXR start отсутствуют lifecycle outputs.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-AR-ADAPTER-PROP-03">WebXR start/end дают ровно одну согласованную пару наблюдаемых результатов.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-AR-ADAPTER-PROP-04">Visibility changes не создают AR lifecycle.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-AR-ADAPTER-PROP-05">Scene Viewer/Quick Look path не создаёт mode-specific events.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-AR-ADAPTER-PROP-06">Optional USDZ failure сохраняет primary GLB path.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-AR-ADAPTER-PROP-07">Cleanup удаляет hidden element и listeners.</PROPERTY>
+            </TEST_PROPERTIES>
+            <LAZY_IMPLEMENTATION_CONSTRAINTS>
+                <RULE>Использовать один конкретный adapter без общего AR interface, factory или strategy hierarchy.</RULE>
+                <RULE>Не писать собственный detector каналов и не оборачивать model-viewer в generic plugin system.</RULE>
+                <RULE>Не добавлять visibility workaround, таймеры или эвристики для внешнего lifecycle.</RULE>
+                <RULE>Не создавать отдельные adapter classes для WebXR, Scene Viewer и Quick Look.</RULE>
+            </LAZY_IMPLEMENTATION_CONSTRAINTS>
+        </MODULE_CONTRACT>
+    </CONTRACTS>
+    <TRACEABILITY>
+        <TRACE module="MOD-WIDGET-CONTROLLER" contract="CONTRACT-MOD-WIDGET-CONTROLLER" />
+        <TRACE module="MOD-CONFIGURATION" contract="CONTRACT-MOD-CONFIGURATION" />
+        <TRACE module="MOD-THREE-VIEWER" contract="CONTRACT-MOD-THREE-VIEWER" />
+        <TRACE module="MOD-AR-ADAPTER" contract="CONTRACT-MOD-AR-ADAPTER" />
+    </TRACEABILITY>
+    <VALIDATION_EXPECTATIONS>
+        <CHECK id="MC-VALIDATE-EXACT-MODULES">Существует ровно один контракт для каждого из четырёх модулей DevelopmentPlan.xml и нет дополнительных runtime-модулей.</CHECK>
+        <CHECK id="MC-VALIDATE-REQUIREMENT-OWNERSHIP">Каждое из 86 функциональных требований присутствует ровно в том контракте, которому оно назначено DevelopmentPlan.xml.</CHECK>
+        <CHECK id="MC-VALIDATE-PROCESS-INVARIANT-TECH">Business process, invariant и technology refs каждого контракта совпадают с его модулем в DevelopmentPlan.xml.</CHECK>
+        <CHECK id="MC-VALIDATE-DEPENDENCIES">Только controller contract зависит от трёх leaf contracts; leaf contracts не имеют разрешённых зависимостей.</CHECK>
+        <CHECK id="MC-VALIDATE-PUBLIC-STATE-OWNER">Только controller contract владеет публичным состоянием и host events.</CHECK>
+        <CHECK id="MC-VALIDATE-NO-LOWER-LEVEL-DESIGN">ModuleContracts.xml не содержит CLASS_CONTRACT, FUNCTION_CONTRACT, конкретных имён функций или обязательного file layout.</CHECK>
+        <CHECK id="MC-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS пуст перед утверждением.</CHECK>
+    </VALIDATION_EXPECTATIONS>
+    <UNRESOLVED_DECISIONS />
+    <APPROVAL_GATE status="PENDING">
+        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
+        <CONDITION>Утвердить четыре module contracts, их state/resource ownership, входы и выходы, side effects, failure/cleanup behavior, dependency asymmetry, requirement traceability и lazy implementation constraints. После утверждения создавать ClassFunctionContracts.xml; реализация по-прежнему запрещена.</CONDITION>
+    </APPROVAL_GATE>
+</MODULE_CONTRACTS>
