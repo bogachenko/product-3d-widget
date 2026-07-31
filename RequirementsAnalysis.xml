@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="APPROVED">
     <PROJECT_GOAL id="GOAL-P3D-001">
         Создать настраиваемый Web Component product-3d-widget для встраивания на веб-страницу интерактивной 3D-карточки товара, позволяющей просматривать и настраивать 3D-модель товара на странице, запускать её анимации и пошаговые сценарии, а также размещать товар в реальном пространстве в AR-режиме.
     </PROJECT_GOAL>
@@ -626,8 +626,9 @@
         </GRAPH_BRANCH>
     </SEMANTIC_GRAPH>
 
-    <APPROVAL_GATE status="PENDING">
-        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
-        <CONDITION>Документ может быть утверждён после проверки человеком, что извлечённые инварианты, ошибки, граничные случаи, критерии результата и связи не изменяют согласованное поведение.</CONDITION>
+    <APPROVAL_GATE status="APPROVED">
+        <APPROVED_REVISION>65977ee23b11c429f2bf398f3426316f85b62e55</APPROVED_REVISION>
+        <APPROVED_AT>2026-07-31T12:51:00+03:00</APPROVED_AT>
+        <APPROVAL_STATEMENT>Утверждаю RequirementsAnalysis.xml в редакции commit 65977ee23b11c429f2bf398f3426316f85b62e55.</APPROVAL_STATEMENT>
     </APPROVAL_GATE>
 </REQUIREMENTS_ANALYSIS>
