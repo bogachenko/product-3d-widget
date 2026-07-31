@@ -155,7 +155,7 @@
 
         <FUNCTIONAL_REQUIREMENT id="FR-INSTANCE-SINGLE-PRODUCT"><DESCRIPTION>Один экземпляр product-3d-widget должен обслуживать ровно один товар. После принятия конфигурации экземпляр не должен принимать замену полной конфигурации или перенастройку на другой товар; для другого товара должен создаваться новый экземпляр.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-PRODUCT"/><ENTITY ref="ENTITY-PRODUCT-CONFIGURATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-PRE-READY-COMMAND-REJECTION"><DESCRIPTION>Запросы управления, вызванные до достижения готового состояния, должны немедленно отклоняться без постановки в очередь и без последующего автоматического выполнения после загрузки.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-HOST-CONTROL-API"/><STATE ref="STATE-NOT-CONFIGURED"/><STATE ref="STATE-LOADING-CONFIGURATION"/><STATE ref="STATE-LOADING-MODEL"/></LINKS></FUNCTIONAL_REQUIREMENT>
-        <FUNCTIONAL_REQUIREMENT id="FR-RECONNECT-FRESH-INITIALIZATION"><DESCRIPTION>При повторном подключении ранее отключённого DOM-элемента компонент должен выполнить новую инициализацию с исходным выбором, определённым конфигурацией. Выбор, активные операции и промежуточное состояние предыдущего подключения не должны восстанавливаться или возобновляться.</DESCRIPTION><LINKS><STATE ref="STATE-DISCONNECTED"/><STATE ref="STATE-LOADING-CONFIGURATION"/><ENTITY ref="ENTITY-PRODUCT-CONFIGURATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-RECONNECT-FRESH-INITIALIZATION"><DESCRIPTION>При повторном подключении ранее отключённого DOM-элемента компонент должен выполнить новую инициализацию с исходным выбором, определённым конфигурацией. Выбор, активные операции и промежуточное состояние предыдущего подключения не должны восстанавливаться или возобновляться. Исключение: если этот экземпляр ранее достиг блокирующей ошибки основной GLB-модели, повторное подключение не должно запускать новую загрузку; хост-страница должна создать новый экземпляр.</DESCRIPTION><LINKS><STATE ref="STATE-DISCONNECTED"/><STATE ref="STATE-LOADING-CONFIGURATION"/><ENTITY ref="ENTITY-PRODUCT-CONFIGURATION"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"><DESCRIPTION>Блокирующая ошибка обязательной основной GLB-модели является конечной для текущего экземпляра в первой версии. Повторная загрузка основной модели в том же экземпляре не поддерживается; для новой попытки хост-страница должна создать новый экземпляр компонента.</DESCRIPTION><LINKS><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING"/><STATE ref="STATE-ERROR"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-WEBGL-CONTEXT-LOSS-RECOVERY"><DESCRIPTION>При потере WebGL-контекста после успешной инициализации компонент должен выполнить одну автоматическую попытку восстановления средства 3D-просмотра из последнего подтверждённого состояния. Если эта попытка неуспешна, компонент должен перейти в состояние блокирующей ошибки. Дополнительные автоматические попытки не выполняются.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><STATE ref="STATE-READY"/><STATE ref="STATE-ERROR"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-HOST-NOTIFICATION-ORDER"><DESCRIPTION>Для принятой команды, изменяющей наблюдаемое состояние, компонент должен сначала зафиксировать новое подтверждённое состояние, затем отправить общее уведомление состояния, после него специализированное уведомление конкретного изменения и только затем подтвердить хост-странице принятие команды. Точные имена и структуры определяются нижестоящими контрактами.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
@@ -172,7 +172,7 @@
         <STATE id="STATE-SCENARIO-ACTIVE"><NAME>Выполняется пошаговый сценарий</NAME><DESCRIPTION>Компонент управляет текущим шагом и связанной анимацией, блокирует несовместимые публичные операции и отправляет события о состоянии сценария и доступных переходах.</DESCRIPTION></STATE>
         <STATE id="STATE-AR-LAUNCHING"><NAME>Запуск AR-размещения</NAME><DESCRIPTION>Компонент синхронизирует текущее состояние товара со средством AR, передаёт ресурсы, инициирует запуск и отправляет событие о результате.</DESCRIPTION></STATE>
         <STATE id="STATE-AR-ACTIVE"><NAME>Товар размещён в AR</NAME><DESCRIPTION>AR-режим успешно запущен и управляется выбранным внешним AR-средством.</DESCRIPTION></STATE>
-        <STATE id="STATE-ERROR"><NAME>Блокирующая ошибка конфигурации или основной модели</NAME><DESCRIPTION>Компонент не может перейти к отображению товара, показывает сообщение об ошибке и отправляет событие ошибки.</DESCRIPTION></STATE>
+        <STATE id="STATE-ERROR"><NAME>Блокирующая ошибка конфигурации, основной модели или средства 3D-просмотра</NAME><DESCRIPTION>Компонент не может завершить инициализацию либо продолжить интерактивное отображение после неуспешного восстановления средства 3D-просмотра; компонент показывает сообщение об ошибке и отправляет событие ошибки.</DESCRIPTION></STATE>
         <STATE id="STATE-DISCONNECTED"><NAME>Компонент удалён со страницы</NAME><DESCRIPTION>Компонент прекращает операции, удаляет обработчики и освобождает связанные ресурсы.</DESCRIPTION></STATE>
     </STATES>
 
@@ -250,8 +250,8 @@
             <DERIVED_FROM><REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></DERIVED_FROM>
         </INVARIANT>
         <INVARIANT id="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE">
-            <DESCRIPTION>Повторное подключение того же элемента создаёт новый цикл инициализации с исходным выбором и не возобновляет прежние операции или пользовательский выбор.</DESCRIPTION>
-            <DERIVED_FROM><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/></DERIVED_FROM>
+            <DESCRIPTION>Повторное подключение того же элемента создаёт новый цикл инициализации с исходным выбором и не возобновляет прежние операции или пользовательский выбор, кроме экземпляра с терминальной ошибкой основной GLB, который не может быть повторно инициализирован.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/></DERIVED_FROM>
         </INVARIANT>
         <INVARIANT id="INV-PRIMARY-GLB-FAILURE-TERMINAL-FOR-INSTANCE">
             <DESCRIPTION>После блокирующей ошибки основной GLB текущий экземпляр не возвращается к загрузке или готовности.</DESCRIPTION>
@@ -396,8 +396,8 @@
         </EDGE_CASE>
         <EDGE_CASE id="EDGE-RECONNECT-SAME-ELEMENT">
             <CONDITION>Ранее отключённый DOM-элемент повторно подключается к странице.</CONDITION>
-            <EXPECTED_RESULT>Начинается новая инициализация с исходным выбором конфигурации; прежний выбор и активные операции не восстанавливаются.</EXPECTED_RESULT>
-            <LINKS><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><INVARIANT ref="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE"/></LINKS>
+            <EXPECTED_RESULT>Начинается новая инициализация с исходным выбором конфигурации; прежний выбор и активные операции не восстанавливаются. Если экземпляр ранее завершился блокирующей ошибкой основной GLB, повторная инициализация не начинается и требуется новый экземпляр.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/><INVARIANT ref="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE"/></LINKS>
         </EDGE_CASE>
         <EDGE_CASE id="EDGE-WEBGL-CONTEXT-LOSS">
             <CONDITION>WebGL-контекст теряется после успешной инициализации компонента.</CONDITION>
@@ -481,10 +481,10 @@
             <LINKS><REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION"/><ERROR_SCENARIO ref="ERR-COMMAND-BEFORE-READY"/></LINKS>
         </ACCEPTANCE_CRITERION>
         <ACCEPTANCE_CRITERION id="AC-RECONNECT-FRESH-INITIALIZATION">
-            <GIVEN>Компонент был отключён после изменения выбора или запуска операции.</GIVEN>
+            <GIVEN>Компонент был отключён после изменения выбора или запуска операции и не имеет терминальной ошибки основной GLB.</GIVEN>
             <WHEN>Тот же DOM-элемент повторно подключается.</WHEN>
-            <THEN>Компонент проходит новую инициализацию с исходным выбором конфигурации и не возобновляет прежнее выполнение.</THEN>
-            <LINKS><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><EDGE_CASE ref="EDGE-RECONNECT-SAME-ELEMENT"/></LINKS>
+            <THEN>Компонент проходит новую инициализацию с исходным выбором конфигурации и не возобновляет прежнее выполнение. Экземпляр с терминальной ошибкой основной GLB вместо этого требует пересоздания.</THEN>
+            <LINKS><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/><EDGE_CASE ref="EDGE-RECONNECT-SAME-ELEMENT"/></LINKS>
         </ACCEPTANCE_CRITERION>
         <ACCEPTANCE_CRITERION id="AC-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION">
             <GIVEN>Текущий экземпляр достиг блокирующей ошибки основной GLB.</GIVEN>
