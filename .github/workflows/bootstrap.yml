@@ -38,3 +38,5 @@ jobs:
           git add --all
           git commit -m 'Implement product-3d-widget contracts'
           git push origin HEAD:agent/implement-product-3d-widget
+
+# Trigger trusted runner after installation in the default branch.
