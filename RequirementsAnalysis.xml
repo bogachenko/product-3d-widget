@@ -31,6 +31,9 @@
             <EXCLUSION id="EXCL-OWN-AR-ENGINE">Компонент не реализует собственный механизм распознавания поверхностей, выбора AR-режима или непосредственного AR-размещения.</EXCLUSION>
             <EXCLUSION id="EXCL-OWN-USDZ-CONVERTER">Компонент не реализует собственное формирование или преобразование USDZ.</EXCLUSION>
             <EXCLUSION id="EXCL-BUILT-IN-CONTROL-UI">Компонент не создаёт кнопки, панели и другие пользовательские элементы управления цветами, вариантами, анимациями, сценариями или AR.</EXCLUSION>
+            <EXCLUSION id="EXCL-RUNTIME-PRODUCT-RECONFIGURATION">Экземпляр компонента не перенастраивается во время своего жизненного цикла на другой товар или другую полную конфигурацию товара.</EXCLUSION>
+            <EXCLUSION id="EXCL-MATERIAL-VARIANT-CATEGORY">В первой версии материал не является отдельной категорией вариантов наряду с цветовым и структурным вариантом.</EXCLUSION>
+            <EXCLUSION id="EXCL-SEPARATE-PART-GLB-ASSETS">В первой версии сменные части и структурные варианты не представляются отдельными GLB-моделями; они определяются состояниями элементов основной GLB-модели.</EXCLUSION>
         </OUT_OF_SCOPE>
     </SYSTEM_BOUNDARY>
 
@@ -149,6 +152,15 @@
         <FUNCTIONAL_REQUIREMENT id="FR-QUICK-LOOK-USDZ-GENERATION"><DESCRIPTION>При запуске Apple Quick Look без отдельной USDZ-модели компонент должен передать средству AR основную GLB-модель. Формирование USDZ выполняется средством AR.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-GLB-MODEL"/><ENTITY ref="ENTITY-AR-MODE"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-OPTIONAL-USDZ-ASSET"><DESCRIPTION>Если указана отдельная USDZ-модель, компонент должен передать её средству AR как ресурс Apple Quick Look. Если она не указана, средство AR формирует USDZ из GLB.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-USDZ-MODEL"/><ENTITY ref="ENTITY-GLB-MODEL"/></LINKS></FUNCTIONAL_REQUIREMENT>
         <FUNCTIONAL_REQUIREMENT id="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"><DESCRIPTION>Если отдельная USDZ-модель недоступна или не может быть использована, компонент не должен передавать её, а средство AR должно использовать автоматическое формирование USDZ из GLB.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-USDZ-MODEL"/><ENTITY ref="ENTITY-GLB-MODEL"/></LINKS></FUNCTIONAL_REQUIREMENT>
+
+        <FUNCTIONAL_REQUIREMENT id="FR-INSTANCE-SINGLE-PRODUCT"><DESCRIPTION>Один экземпляр product-3d-widget должен обслуживать ровно один товар. После принятия конфигурации экземпляр не должен принимать замену полной конфигурации или перенастройку на другой товар; для другого товара должен создаваться новый экземпляр.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-PRODUCT"/><ENTITY ref="ENTITY-PRODUCT-CONFIGURATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-PRE-READY-COMMAND-REJECTION"><DESCRIPTION>Запросы управления, вызванные до достижения готового состояния, должны немедленно отклоняться без постановки в очередь и без последующего автоматического выполнения после загрузки.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-HOST-CONTROL-API"/><STATE ref="STATE-NOT-CONFIGURED"/><STATE ref="STATE-LOADING-CONFIGURATION"/><STATE ref="STATE-LOADING-MODEL"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-RECONNECT-FRESH-INITIALIZATION"><DESCRIPTION>При повторном подключении ранее отключённого DOM-элемента компонент должен выполнить новую инициализацию с исходным выбором, определённым конфигурацией. Выбор, активные операции и промежуточное состояние предыдущего подключения не должны восстанавливаться или возобновляться.</DESCRIPTION><LINKS><STATE ref="STATE-DISCONNECTED"/><STATE ref="STATE-LOADING-CONFIGURATION"/><ENTITY ref="ENTITY-PRODUCT-CONFIGURATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"><DESCRIPTION>Блокирующая ошибка обязательной основной GLB-модели является конечной для текущего экземпляра в первой версии. Повторная загрузка основной модели в том же экземпляре не поддерживается; для новой попытки хост-страница должна создать новый экземпляр компонента.</DESCRIPTION><LINKS><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING"/><STATE ref="STATE-ERROR"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-WEBGL-CONTEXT-LOSS-RECOVERY"><DESCRIPTION>При потере WebGL-контекста после успешной инициализации компонент должен выполнить одну автоматическую попытку восстановления средства 3D-просмотра из последнего подтверждённого состояния. Если эта попытка неуспешна, компонент должен перейти в состояние блокирующей ошибки. Дополнительные автоматические попытки не выполняются.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><STATE ref="STATE-READY"/><STATE ref="STATE-ERROR"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-HOST-NOTIFICATION-ORDER"><DESCRIPTION>Для принятой команды, изменяющей наблюдаемое состояние, компонент должен сначала зафиксировать новое подтверждённое состояние, затем отправить общее уведомление состояния, после него специализированное уведомление конкретного изменения и только затем подтвердить хост-странице принятие команды. Точные имена и структуры определяются нижестоящими контрактами.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-COMPONENT-STATE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><ENTITY ref="ENTITY-HOST-CONTROL-API"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-AR-LIFECYCLE-OBSERVABILITY"><DESCRIPTION>Для каждого фактически использованного поддерживаемого AR-режима хост-страница должна наблюдать фактический запуск AR и последующий возврат управления с указанием фактического режима: WebXR, Android Scene Viewer или Apple Quick Look.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><STATE ref="STATE-AR-ACTIVE"/></LINKS></FUNCTIONAL_REQUIREMENT>
+        <FUNCTIONAL_REQUIREMENT id="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1"><DESCRIPTION>В первой версии хост-страница не может отключить предусмотренный fallback Apple Quick Look с основной GLB-модели на автоматическое формирование USDZ. При отсутствии или непригодности отдельной USDZ-модели средство AR должно использовать этот fallback-путь.</DESCRIPTION><LINKS><REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/><ENTITY ref="ENTITY-AR-CONFIGURATION"/></LINKS></FUNCTIONAL_REQUIREMENT>
     </FUNCTIONAL_REQUIREMENTS>
 
     <STATES>
@@ -228,6 +240,27 @@
             <DESCRIPTION>После отключения компонента от страницы инициированные им операции прекращены, его обработчики удалены, а связанные ресурсы освобождены.</DESCRIPTION>
             <DERIVED_FROM><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/></DERIVED_FROM>
         </INVARIANT>
+
+        <INVARIANT id="INV-INSTANCE-PRODUCT-IMMUTABILITY">
+            <DESCRIPTION>После принятия конфигурации экземпляр связан с одним товаром до своего удаления; смена товара требует нового экземпляра.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-PRE-READY-COMMANDS-ARE-NOT-QUEUED">
+            <DESCRIPTION>Команды до готовности всегда отклоняются немедленно и никогда не исполняются позднее как отложенные.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE">
+            <DESCRIPTION>Повторное подключение того же элемента создаёт новый цикл инициализации с исходным выбором и не возобновляет прежние операции или пользовательский выбор.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-PRIMARY-GLB-FAILURE-TERMINAL-FOR-INSTANCE">
+            <DESCRIPTION>После блокирующей ошибки основной GLB текущий экземпляр не возвращается к загрузке или готовности.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-HOST-NOTIFICATION-ORDER">
+            <DESCRIPTION>Подтверждённое состояние предшествует общему уведомлению, общее уведомление предшествует специализированному, а специализированное уведомление предшествует подтверждению принятой команды.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER"/><REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION"/></DERIVED_FROM>
+        </INVARIANT>
     </INVARIANTS>
 
     <ERROR_SCENARIOS>
@@ -238,8 +271,8 @@
         </ERROR_SCENARIO>
         <ERROR_SCENARIO id="ERR-PRIMARY-GLB-FAILURE">
             <CONDITION>Основная GLB-модель недоступна, имеет неподдерживаемый формат или не может быть обработана.</CONDITION>
-            <EXPECTED_RESULT>Инициализация прекращается, компонент переходит в блокирующую ошибку и делает её наблюдаемой.</EXPECTED_RESULT>
-            <LINKS><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING"/><STATE ref="STATE-ERROR"/></LINKS>
+            <EXPECTED_RESULT>Инициализация прекращается, компонент переходит в блокирующую ошибку и делает её наблюдаемой. Новая попытка загрузки требует создания нового экземпляра.</EXPECTED_RESULT>
+            <LINKS><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/><STATE ref="STATE-ERROR"/></LINKS>
         </ERROR_SCENARIO>
         <ERROR_SCENARIO id="ERR-INVALID-OPTIONAL-CAPABILITY">
             <CONDITION>Отдельный цвет, вариант, анимация или сценарий имеет некорректную конфигурацию либо ссылку на модель.</CONDITION>
@@ -285,6 +318,17 @@
             <CONDITION>Запрос запуска AR принят, но фактический запуск завершается ошибкой.</CONDITION>
             <EXPECTED_RESULT>Ошибка выполнения становится наблюдаемой отдельно от отказа принять запрос.</EXPECTED_RESULT>
             <LINKS><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></LINKS>
+        </ERROR_SCENARIO>
+
+        <ERROR_SCENARIO id="ERR-COMMAND-BEFORE-READY">
+            <CONDITION>Хост-страница вызывает операцию управления до достижения компонентом готового состояния.</CONDITION>
+            <EXPECTED_RESULT>Запрос немедленно отклоняется, не меняет подтверждённое состояние, не ставится в очередь и не выполняется после завершения загрузки.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION"/><INVARIANT ref="INV-PRE-READY-COMMANDS-ARE-NOT-QUEUED"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-WEBGL-CONTEXT-RECOVERY-FAILED">
+            <CONDITION>После потери WebGL-контекста единственная автоматическая попытка восстановления завершается неуспешно.</CONDITION>
+            <EXPECTED_RESULT>Компонент переходит в блокирующую ошибку и не выполняет дополнительные автоматические попытки восстановления.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/><STATE ref="STATE-ERROR"/></LINKS>
         </ERROR_SCENARIO>
     </ERROR_SCENARIOS>
 
@@ -343,6 +387,22 @@
             <CONDITION>Компонент удаляется со страницы во время инициированной им операции.</CONDITION>
             <EXPECTED_RESULT>Компонент прекращает собственные операции, удаляет обработчики и освобождает ресурсы.</EXPECTED_RESULT>
             <LINKS><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><INVARIANT ref="INV-DISCONNECTED-COMPONENT-HAS-NO-OWNED-ACTIVE-OPERATIONS"/></LINKS>
+        </EDGE_CASE>
+
+        <EDGE_CASE id="EDGE-RUNTIME-PRODUCT-RECONFIGURATION">
+            <CONDITION>После принятия конфигурации хост пытается передать экземпляру другой товар или заменить полную конфигурацию.</CONDITION>
+            <EXPECTED_RESULT>Экземпляр не перенастраивается; хост должен создать новый экземпляр для другого товара.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT"/><INVARIANT ref="INV-INSTANCE-PRODUCT-IMMUTABILITY"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-RECONNECT-SAME-ELEMENT">
+            <CONDITION>Ранее отключённый DOM-элемент повторно подключается к странице.</CONDITION>
+            <EXPECTED_RESULT>Начинается новая инициализация с исходным выбором конфигурации; прежний выбор и активные операции не восстанавливаются.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><INVARIANT ref="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-WEBGL-CONTEXT-LOSS">
+            <CONDITION>WebGL-контекст теряется после успешной инициализации компонента.</CONDITION>
+            <EXPECTED_RESULT>Выполняется ровно одна автоматическая попытка восстановления из подтверждённого состояния; при неудаче возникает блокирующая ошибка.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/><ERROR_SCENARIO ref="ERR-WEBGL-CONTEXT-RECOVERY-FAILED"/></LINKS>
         </EDGE_CASE>
     </EDGE_CASES>
 
@@ -406,6 +466,49 @@
             <WHEN>Компонент удаляется со страницы.</WHEN>
             <THEN>Его операции прекращены, обработчики удалены, ресурсы освобождены, дальнейшее активное состояние отсутствует.</THEN>
             <LINKS><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><STATE ref="STATE-DISCONNECTED"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+
+        <ACCEPTANCE_CRITERION id="AC-SINGLE-PRODUCT-INSTANCE">
+            <GIVEN>Экземпляр уже принял конфигурацию одного товара.</GIVEN>
+            <WHEN>Хост пытается заменить полную конфигурацию или назначить другой товар.</WHEN>
+            <THEN>Текущий экземпляр не перенастраивается; другой товар требует нового экземпляра.</THEN>
+            <LINKS><REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-PRE-READY-COMMAND-REJECTION">
+            <GIVEN>Компонент ещё не достиг готового состояния.</GIVEN>
+            <WHEN>Хост вызывает любую операцию управления товаром.</WHEN>
+            <THEN>Команда немедленно отклоняется, не ставится в очередь и никогда не выполняется после готовности.</THEN>
+            <LINKS><REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION"/><ERROR_SCENARIO ref="ERR-COMMAND-BEFORE-READY"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-RECONNECT-FRESH-INITIALIZATION">
+            <GIVEN>Компонент был отключён после изменения выбора или запуска операции.</GIVEN>
+            <WHEN>Тот же DOM-элемент повторно подключается.</WHEN>
+            <THEN>Компонент проходит новую инициализацию с исходным выбором конфигурации и не возобновляет прежнее выполнение.</THEN>
+            <LINKS><REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/><EDGE_CASE ref="EDGE-RECONNECT-SAME-ELEMENT"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION">
+            <GIVEN>Текущий экземпляр достиг блокирующей ошибки основной GLB.</GIVEN>
+            <WHEN>Хост хочет повторить загрузку основной модели.</WHEN>
+            <THEN>Повторная загрузка в этом экземпляре недоступна; создаётся новый экземпляр.</THEN>
+            <LINKS><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/><ERROR_SCENARIO ref="ERR-PRIMARY-GLB-FAILURE"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-WEBGL-CONTEXT-RECOVERY">
+            <GIVEN>Компонент был успешно инициализирован и потерял WebGL-контекст.</GIVEN>
+            <WHEN>Компонент обрабатывает потерю контекста.</WHEN>
+            <THEN>Выполняется одна автоматическая попытка восстановления; при успехе средство просмотра восстанавливается из подтверждённого состояния, при неудаче компонент переходит в блокирующую ошибку без повторных попыток.</THEN>
+            <LINKS><REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/><EDGE_CASE ref="EDGE-WEBGL-CONTEXT-LOSS"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-HOST-NOTIFICATION-ORDER">
+            <GIVEN>Принята команда, изменяющая наблюдаемое состояние.</GIVEN>
+            <WHEN>Компонент публикует результат принятия.</WHEN>
+            <THEN>Сначала фиксируется состояние, затем наблюдается общее уведомление, затем специализированное уведомление и после него подтверждается команда.</THEN>
+            <LINKS><REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER"/><INVARIANT ref="INV-HOST-NOTIFICATION-ORDER"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-AR-LIFECYCLE-OBSERVABILITY">
+            <GIVEN>На устройстве фактически запущен один из поддерживаемых AR-режимов.</GIVEN>
+            <WHEN>AR открывается и затем управление возвращается хост-странице.</WHEN>
+            <THEN>Хост наблюдает фактический запуск и возврат с одинаковым фактическим режимом WebXR, Scene Viewer или Quick Look.</THEN>
+            <LINKS><REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/><REQUIREMENT ref="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1"/></LINKS>
         </ACCEPTANCE_CRITERION>
     </ACCEPTANCE_CRITERIA>
 
@@ -494,6 +597,32 @@
                 <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO"/>
             </REQUIREMENTS>
             <RESULT ref="AC-HOST-OBSERVABILITY"/><RESULT ref="AC-RESPONSIVE-INTERNAL-VIEW"/><RESULT ref="AC-DISCONNECT-CLEANUP"/>
+        </GRAPH_BRANCH>
+
+        <GRAPH_BRANCH id="GRAPH-RUNTIME-LIFECYCLE-CONSTRAINTS">
+            <GOAL ref="GOAL-P3D-001"/>
+            <ACTOR ref="ACTOR-HOST-PAGE"/>
+            <USE_CASE ref="UC-HOST-PAGE-INITIALIZE-WIDGET"/>
+            <BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/>
+            <ENTITY ref="ENTITY-PRODUCT"/><ENTITY ref="ENTITY-PRODUCT-CONFIGURATION"/><ENTITY ref="ENTITY-COMPONENT-STATE"/><ENTITY ref="ENTITY-AR-MODE"/>
+            <STATE_PATH>STATE-NOT-CONFIGURED | STATE-LOADING-CONFIGURATION | STATE-LOADING-MODEL | STATE-READY | STATE-ERROR | STATE-DISCONNECTED</STATE_PATH>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT"/>
+                <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION"/>
+                <REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION"/>
+                <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/>
+                <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/>
+                <REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER"/>
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY"/>
+                <REQUIREMENT ref="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1"/>
+            </REQUIREMENTS>
+            <RESULT ref="AC-SINGLE-PRODUCT-INSTANCE"/>
+            <RESULT ref="AC-PRE-READY-COMMAND-REJECTION"/>
+            <RESULT ref="AC-RECONNECT-FRESH-INITIALIZATION"/>
+            <RESULT ref="AC-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION"/>
+            <RESULT ref="AC-WEBGL-CONTEXT-RECOVERY"/>
+            <RESULT ref="AC-HOST-NOTIFICATION-ORDER"/>
+            <RESULT ref="AC-AR-LIFECYCLE-OBSERVABILITY"/>
         </GRAPH_BRANCH>
     </SEMANTIC_GRAPH>
 
