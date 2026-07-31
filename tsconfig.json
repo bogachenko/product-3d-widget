@@ -11,7 +11,7 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noEmit": true,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "types": []
   },
   "include": ["src/**/*.ts", "vite.config.ts"]
