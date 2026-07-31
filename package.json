@@ -1,0 +1,42 @@
+{
+  "name": "product-3d-widget",
+  "version": "0.1.0",
+  "description": "Mode-neutral product 3D Web Component with Three.js and optional AR",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/product-3d-widget.d.ts",
+      "import": "./dist/product-3d-widget.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "vite build",
+    "build:types": "tsc -p tsconfig.declarations.json",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "verify:three": "npm ls three --all && node scripts/verify-bundle.mjs",
+    "verify": "npm run typecheck && npm run build && npm run build:types && npm run verify:api && npm run test:unit && npm run test:e2e && npm run verify:three",
+    "verify:api": "node scripts/verify-public-api.mjs"
+  },
+  "engines": {
+    "node": "24.18.1"
+  },
+  "dependencies": {
+    "@google/model-viewer": "4.3.1",
+    "three": "0.183.2"
+  },
+  "devDependencies": {
+    "@types/three": "0.183.1",
+    "playwright": "1.62.1",
+    "typescript": "6.0.3",
+    "vite": "8.2.0",
+    "vitest": "4.1.10"
+  },
+  "overrides": {
+    "three": "0.183.2"
+  }
+}
