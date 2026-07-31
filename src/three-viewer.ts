@@ -668,6 +668,14 @@ export class ThreeViewer {
       : false;
     const playback = this.#playback;
 
+    if (playback?.kind === 'scenario' && playback.action.paused) {
+      if (controlsChanged) {
+        this.#render();
+        this.#scheduleFrame();
+      }
+      return;
+    }
+
     if (playback !== null && this.#mixer !== null) {
       const delta = Math.max(0, Math.min((now - this.#lastFrameTime) / 1000, 0.1));
       this.#lastFrameTime = now;
