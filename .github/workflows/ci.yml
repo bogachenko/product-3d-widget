@@ -1,13 +1,69 @@
 name: CI
 
 on:
-  workflow_dispatch:
+  pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  disabled:
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - run: echo 'CI is temporarily paused while the implementation branch is updated atomically.'
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/implement-product-3d-widget
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.1
+      - run: npm install
+      - name: Run fast verification
+        id: fast
+        shell: bash
+        run: |
+          set +e
+          : > ci-result.txt
+          status=0
+          for script in typecheck build build:types verify:api test:unit verify:three; do
+            npm run "$script" > "/tmp/${script//:/-}.log" 2>&1
+            code=$?
+            printf '%s %s\n' "$script" "$([ "$code" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
+            if [ "$code" -ne 0 ]; then
+              printf '\n--- %s output ---\n' "$script" >> ci-result.txt
+              tail -n 240 "/tmp/${script//:/-}.log" >> ci-result.txt
+              status=$code
+              break
+            fi
+          done
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Install Playwright browsers
+        if: steps.fast.outputs.status == '0'
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run Playwright
+        if: steps.fast.outputs.status == '0'
+        id: e2e
+        shell: bash
+        run: |
+          set +e
+          xvfb-run --auto-servernum npm run test:e2e > /tmp/test-e2e.log 2>&1
+          status=$?
+          printf 'test:e2e %s\n' "$([ "$status" -eq 0 ] && echo PASS || echo FAIL)" >> ci-result.txt
+          if [ "$status" -ne 0 ]; then
+            printf '\n--- test:e2e output ---\n' >> ci-result.txt
+            tail -n 300 /tmp/test-e2e.log >> ci-result.txt
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - name: Publish verification result and lockfile
+        if: always()
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ci-result.txt package-lock.json
+          git commit -m 'Record CI verification result [skip ci]' || true
+          git push origin HEAD:agent/implement-product-3d-widget
+          test "${{ steps.fast.outputs.status }}" = '0'
+          if [ -n "${{ steps.e2e.outputs.status }}" ]; then
+            test "${{ steps.e2e.outputs.status }}" = '0'
+          fi
