@@ -1,6 +1,9 @@
 name: Bootstrap implementation
 
 on:
+  push:
+    branches:
+      - agent/implement-product-3d-widget
   pull_request:
     branches:
       - main
