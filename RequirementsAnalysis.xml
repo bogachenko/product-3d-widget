@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET">
+<REQUIREMENTS_ANALYSIS id="RA-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
     <PROJECT_GOAL id="GOAL-P3D-001">
         Создать настраиваемый Web Component product-3d-widget для встраивания на веб-страницу интерактивной 3D-карточки товара, позволяющей просматривать и настраивать 3D-модель товара на странице, запускать её анимации и пошаговые сценарии, а также размещать товар в реальном пространстве в AR-режиме.
     </PROJECT_GOAL>
@@ -35,16 +35,16 @@
     </SYSTEM_BOUNDARY>
 
     <USE_CASES>
-        <USE_CASE id="UC-SITE-OWNER-CONFIGURE-PRODUCT"><ACTOR ref="ACTOR-SITE-OWNER"/><ACTION>Задаёт конфигурацию конкретного товара и создаёт на странице собственные элементы управления, вызывающие публичные методы product-3d-widget.</ACTION><GOAL>Получить на веб-странице интерактивную 3D-карточку товара с полностью управляемым внешним интерфейсом.</GOAL></USE_CASE>
-        <USE_CASE id="UC-HOST-PAGE-INITIALIZE-WIDGET"><ACTOR ref="ACTOR-HOST-PAGE"/><ACTION>Создаёт product-3d-widget, передаёт ему конфигурацию товара, вызывает публичные методы и подписывается на события.</ACTION><GOAL>Инициализировать 3D-карточку и синхронизировать с ней внешний интерфейс страницы.</GOAL></USE_CASE>
-        <USE_CASE id="UC-END-USER-EXPLORE-PRODUCT"><ACTOR ref="ACTOR-END-USER"/><ACTION>Рассматривает модель и через элементы хост-страницы выбирает доступные цвета и структурные варианты.</ACTION><GOAL>Изучить внешний вид, устройство и доступные варианты товара.</GOAL></USE_CASE>
-        <USE_CASE id="UC-END-USER-PLAY-ANIMATION"><ACTOR ref="ACTOR-END-USER"/><ACTION>Через интерфейс хост-страницы запускает предусмотренную для товара анимацию.</ACTION><GOAL>Увидеть движение, трансформацию или работу товара.</GOAL></USE_CASE>
-        <USE_CASE id="UC-END-USER-FOLLOW-SCENARIO"><ACTOR ref="ACTOR-END-USER"/><ACTION>Через интерфейс хост-страницы последовательно проходит шаги настроенного сценария.</ACTION><GOAL>Изучить инструкцию или предусмотренный процесс.</GOAL></USE_CASE>
-        <USE_CASE id="UC-END-USER-PLACE-IN-AR"><ACTOR ref="ACTOR-END-USER"/><ACTION>Через интерфейс хост-страницы запускает размещение товара в реальном пространстве.</ACTION><GOAL>Оценить расположение и размеры товара в окружающем пространстве.</GOAL></USE_CASE>
+        <USE_CASE id="UC-SITE-OWNER-CONFIGURE-PRODUCT"><ACTOR ref="ACTOR-SITE-OWNER"/><ACTION>Задаёт конфигурацию конкретного товара и создаёт на странице собственные элементы управления, вызывающие публичные методы product-3d-widget.</ACTION><GOAL>Получить на веб-странице интерактивную 3D-карточку товара с полностью управляемым внешним интерфейсом.</GOAL><STARTS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/></USE_CASE>
+        <USE_CASE id="UC-HOST-PAGE-INITIALIZE-WIDGET"><ACTOR ref="ACTOR-HOST-PAGE"/><ACTION>Создаёт product-3d-widget, передаёт ему конфигурацию товара, вызывает публичные методы и подписывается на события.</ACTION><GOAL>Инициализировать 3D-карточку и синхронизировать с ней внешний интерфейс страницы.</GOAL><STARTS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/></USE_CASE>
+        <USE_CASE id="UC-END-USER-EXPLORE-PRODUCT"><ACTOR ref="ACTOR-END-USER"/><ACTION>Рассматривает модель и через элементы хост-страницы выбирает доступные цвета и структурные варианты.</ACTION><GOAL>Изучить внешний вид, устройство и доступные варианты товара.</GOAL><STARTS_PROCESS ref="BP-PRODUCT-EXPLORATION"/></USE_CASE>
+        <USE_CASE id="UC-END-USER-PLAY-ANIMATION"><ACTOR ref="ACTOR-END-USER"/><ACTION>Через интерфейс хост-страницы запускает предусмотренную для товара анимацию.</ACTION><GOAL>Увидеть движение, трансформацию или работу товара.</GOAL><STARTS_PROCESS ref="BP-ANIMATION-PLAYBACK"/></USE_CASE>
+        <USE_CASE id="UC-END-USER-FOLLOW-SCENARIO"><ACTOR ref="ACTOR-END-USER"/><ACTION>Через интерфейс хост-страницы последовательно проходит шаги настроенного сценария.</ACTION><GOAL>Изучить инструкцию или предусмотренный процесс.</GOAL><STARTS_PROCESS ref="BP-SCENARIO-EXECUTION"/></USE_CASE>
+        <USE_CASE id="UC-END-USER-PLACE-IN-AR"><ACTOR ref="ACTOR-END-USER"/><ACTION>Через интерфейс хост-страницы запускает размещение товара в реальном пространстве.</ACTION><GOAL>Оценить расположение и размеры товара в окружающем пространстве.</GOAL><STARTS_PROCESS ref="BP-AR-PLACEMENT"/></USE_CASE>
     </USE_CASES>
 
     <BUSINESS_PROCESSES>
-        <BUSINESS_PROCESS id="BP-PRODUCT-INITIALIZATION"><DESCRIPTION>Хост-страница передаёт компоненту конфигурацию товара, подписывается на его события и после успешной проверки и загрузки основной GLB-модели активирует собственный внешний интерфейс.</DESCRIPTION></BUSINESS_PROCESS>
+        <BUSINESS_PROCESS id="BP-PRODUCT-INITIALIZATION"><DESCRIPTION>Хост-страница передаёт компоненту конфигурацию товара, подписывается на его события и после успешной проверки и загрузки основной GLB-модели активирует собственный внешний интерфейс.</DESCRIPTION><INCLUDES_PROCESS ref="BP-CONFIGURATION-VALIDATION"/><INCLUDES_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/></BUSINESS_PROCESS>
         <BUSINESS_PROCESS id="BP-PRODUCT-EXPLORATION"><DESCRIPTION>Пользователь взаимодействует с 3D-моделью непосредственно в области просмотра и вызывает через внешний интерфейс хост-страницы публичные методы выбора цвета и структурного варианта.</DESCRIPTION></BUSINESS_PROCESS>
         <BUSINESS_PROCESS id="BP-AR-PLACEMENT"><DESCRIPTION>Хост-страница запрашивает запуск AR. Компонент синхронизирует текущее состояние товара со средством AR-размещения, передаёт ресурсы и делает для хост-страницы наблюдаемыми запуск AR, возврат из AR и ошибку запуска.</DESCRIPTION></BUSINESS_PROCESS>
         <BUSINESS_PROCESS id="BP-ANIMATION-PLAYBACK"><DESCRIPTION>Хост-страница запрашивает запуск анимации. Компонент проверяет совместимость выбранного структурного варианта, управляет воспроизведением, сохраняет пользовательский ракурс и делает изменения состояния анимации наблюдаемыми для хост-страницы.</DESCRIPTION></BUSINESS_PROCESS>
@@ -163,4 +163,342 @@
         <STATE id="STATE-ERROR"><NAME>Блокирующая ошибка конфигурации или основной модели</NAME><DESCRIPTION>Компонент не может перейти к отображению товара, показывает сообщение об ошибке и отправляет событие ошибки.</DESCRIPTION></STATE>
         <STATE id="STATE-DISCONNECTED"><NAME>Компонент удалён со страницы</NAME><DESCRIPTION>Компонент прекращает операции, удаляет обработчики и освобождает связанные ресурсы.</DESCRIPTION></STATE>
     </STATES>
+
+    <INVARIANTS>
+        <INVARIANT id="INV-PRIMARY-GLB-IS-ONLY-MANDATORY">
+            <DESCRIPTION>Основная GLB-модель является единственной обязательной возможностью товара; отсутствие необязательных возможностей само по себе не является ошибкой.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED"/><REQUIREMENT ref="FR-PRIMARY-GLB-ONLY-VIEW"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-OPTIONAL-CAPABILITY-FAILURE-ISOLATION">
+            <DESCRIPTION>Ошибка отдельной необязательной возможности не должна блокировать корректную основную модель и остальные корректные возможности, кроме явно определённого отключения всей затронутой группы вариантов.</DESCRIPTION>
+            <DERIVED_FROM>
+                <REQUIREMENT ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING"/>
+                <REQUIREMENT ref="FR-SCENARIO-INVALID-CONFIGURATION-HANDLING"/>
+                <REQUIREMENT ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING"/>
+                <REQUIREMENT ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING"/>
+                <REQUIREMENT ref="FR-VARIANT-GROUP-INVALID-DEFAULT-HANDLING"/>
+                <REQUIREMENT ref="FR-INVALID-DEFAULT-VARIANT-DISABLE-GROUP"/>
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/>
+            </DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-SELECTION-INDEPENDENCE">
+            <DESCRIPTION>Цветовой и структурный варианты выбираются независимо, применяются одновременно и не сбрасывают друг друга.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE"/><REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-REJECTED-COMMAND-PRESERVES-CONFIRMED-STATE">
+            <DESCRIPTION>Отклонённый запрос управления не изменяет подтверждённое состояние компонента и не прерывает уже выполняемую допустимую операцию.</DESCRIPTION>
+            <DERIVED_FROM>
+                <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/>
+                <REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION"/>
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/>
+                <REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT"/>
+                <REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY"/>
+            </DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-ATOMIC-HOST-OBSERVATION">
+            <DESCRIPTION>Хост-страница не наблюдает противоречивые промежуточные состояния; замена и перезапуск сценария наблюдаются как единое изменение.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION"/><REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/><REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-CAMERA-PRESERVATION">
+            <DESCRIPTION>Операции анимации, сценария и возврата из AR сохраняют пользовательский ракурс во всех случаях, где требования прямо не предписывают иное.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-ANIMATION-PRESERVE-CAMERA-VIEW"/><REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW"/><REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-ACTIVE-SCENARIO-EXCLUSIVITY">
+            <DESCRIPTION>Во время активного сценария недоступны обычные анимации, изменение выбора и запуск AR, но взаимодействие пользователя с камерой остаётся доступным.</DESCRIPTION>
+            <DERIVED_FROM>
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-REGULAR-ANIMATIONS"/>
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION"/>
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-AR"/>
+                <REQUIREMENT ref="FR-SCENARIO-ALLOW-VIEW-INTERACTION"/>
+            </DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-COMPATIBILITY-USES-STRUCTURAL-VARIANTS-ONLY">
+            <DESCRIPTION>Совместимость анимаций и шагов сценариев определяется только явно указанными структурными вариантами; цвет не участвует в проверке совместимости.</DESCRIPTION>
+            <DERIVED_FROM>
+                <REQUIREMENT ref="FR-ANIMATION-VARIANT-COMPATIBILITY"/>
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANTS-WHITELIST"/>
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBILITY-STRUCTURAL-VARIANTS-ONLY"/>
+            </DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-SCENARIO-COMPATIBILITY-IS-STEP-INTERSECTION">
+            <DESCRIPTION>Совместимость всего сценария равна пересечению совместимых структурных вариантов всех его шагов.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION"/><REQUIREMENT ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING"/></DERIVED_FROM>
+        </INVARIANT>
+        <INVARIANT id="INV-DISCONNECTED-COMPONENT-HAS-NO-OWNED-ACTIVE-OPERATIONS">
+            <DESCRIPTION>После отключения компонента от страницы инициированные им операции прекращены, его обработчики удалены, а связанные ресурсы освобождены.</DESCRIPTION>
+            <DERIVED_FROM><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/></DERIVED_FROM>
+        </INVARIANT>
+    </INVARIANTS>
+
+    <ERROR_SCENARIOS>
+        <ERROR_SCENARIO id="ERR-INVALID-REQUIRED-CONFIGURATION">
+            <CONDITION>Обязательные данные конфигурации отсутствуют или некорректны.</CONDITION>
+            <EXPECTED_RESULT>Инициализация не переходит к загрузке модели; компонент сообщает блокирующую ошибку.</EXPECTED_RESULT>
+            <LINKS><BUSINESS_PROCESS ref="BP-CONFIGURATION-VALIDATION"/><REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE"/><STATE ref="STATE-ERROR"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-PRIMARY-GLB-FAILURE">
+            <CONDITION>Основная GLB-модель недоступна, имеет неподдерживаемый формат или не может быть обработана.</CONDITION>
+            <EXPECTED_RESULT>Инициализация прекращается, компонент переходит в блокирующую ошибку и делает её наблюдаемой.</EXPECTED_RESULT>
+            <LINKS><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING"/><STATE ref="STATE-ERROR"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-INVALID-OPTIONAL-CAPABILITY">
+            <CONDITION>Отдельный цвет, вариант, анимация или сценарий имеет некорректную конфигурацию либо ссылку на модель.</CONDITION>
+            <EXPECTED_RESULT>Отключается только затронутая возможность либо предусмотренная требованиями группа; инициализация остальных возможностей продолжается.</EXPECTED_RESULT>
+            <LINKS>
+                <REQUIREMENT ref="FR-SCENARIO-INVALID-CONFIGURATION-HANDLING"/>
+                <REQUIREMENT ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING"/>
+                <REQUIREMENT ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING"/>
+                <INVARIANT ref="INV-OPTIONAL-CAPABILITY-FAILURE-ISOLATION"/>
+            </LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-EMPTY-SCENARIO-COMPATIBILITY">
+            <CONDITION>Пересечение совместимых структурных вариантов шагов сценария пусто.</CONDITION>
+            <EXPECTED_RESULT>Отключается только этот сценарий; остальные возможности продолжают инициализацию.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING"/><INVARIANT ref="INV-SCENARIO-COMPATIBILITY-IS-STEP-INTERSECTION"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-INVALID-VARIANT-GROUP-DEFAULT">
+            <CONDITION>В непустой группе отсутствует единственный корректный вариант по умолчанию.</CONDITION>
+            <EXPECTED_RESULT>Отключается вся группа; другой вариант не выбирается автоматически.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-VARIANT-GROUP-INVALID-DEFAULT-HANDLING"/><REQUIREMENT ref="FR-INVALID-DEFAULT-VARIANT-DISABLE-GROUP"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-INCOMPATIBLE-ANIMATION-REQUEST">
+            <CONDITION>Перед запуском обычной анимации выбран несовместимый структурный вариант.</CONDITION>
+            <EXPECTED_RESULT>Анимация не запускается, вариант не меняется автоматически, подтверждённое состояние сохраняется.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT"/><INVARIANT ref="INV-REJECTED-COMMAND-PRESERVES-CONFIRMED-STATE"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-INCOMPATIBLE-SCENARIO-REQUEST">
+            <CONDITION>Выбранный структурный вариант несовместим хотя бы с одним шагом запрошенного сценария.</CONDITION>
+            <EXPECTED_RESULT>Сценарий не запускается, вариант не меняется автоматически, подтверждённое состояние сохраняется.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY"/><INVARIANT ref="INV-REJECTED-COMMAND-PRESERVES-CONFIRMED-STATE"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-ACCEPTED-SCENARIO-START-FAILURE">
+            <CONDITION>Сценарий принят после предварительной проверки, но запуск первого шага завершается внутренней ошибкой.</CONDITION>
+            <EXPECTED_RESULT>Прежний сценарий не восстанавливается; модель возвращается в обычное исходное состояние, активный сценарий и шаг очищаются, выбор и камера сохраняются, ошибка становится наблюдаемой.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE"/><STATE ref="STATE-READY"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-OPTIONAL-USDZ-FAILURE">
+            <CONDITION>Отдельная USDZ-модель недоступна или не может быть использована.</CONDITION>
+            <EXPECTED_RESULT>Необязательная USDZ не передаётся; средство AR использует основную GLB для предусмотренного fallback-пути.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/></LINKS>
+        </ERROR_SCENARIO>
+        <ERROR_SCENARIO id="ERR-ACCEPTED-AR-LAUNCH-FAILURE">
+            <CONDITION>Запрос запуска AR принят, но фактический запуск завершается ошибкой.</CONDITION>
+            <EXPECTED_RESULT>Ошибка выполнения становится наблюдаемой отдельно от отказа принять запрос.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/></LINKS>
+        </ERROR_SCENARIO>
+    </ERROR_SCENARIOS>
+
+    <EDGE_CASES>
+        <EDGE_CASE id="EDGE-PRIMARY-GLB-ONLY">
+            <CONDITION>Конфигурация содержит только обязательную основную GLB-модель.</CONDITION>
+            <EXPECTED_RESULT>Компонент предоставляет рабочую область 3D-просмотра и только необходимые состояния загрузки или ошибки.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-PRIMARY-GLB-ONLY-VIEW"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-FIRST-AND-LAST-SCENARIO-STEPS">
+            <CONDITION>Текущий шаг является первым либо последним шагом сценария.</CONDITION>
+            <EXPECTED_RESULT>На первом шаге недоступен переход назад, на последнем — переход далее; доступность наблюдаема хост-страницей.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-SCENARIO-NAVIGATION-DURING-PLAYBACK">
+            <CONDITION>Пользователь запрашивает переход к соседнему шагу во время воспроизведения текущего шага.</CONDITION>
+            <EXPECTED_RESULT>Текущая анимация останавливается, выбранный шаг устанавливается в начальное состояние и воспроизводится с начала.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-NAVIGATION-DURING-PLAYBACK"/><REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY"/><REQUIREMENT ref="FR-SCENARIO-NEXT-PLAYBACK"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-ANIMATION-REPLACEMENT">
+            <CONDITION>Во время обычной анимации запрашивается другая обычная анимация.</CONDITION>
+            <EXPECTED_RESULT>Текущая анимация останавливается, модель восстанавливается с сохранением выбора и камеры, новая анимация начинается с начала.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-ANIMATION-INTERRUPTION"/><REQUIREMENT ref="FR-ANIMATION-RESET-AFTER-PLAYBACK"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-SCENARIO-REQUEST-DURING-ANIMATION">
+            <CONDITION>Запуск сценария запрошен во время обычной анимации.</CONDITION>
+            <EXPECTED_RESULT>Сначала проверяется допустимость сценария; допустимый сценарий заменяет анимацию, недопустимый запрос не изменяет текущую анимацию.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-ACTIVE-SCENARIO-REPLACEMENT">
+            <CONDITION>Во время активного сценария запрошен другой сценарий.</CONDITION>
+            <EXPECTED_RESULT>Допустимый сценарий атомарно заменяет текущий с первого шага; недопустимый запрос не изменяет текущий сценарий.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/><INVARIANT ref="INV-ATOMIC-HOST-OBSERVATION"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-ACTIVE-SCENARIO-RESTART">
+            <CONDITION>Повторно запрошен уже активный сценарий.</CONDITION>
+            <EXPECTED_RESULT>Сценарий атомарно перезапускается с первого шага с сохранением выбора и камеры.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART"/><INVARIANT ref="INV-ATOMIC-HOST-OBSERVATION"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-AR-REQUEST-DURING-ANIMATION">
+            <CONDITION>Запуск AR запрошен во время обычной анимации.</CONDITION>
+            <EXPECTED_RESULT>Анимация останавливается и не возобновляется после возврата; выбор и камера сохраняются.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION"/><REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME"/><REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-COMPATIBLE-SELECTION-CHANGE-DURING-ANIMATION">
+            <CONDITION>Во время обычной анимации запрошен другой цвет либо совместимый структурный вариант.</CONDITION>
+            <EXPECTED_RESULT>Новый выбор применяется без остановки или перезапуска анимации.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE"/><REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-NO-USABLE-HOST-HEIGHT">
+            <CONDITION>Хост-страница не задала применимую высоту контейнера.</CONDITION>
+            <EXPECTED_RESULT>Компонент использует запасное соотношение сторон 4 / 3, доступное для переопределения через утверждённую поверхность настройки.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO"/></LINKS>
+        </EDGE_CASE>
+        <EDGE_CASE id="EDGE-DISCONNECT-DURING-ACTIVE-OPERATION">
+            <CONDITION>Компонент удаляется со страницы во время инициированной им операции.</CONDITION>
+            <EXPECTED_RESULT>Компонент прекращает собственные операции, удаляет обработчики и освобождает ресурсы.</EXPECTED_RESULT>
+            <LINKS><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><INVARIANT ref="INV-DISCONNECTED-COMPONENT-HAS-NO-OWNED-ACTIVE-OPERATIONS"/></LINKS>
+        </EDGE_CASE>
+    </EDGE_CASES>
+
+    <ACCEPTANCE_CRITERIA>
+        <ACCEPTANCE_CRITERION id="AC-INITIALIZATION-SUCCESS">
+            <GIVEN>Передана корректная обязательная конфигурация и доступная основная GLB-модель.</GIVEN>
+            <WHEN>Компонент выполняет проверку и загрузку.</WHEN>
+            <THEN>Модель отображается, компонент достигает готового состояния, а корректные необязательные возможности доступны.</THEN>
+            <LINKS><USE_CASE ref="UC-HOST-PAGE-INITIALIZE-WIDGET"/><BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/><STATE ref="STATE-READY"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-REQUIRED-FAILURE-BLOCKS-INITIALIZATION">
+            <GIVEN>Обязательная конфигурация или основная GLB некорректна.</GIVEN>
+            <WHEN>Компонент выполняет проверку либо загрузку.</WHEN>
+            <THEN>Товар не отображается, компонент достигает состояния блокирующей ошибки, а причина становится понятной и наблюдаемой.</THEN>
+            <LINKS><ERROR_SCENARIO ref="ERR-INVALID-REQUIRED-CONFIGURATION"/><ERROR_SCENARIO ref="ERR-PRIMARY-GLB-FAILURE"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-OPTIONAL-FAILURE-ISOLATION">
+            <GIVEN>Основная GLB корректна, но одна необязательная возможность некорректна.</GIVEN>
+            <WHEN>Компонент проверяет конфигурацию.</WHEN>
+            <THEN>Отключается только затронутая возможность или предусмотренная группа, а товар и остальные корректные возможности остаются доступны.</THEN>
+            <LINKS><INVARIANT ref="INV-OPTIONAL-CAPABILITY-FAILURE-ISOLATION"/><ERROR_SCENARIO ref="ERR-INVALID-OPTIONAL-CAPABILITY"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-PRODUCT-EXPLORATION">
+            <GIVEN>Компонент готов и настроены доступные цветовые и структурные варианты.</GIVEN>
+            <WHEN>Пользователь меняет допустимый выбор и взаимодействует с камерой.</WHEN>
+            <THEN>Выбор применяется независимо и сохраняется, а пользователь может вращать, масштабировать и осматривать модель.</THEN>
+            <LINKS><USE_CASE ref="UC-END-USER-EXPLORE-PRODUCT"/><BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/><INVARIANT ref="INV-SELECTION-INDEPENDENCE"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-ANIMATION-LIFECYCLE">
+            <GIVEN>Настроена допустимая анимация и выбран совместимый структурный вариант.</GIVEN>
+            <WHEN>Пользователь запускает, завершает либо заменяет обычную анимацию.</WHEN>
+            <THEN>Анимация воспроизводится по настроенному источнику, модель корректно восстанавливается, выбор и камера сохраняются, а изменения состояния наблюдаемы.</THEN>
+            <LINKS><USE_CASE ref="UC-END-USER-PLAY-ANIMATION"/><BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK"/><STATE ref="STATE-ANIMATION-PLAYING"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-SCENARIO-LIFECYCLE">
+            <GIVEN>Настроен допустимый сценарий и выбран совместимый структурный вариант.</GIVEN>
+            <WHEN>Пользователь запускает сценарий, переходит между шагами, перезапускает, заменяет или останавливает его.</WHEN>
+            <THEN>Шаги выполняются последовательно по правилам, конечное состояние шага сохраняется, переходы и замены соблюдают атомарность, а выбор и камера сохраняются.</THEN>
+            <LINKS><USE_CASE ref="UC-END-USER-FOLLOW-SCENARIO"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><STATE ref="STATE-SCENARIO-ACTIVE"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-AR-LIFECYCLE">
+            <GIVEN>AR предусмотрено и доступно для текущего товара.</GIVEN>
+            <WHEN>Пользователь запускает AR и возвращается на хост-страницу.</WHEN>
+            <THEN>Перед запуском синхронизирован текущий выбор, переданы применимые ресурсы, запуск и возврат наблюдаемы, а выбранное состояние и камера сохраняются.</THEN>
+            <LINKS><USE_CASE ref="UC-END-USER-PLACE-IN-AR"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><STATE ref="STATE-AR-ACTIVE"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-HOST-OBSERVABILITY">
+            <GIVEN>Хост-страница управляет компонентом и отслеживает его состояние.</GIVEN>
+            <WHEN>Команда принимается, отклоняется либо завершается с последующей ошибкой выполнения.</WHEN>
+            <THEN>Хост получает непротиворечивое подтверждённое состояние и различает отказ принять запрос и ошибку после принятия.</THEN>
+            <LINKS><REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY"/><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/><INVARIANT ref="INV-ATOMIC-HOST-OBSERVATION"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-RESPONSIVE-INTERNAL-VIEW">
+            <GIVEN>Компонент встроен в контейнер хост-страницы.</GIVEN>
+            <WHEN>Размер контейнера изменяется либо применимая высота отсутствует.</WHEN>
+            <THEN>Область просмотра заполняет контейнер без искажения модели, адаптируется к размеру и использует предусмотренный fallback.</THEN>
+            <LINKS><REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT"/><REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER"/><REQUIREMENT ref="FR-VIEWER-RESIZE"/><EDGE_CASE ref="EDGE-NO-USABLE-HOST-HEIGHT"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+        <ACCEPTANCE_CRITERION id="AC-DISCONNECT-CLEANUP">
+            <GIVEN>Компонент подключён и владеет активными обработчиками либо ресурсами.</GIVEN>
+            <WHEN>Компонент удаляется со страницы.</WHEN>
+            <THEN>Его операции прекращены, обработчики удалены, ресурсы освобождены, дальнейшее активное состояние отсутствует.</THEN>
+            <LINKS><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><STATE ref="STATE-DISCONNECTED"/></LINKS>
+        </ACCEPTANCE_CRITERION>
+    </ACCEPTANCE_CRITERIA>
+
+    <SEMANTIC_GRAPH>
+        <GRAPH_BRANCH id="GRAPH-INITIALIZATION">
+            <GOAL ref="GOAL-P3D-001"/>
+            <ACTOR ref="ACTOR-SITE-OWNER"/><ACTOR ref="ACTOR-HOST-PAGE"/>
+            <USE_CASE ref="UC-SITE-OWNER-CONFIGURE-PRODUCT"/><USE_CASE ref="UC-HOST-PAGE-INITIALIZE-WIDGET"/>
+            <BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/><BUSINESS_PROCESS ref="BP-CONFIGURATION-VALIDATION"/><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/>
+            <ENTITY ref="ENTITY-PRODUCT-CONFIGURATION"/><ENTITY ref="ENTITY-GLB-MODEL"/>
+            <STATE_PATH>STATE-NOT-CONFIGURED → STATE-LOADING-CONFIGURATION → STATE-LOADING-MODEL → STATE-READY | STATE-ERROR</STATE_PATH>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE"/><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/>
+                <REQUIREMENT ref="FR-COLOR-SWATCH-REQUIRED"/><REQUIREMENT ref="FR-AVAILABILITY-STATES"/><REQUIREMENT ref="FR-ERROR-MESSAGES"/>
+                <REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED"/><REQUIREMENT ref="FR-PRIMARY-GLB-ONLY-VIEW"/><REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING"/>
+                <REQUIREMENT ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING"/><REQUIREMENT ref="FR-SCENARIO-INVALID-CONFIGURATION-HANDLING"/>
+                <REQUIREMENT ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING"/><REQUIREMENT ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING"/>
+                <REQUIREMENT ref="FR-BASE-STATE-AS-VARIANT"/><REQUIREMENT ref="FR-VARIANT-GROUP-DEFAULT-REQUIRED"/>
+                <REQUIREMENT ref="FR-VARIANT-GROUP-INVALID-DEFAULT-HANDLING"/><REQUIREMENT ref="FR-INVALID-DEFAULT-VARIANT-DISABLE-GROUP"/>
+            </REQUIREMENTS>
+            <RESULT ref="AC-INITIALIZATION-SUCCESS"/>
+        </GRAPH_BRANCH>
+        <GRAPH_BRANCH id="GRAPH-PRODUCT-EXPLORATION">
+            <GOAL ref="GOAL-P3D-001"/><ACTOR ref="ACTOR-END-USER"/><USE_CASE ref="UC-END-USER-EXPLORE-PRODUCT"/>
+            <BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/>
+            <ENTITY ref="ENTITY-COLOR-VARIANT"/><ENTITY ref="ENTITY-PRODUCT-VARIANT"/><ENTITY ref="ENTITY-CURRENT-SELECTION"/>
+            <STATE_PATH>STATE-READY → STATE-READY</STATE_PATH>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-MODEL-INTERACTION"/><REQUIREMENT ref="FR-COLOR-SELECTION"/><REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION"/>
+                <REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION"/><REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE"/>
+                <REQUIREMENT ref="FR-NO-SEPARATE-CAMERA-CONTROLS"/>
+            </REQUIREMENTS>
+            <RESULT ref="AC-PRODUCT-EXPLORATION"/>
+        </GRAPH_BRANCH>
+        <GRAPH_BRANCH id="GRAPH-ANIMATION">
+            <GOAL ref="GOAL-P3D-001"/><ACTOR ref="ACTOR-END-USER"/><USE_CASE ref="UC-END-USER-PLAY-ANIMATION"/>
+            <BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK"/><ENTITY ref="ENTITY-ANIMATION"/>
+            <STATE_PATH>STATE-READY → STATE-ANIMATION-PLAYING → STATE-READY</STATE_PATH>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-ANIMATION-CONTROLS"/><REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT"/><REQUIREMENT ref="FR-ANIMATION-RANGE-PLAYBACK"/>
+                <REQUIREMENT ref="FR-ANIMATION-RESET-AFTER-PLAYBACK"/><REQUIREMENT ref="FR-ANIMATION-INTERRUPTION"/>
+                <REQUIREMENT ref="FR-ANIMATION-ALLOW-VIEW-INTERACTION"/><REQUIREMENT ref="FR-ANIMATION-PRESERVE-CAMERA-VIEW"/>
+                <REQUIREMENT ref="FR-ANIMATION-SELECTION-AVAILABILITY"/><REQUIREMENT ref="FR-ANIMATION-VARIANT-COMPATIBILITY"/>
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANTS-WHITELIST"/><REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT"/>
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE"/><REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE"/>
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBILITY-STRUCTURAL-VARIANTS-ONLY"/>
+            </REQUIREMENTS>
+            <RESULT ref="AC-ANIMATION-LIFECYCLE"/>
+        </GRAPH_BRANCH>
+        <GRAPH_BRANCH id="GRAPH-SCENARIO">
+            <GOAL ref="GOAL-P3D-001"/><ACTOR ref="ACTOR-END-USER"/><USE_CASE ref="UC-END-USER-FOLLOW-SCENARIO"/>
+            <BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><ENTITY ref="ENTITY-SCENARIO"/><ENTITY ref="ENTITY-SCENARIO-STEP"/>
+            <STATE_PATH>STATE-READY | STATE-ANIMATION-PLAYING → STATE-SCENARIO-ACTIVE → STATE-READY</STATE_PATH>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-SCENARIO-CONTROLS"/><REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME"/><REQUIREMENT ref="FR-STOP-SCENARIO"/>
+                <REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY"/><REQUIREMENT ref="FR-SCENARIO-NEXT-PLAYBACK"/><REQUIREMENT ref="FR-SCENARIO-NAVIGATION-DURING-PLAYBACK"/>
+                <REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION"/><REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION"/>
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT"/><REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART"/><REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE"/>
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-REGULAR-ANIMATIONS"/><REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION"/><REQUIREMENT ref="FR-SCENARIO-LOCK-AR"/>
+                <REQUIREMENT ref="FR-SCENARIO-ALLOW-VIEW-INTERACTION"/><REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW"/>
+                <REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY"/><REQUIREMENT ref="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION"/>
+            </REQUIREMENTS>
+            <RESULT ref="AC-SCENARIO-LIFECYCLE"/>
+        </GRAPH_BRANCH>
+        <GRAPH_BRANCH id="GRAPH-AR">
+            <GOAL ref="GOAL-P3D-001"/><ACTOR ref="ACTOR-END-USER"/><USE_CASE ref="UC-END-USER-PLACE-IN-AR"/>
+            <BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><ENTITY ref="ENTITY-AR-CONFIGURATION"/><ENTITY ref="ENTITY-AR-MODE"/><ENTITY ref="ENTITY-USDZ-MODEL"/>
+            <STATE_PATH>STATE-READY | STATE-ANIMATION-PLAYING → STATE-AR-LAUNCHING → STATE-AR-ACTIVE → STATE-READY</STATE_PATH>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-AR-LAUNCH"/><REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION"/><REQUIREMENT ref="FR-AR-ASSET-MAPPING"/>
+                <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/><REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION"/>
+                <REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE"/><REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME"/>
+                <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET"/><REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK"/>
+            </REQUIREMENTS>
+            <RESULT ref="AC-AR-LIFECYCLE"/>
+        </GRAPH_BRANCH>
+        <GRAPH_BRANCH id="GRAPH-HOST-INTEGRATION-AND-LIFECYCLE">
+            <GOAL ref="GOAL-P3D-001"/><ACTOR ref="ACTOR-HOST-PAGE"/><USE_CASE ref="UC-HOST-PAGE-INITIALIZE-WIDGET"/>
+            <ENTITY ref="ENTITY-HOST-CONTROL-API"/><ENTITY ref="ENTITY-HOST-STATE-EVENT"/><ENTITY ref="ENTITY-COMPONENT-STATE"/>
+            <STATE_PATH>Любое подключённое состояние → STATE-DISCONNECTED</STATE_PATH>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/><REQUIREMENT ref="FR-HOST-STATE-EVENTS"/><REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY"/>
+                <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/><REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION"/><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/>
+                <REQUIREMENT ref="FR-COMPONENT-STYLING-API"/><REQUIREMENT ref="FR-DEFAULT-MINIMAL-STYLING"/><REQUIREMENT ref="FR-NEUTRAL-DEFAULT-STYLING"/>
+                <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT"/><REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER"/><REQUIREMENT ref="FR-VIEWER-RESIZE"/>
+                <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO"/>
+            </REQUIREMENTS>
+            <RESULT ref="AC-HOST-OBSERVABILITY"/><RESULT ref="AC-RESPONSIVE-INTERNAL-VIEW"/><RESULT ref="AC-DISCONNECT-CLEANUP"/>
+        </GRAPH_BRANCH>
+    </SEMANTIC_GRAPH>
+
+    <APPROVAL_GATE status="PENDING">
+        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
+        <CONDITION>Документ может быть утверждён после проверки человеком, что извлечённые инварианты, ошибки, граничные случаи, критерии результата и связи не изменяют согласованное поведение.</CONDITION>
+    </APPROVAL_GATE>
 </REQUIREMENTS_ANALYSIS>
