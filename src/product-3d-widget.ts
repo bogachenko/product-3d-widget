@@ -259,7 +259,7 @@ const INITIAL_STATE: Product3DWidgetState = freezeSnapshot({
 
 // <SEMANTIC_BLOCK id="CFC-CLASS-PRODUCT-3D-WIDGET">
 // <INTENT>Own the confirmed public state, host API, host events and leaf lifecycles.</INTENT>
-// <LINKS><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-CONFIGURE"/></LINKS>
+// <LINKS><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-CONFIGURE"/><REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT"/><BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/></LINKS>
 export class Product3DWidget extends HTMLElement {
   readonly #viewerHost: HTMLDivElement;
   readonly #loadingSurface: HTMLDivElement;
@@ -322,6 +322,8 @@ export class Product3DWidget extends HTMLElement {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-CONNECTED">
+  // <INTENT>Start a fresh initialization cycle when connected and a configuration has already been accepted for this instance.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-AVAILABILITY-STATES"/><BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-CONNECTED"/></LINKS>
   protected connectedCallback(): void {
     if (this.#terminalPrimaryGlbFailure) {
       this.#commitAndNotify({ ...this.#state, lifecycle: 'STATE-ERROR' });
@@ -352,6 +354,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-DISCONNECTED">
+  // <INTENT>Synchronously prohibit new work and initiate idempotent cleanup of every owned runtime resource.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-DISCONNECTED"/></LINKS>
   protected disconnectedCallback(): void {
     this.#cycle += 1;
     const viewer = this.#viewer;
@@ -375,6 +379,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-CONFIGURE">
+  // <INTENT>Validate and, only after mandatory validation succeeds, accept the single product assignment and initialize its primary viewer.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT"/><BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-CONFIGURE"/></LINKS>
   async configure(config: ProductConfiguration): Promise<InitializationResult> {
     if (!this.isConnected) {
       return Object.freeze({
@@ -434,12 +440,16 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-GET-STATE">
+  // <INTENT>Return the last confirmed deeply readonly snapshot without triggering work.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY"/><BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-GET-STATE"/></LINKS>
   getState(): Product3DWidgetState {
     return this.#state;
   }
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-SELECT-COLOR">
+  // <INTENT>Apply an enabled color while preserving structural selection and any allowed running regular animation.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION"/><BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-SELECT-COLOR"/></LINKS>
   async selectColor(colorId: string): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -465,6 +475,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-SELECT-VARIANT">
+  // <INTENT>Apply an enabled structural variant only when current operation compatibility permits it.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION"/><BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-SELECT-VARIANT"/></LINKS>
   async selectVariant(variantId: string): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -503,6 +515,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-PLAY-ANIMATION">
+  // <INTENT>Start or atomically replace a regular animation after full compatibility validation.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-ANIMATION-INTERRUPTION"/><BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-PLAY-ANIMATION"/></LINKS>
   async playAnimation(animationId: string): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -522,14 +536,22 @@ export class Product3DWidget extends HTMLElement {
       });
     }
 
+    const priorLifecycle = this.#state.lifecycle;
     const result = await this.#viewer.playAnimation(animationId);
     if (!result.ok) {
+      const state = priorLifecycle === 'STATE-ANIMATION-PLAYING'
+        ? this.#commitAndNotify({
+            ...this.#state,
+            lifecycle: 'STATE-READY',
+            animation: { id: null, status: 'idle' },
+          }, 'product-3d-animation-change')
+        : this.#state;
       this.dispatchEvent(new CustomEvent('product-3d-error', {
-        detail: Object.freeze({ state: this.#state, error: result.error }),
+        detail: Object.freeze({ state, error: result.error }),
         bubbles: true,
         composed: true,
       }));
-      return Object.freeze({ accepted: true, outcome: 'failed', error: result.error, state: this.#state });
+      return Object.freeze({ accepted: true, outcome: 'failed', error: result.error, state });
     }
     const state = this.#commitAndNotify({
       ...this.#state,
@@ -542,6 +564,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-START-SCENARIO">
+  // <INTENT>Start, replace or restart a scenario atomically only after complete prevalidation.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-START-SCENARIO"/></LINKS>
   async startScenario(scenarioId: string): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -572,6 +596,13 @@ export class Product3DWidget extends HTMLElement {
         animation: { id: null, status: 'idle' },
         scenario: { id: null, stepIndex: null, status: 'idle', canGoBack: false, canGoNext: false },
       }, 'product-3d-scenario-change');
+      if (priorLifecycle === 'STATE-ANIMATION-PLAYING') {
+        this.dispatchEvent(new CustomEvent('product-3d-animation-change', {
+          detail: state,
+          bubbles: true,
+          composed: true,
+        }));
+      }
       this.dispatchEvent(new CustomEvent('product-3d-error', {
         detail: Object.freeze({ state, error: result.error }),
         bubbles: true,
@@ -603,6 +634,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-PREVIOUS-STEP">
+  // <INTENT>Move to and replay the previous scenario step while preserving camera and selection.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-PREVIOUS-STEP"/></LINKS>
   async previousScenarioStep(): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -634,6 +667,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-NEXT-STEP">
+  // <INTENT>Move to and replay the next scenario step while preserving camera and selection.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-NEXT-STEP"/></LINKS>
   async nextScenarioStep(): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -665,6 +700,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-STOP-SCENARIO">
+  // <INTENT>Stop the active scenario and restore ordinary base pose with confirmed selection and camera.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-STOP-SCENARIO"/></LINKS>
   async stopScenario(): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -690,6 +727,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-LAUNCH-AR">
+  // <INTENT>Initiate one mode-neutral AR request from a valid user activation without inferring the selected channel.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-SCENARIO-LOCK-AR"/><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-LAUNCH-AR"/></LINKS>
   async launchAR(): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
     if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
@@ -742,6 +781,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-INITIALIZE-CYCLE">
+  // <INTENT>Run the minimum sequence normalize configuration → initialize viewer → initialize optional AR adapter for the current connection cycle.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS"/><BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-INITIALIZE-CYCLE"/></LINKS>
   async #initializeCycle(): Promise<InitializationResult> {
     const config = this.#configuration;
     if (config === null || !this.isConnected) {
@@ -909,11 +950,13 @@ export class Product3DWidget extends HTMLElement {
           ar: { available: false, webxrActive: false },
           error: null,
         });
-        this.dispatchEvent(new CustomEvent('product-3d-error', {
-          detail: Object.freeze({ state, error: arResult.error }),
-          bubbles: true,
-          composed: true,
-        }));
+        for (const error of errors) {
+          this.dispatchEvent(new CustomEvent('product-3d-error', {
+            detail: Object.freeze({ state, error }),
+            bubbles: true,
+            composed: true,
+          }));
+        }
         return Object.freeze({ accepted: true, outcome: 'ready', state });
       }
     }
@@ -954,6 +997,8 @@ export class Product3DWidget extends HTMLElement {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-COMMIT-NOTIFY">
+  // <INTENT>Atomically replace the confirmed snapshot and enforce general-event → specialized-event ordering.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-HOST-STATE-EVENTS"/><BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION"/><MODULE ref="MOD-WIDGET-CONTROLLER"/><MODULE_CONTRACT ref="CONTRACT-MOD-WIDGET-CONTROLLER"/><FUNCTION_CONTRACT ref="CFC-FN-WIDGET-COMMIT-NOTIFY"/></LINKS>
   #commitAndNotify(next: Product3DWidgetState, specializedEvent?: SpecializedWidgetEventName): Product3DWidgetState {
     const ordinary = next.lifecycle === 'STATE-READY' || next.lifecycle === 'STATE-ANIMATION-PLAYING';
     const scenarioActive = next.lifecycle === 'STATE-SCENARIO-ACTIVE';

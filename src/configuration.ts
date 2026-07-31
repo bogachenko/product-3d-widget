@@ -381,7 +381,7 @@ const normalizeScenarios = (
 
 // <SEMANTIC_BLOCK id="CFC-FN-NORMALIZE-CONFIG">
 // <INTENT>Validate one untrusted product configuration without runtime side effects.</INTENT>
-// <LINKS><MODULE ref="MOD-CONFIGURATION"/><MODULE_CONTRACT ref="CONTRACT-MOD-CONFIGURATION"/><FUNCTION_CONTRACT ref="CFC-FN-NORMALIZE-CONFIG"/></LINKS>
+// <LINKS><MODULE ref="MOD-CONFIGURATION"/><MODULE_CONTRACT ref="CONTRACT-MOD-CONFIGURATION"/><FUNCTION_CONTRACT ref="CFC-FN-NORMALIZE-CONFIG"/><REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE"/><BUSINESS_PROCESS ref="BP-CONFIGURATION-VALIDATION"/></LINKS>
 export function normalizeProductConfiguration(input: unknown): ConfigurationValidationResult {
   const blockingErrors: WidgetError[] = [];
   if (!isObject(input)) {

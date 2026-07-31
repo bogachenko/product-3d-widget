@@ -24,6 +24,13 @@ const configuration = {
         { id: 'two', description: 'Second', animationId: 'pulse-base' },
       ],
     },
+    {
+      id: 'tour-short',
+      label: 'Short tour',
+      steps: [
+        { id: 'only', description: 'Only step', animationId: 'pulse-all' },
+      ],
+    },
   ],
 };
 
@@ -104,6 +111,12 @@ test('lifecycle, exact host API, immutable state and styling surface', async ({ 
         && Object.isFrozen(selection)
         && Object.isFrozen(capabilities)
         && Object.isFrozen(capabilities.colors),
+      mutationPreserved: (() => {
+        const before = JSON.stringify(widget.getState());
+        Reflect.set(selection, 'colorId', 'tampered');
+        Reflect.set(capabilities.colors as object, '0', { id: 'tampered', label: 'Tampered' });
+        return JSON.stringify(widget.getState()) === before;
+      })(),
       canvases: widget.shadowRoot!.querySelectorAll('canvas').length,
       loadingHidden: (widget.shadowRoot!.querySelector('[part="loading"]') as HTMLElement).hidden,
       errorHidden: (widget.shadowRoot!.querySelector('[part="error"]') as HTMLElement).hidden,
@@ -113,15 +126,86 @@ test('lifecycle, exact host API, immutable state and styling surface', async ({ 
   expect(result.outcome).toBe('ready');
   expect((result.state as { lifecycle: string }).lifecycle).toBe('STATE-READY');
   expect(result.frozen).toBe(true);
+  expect(result.mutationPreserved).toBe(true);
   expect(result.canvases).toBe(1);
   expect(result.loadingHidden).toBe(true);
   expect(result.errorHidden).toBe(true);
 
   await page.evaluate(() => {
     const widget = document.querySelector('#widget') as HTMLElement;
+    widget.style.setProperty('--product-3d-aspect-ratio', '1 / 1');
+  });
+  await expect.poll(() => page.locator('#widget').evaluate((element) => element.getBoundingClientRect().height)).toBe(400);
+
+  await page.evaluate(() => {
+    const widget = document.querySelector('#widget') as HTMLElement;
     widget.style.height = '180px';
   });
   await expect.poll(() => page.locator('#widget').evaluate((element) => element.getBoundingClientRect().height)).toBe(180);
+});
+
+test('all pre-ready commands reject without events or queued execution', async ({ page }) => {
+  await openFixture(page);
+  const result = await page.evaluate(async (config) => {
+    const disconnected = document.createElement('product-3d-widget') as any;
+    const disconnectedConfigure = await disconnected.configure(config);
+
+    const widget = document.createElement('product-3d-widget') as any;
+    document.body.append(widget);
+    const events: string[] = [];
+    for (const name of [
+      'product-3d-state-change',
+      'product-3d-selection-change',
+      'product-3d-animation-change',
+      'product-3d-scenario-change',
+      'product-3d-ar-availability-change',
+      'product-3d-ar-launched',
+      'product-3d-ar-returned',
+      'product-3d-error',
+    ]) widget.addEventListener(name, () => events.push(name));
+
+    const stateBefore = widget.getState();
+    const eventCountBefore = events.length;
+    const rejected = await Promise.all([
+      widget.selectColor('red'),
+      widget.selectVariant('alt'),
+      widget.playAnimation('pulse-all'),
+      widget.startScenario('tour'),
+      widget.previousScenarioStep(),
+      widget.nextScenarioStep(),
+      widget.stopScenario(),
+      widget.launchAR(),
+    ]);
+    const eventsAfterRejected = events.slice(eventCountBefore);
+    const initialized = await widget.configure(config);
+    return {
+      disconnectedConfigure,
+      stateBefore,
+      rejected,
+      eventsAfterRejected,
+      initialized,
+      final: widget.getState(),
+    };
+  }, configuration);
+
+  expect(result.disconnectedConfigure).toMatchObject({ accepted: false, outcome: 'rejected', reason: 'disconnected' });
+  expect(result.stateBefore.lifecycle).toBe('STATE-NOT-CONFIGURED');
+  expect(result.rejected.map((item: any) => item.accepted)).toEqual(Array(8).fill(false));
+  expect(result.rejected.map((item: any) => item.reason)).toEqual([
+    'not-ready',
+    'not-ready',
+    'not-ready',
+    'not-ready',
+    'no-active-scenario',
+    'no-active-scenario',
+    'no-active-scenario',
+    'not-ready',
+  ]);
+  expect(result.eventsAfterRejected).toEqual([]);
+  expect(result.initialized.outcome).toBe('ready');
+  expect(result.final.selection).toEqual({ colorId: 'original', variantId: 'base' });
+  expect(result.final.animation).toEqual({ id: null, status: 'idle' });
+  expect(result.final.scenario).toMatchObject({ id: null, stepIndex: null, status: 'idle' });
 });
 
 test('mandatory rejection is correctable once and accepted assignment is immutable', async ({ page }) => {
@@ -189,15 +273,34 @@ test('selection, compatibility, animation, scenario and event order are atomic',
     const animationAfterColor = widget.getState().animation;
     const incompatibleVariant = await widget.selectVariant('alt');
     const stateAfterRejectedVariant = widget.getState();
-    const replacement = await widget.playAnimation('pulse-all');
+    const replacementOrder: string[] = [];
+    for (const name of ['product-3d-state-change', 'product-3d-animation-change']) {
+      widget.addEventListener(name, () => replacementOrder.push(name), { once: true });
+    }
+    const replacement = await widget.playAnimation('pulse-all').then((value: any) => {
+      replacementOrder.push('resolved');
+      return value;
+    });
     const compatibleVariant = await widget.selectVariant('alt');
     const invalidScenario = await widget.startScenario('tour');
     const stateAfterInvalidScenario = widget.getState();
     await widget.selectVariant('base');
-    const scenario = await widget.startScenario('tour');
+    const scenarioOrder: string[] = [];
+    for (const name of ['product-3d-state-change', 'product-3d-scenario-change', 'product-3d-animation-change']) {
+      widget.addEventListener(name, () => scenarioOrder.push(name), { once: true });
+    }
+    const scenario = await widget.startScenario('tour').then((value: any) => {
+      scenarioOrder.push('resolved');
+      return value;
+    });
     const boundaryBack = await widget.previousScenarioStep();
     const next = await widget.nextScenarioStep();
     const boundaryNext = await widget.nextScenarioStep();
+    const beforeInvalidReplacement = widget.getState();
+    const invalidReplacement = await widget.startScenario('missing-scenario');
+    const afterInvalidReplacement = widget.getState();
+    const restarted = await widget.startScenario('tour');
+    const replaced = await widget.startScenario('tour-short');
     const stopped = await widget.stopScenario();
 
     return {
@@ -207,13 +310,20 @@ test('selection, compatibility, animation, scenario and event order are atomic',
       incompatibleVariant,
       stateAfterRejectedVariant,
       replacement,
+      replacementOrder,
       compatibleVariant,
       invalidScenario,
       stateAfterInvalidScenario,
       scenario,
+      scenarioOrder,
       boundaryBack,
       next,
       boundaryNext,
+      beforeInvalidReplacement,
+      invalidReplacement,
+      afterInvalidReplacement,
+      restarted,
+      replaced,
       stopped,
       order,
       final: widget.getState(),
@@ -231,17 +341,126 @@ test('selection, compatibility, animation, scenario and event order are atomic',
   expect(result.stateAfterRejectedVariant.selection.variantId).toBe('base');
   expect(result.stateAfterRejectedVariant.animation.id).toBe('pulse-base');
   expect(result.replacement.state.animation.id).toBe('pulse-all');
+  expect(result.replacementOrder).toEqual(['product-3d-state-change', 'product-3d-animation-change', 'resolved']);
   expect(result.compatibleVariant.state.selection.variantId).toBe('alt');
   expect(result.invalidScenario).toMatchObject({ accepted: false, reason: 'incompatible-scenario', compatibleVariantIds: ['base'] });
   expect(result.stateAfterInvalidScenario.animation.id).toBe('pulse-all');
   expect(result.scenario.state).toMatchObject({ lifecycle: 'STATE-SCENARIO-ACTIVE', scenario: { id: 'tour', stepIndex: 0 } });
+  expect(result.scenarioOrder).toEqual([
+    'product-3d-state-change',
+    'product-3d-scenario-change',
+    'product-3d-animation-change',
+    'resolved',
+  ]);
   expect(result.boundaryBack).toMatchObject({ accepted: false, reason: 'scenario-boundary' });
   expect(result.next.state.scenario.stepIndex).toBe(1);
   expect(result.boundaryNext).toMatchObject({ accepted: false, reason: 'scenario-boundary' });
+  expect(result.invalidReplacement).toMatchObject({ accepted: false, reason: 'unknown-scenario' });
+  expect(result.afterInvalidReplacement).toEqual(result.beforeInvalidReplacement);
+  expect(result.restarted.state.scenario).toMatchObject({ id: 'tour', stepIndex: 0, status: 'playing' });
+  expect(result.replaced.state.scenario).toMatchObject({ id: 'tour-short', stepIndex: 0, status: 'playing' });
   expect(result.stopped.state.lifecycle).toBe('STATE-READY');
   expect(result.final.scenario).toMatchObject({ id: null, stepIndex: null, status: 'idle' });
   const selectionIndex = result.order.lastIndexOf('product-3d-selection-change');
   expect(result.order[selectionIndex - 1]).toBe('product-3d-state-change');
+});
+
+test('accepted animation and scenario start failures commit ordinary state before error', async ({ page }) => {
+  await openFixture(page);
+  await configureWidget(page);
+
+  const result = await page.evaluate(async () => {
+    const widget = document.querySelector('#widget') as any;
+    const viewerModule = await import('/src/three-viewer.ts');
+    const ThreeViewer = viewerModule.ThreeViewer;
+
+    await widget.playAnimation('pulse-all');
+    const originalPlayAnimation = ThreeViewer.prototype.playAnimation;
+    const originalStartScenario = ThreeViewer.prototype.startScenario;
+    const animationOrder: string[] = [];
+    for (const name of ['product-3d-state-change', 'product-3d-animation-change', 'product-3d-error']) {
+      widget.addEventListener(name, () => animationOrder.push(name), { once: true });
+    }
+    ThreeViewer.prototype.playAnimation = async function(animationId: string): Promise<any> {
+      await this.stopAnimationAndReset('replacement');
+      return Object.freeze({
+        ok: false,
+        error: Object.freeze({
+          code: 'VIEWER_OPERATION_FAILED',
+          scope: 'animation',
+          message: 'Synthetic accepted animation failure.',
+          entityId: animationId,
+        }),
+      });
+    };
+    const animationPromise = widget.playAnimation('pulse-base').then((value: any) => {
+      animationOrder.push('resolved');
+      return value;
+    });
+    const animationFailure = await animationPromise;
+    ThreeViewer.prototype.playAnimation = originalPlayAnimation;
+
+    await widget.playAnimation('pulse-all');
+    const scenarioOrder: string[] = [];
+    for (const name of ['product-3d-state-change', 'product-3d-scenario-change', 'product-3d-animation-change', 'product-3d-error']) {
+      widget.addEventListener(name, () => scenarioOrder.push(name), { once: true });
+    }
+    ThreeViewer.prototype.startScenario = async function(scenarioId: string): Promise<any> {
+      await this.stopAnimationAndReset('scenario');
+      return Object.freeze({
+        ok: false,
+        error: Object.freeze({
+          code: 'VIEWER_OPERATION_FAILED',
+          scope: 'scenario',
+          message: 'Synthetic accepted scenario failure.',
+          entityId: scenarioId,
+        }),
+      });
+    };
+    const scenarioPromise = widget.startScenario('tour').then((value: any) => {
+      scenarioOrder.push('resolved');
+      return value;
+    });
+    const scenarioFailure = await scenarioPromise;
+    ThreeViewer.prototype.startScenario = originalStartScenario;
+
+    return {
+      animationFailure,
+      animationOrder,
+      scenarioFailure,
+      scenarioOrder,
+      final: widget.getState(),
+    };
+  });
+
+  expect(result.animationFailure).toMatchObject({
+    accepted: true,
+    outcome: 'failed',
+    state: { lifecycle: 'STATE-READY', animation: { id: null, status: 'idle' } },
+  });
+  expect(result.animationOrder).toEqual([
+    'product-3d-state-change',
+    'product-3d-animation-change',
+    'product-3d-error',
+    'resolved',
+  ]);
+  expect(result.scenarioFailure).toMatchObject({
+    accepted: true,
+    outcome: 'failed',
+    state: {
+      lifecycle: 'STATE-READY',
+      animation: { id: null, status: 'idle' },
+      scenario: { id: null, stepIndex: null, status: 'idle' },
+    },
+  });
+  expect(result.scenarioOrder).toEqual([
+    'product-3d-state-change',
+    'product-3d-scenario-change',
+    'product-3d-animation-change',
+    'product-3d-error',
+    'resolved',
+  ]);
+  expect(result.final.lifecycle).toBe('STATE-READY');
 });
 
 test('natural completion and scenario final-frame holding are observable', async ({ page }) => {
@@ -265,7 +484,37 @@ test('natural completion and scenario final-frame holding are observable', async
 
 test('resize, disconnect, reconnect and cleanup release owned browser resources', async ({ page }) => {
   await openFixture(page);
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
+    const source = await fetch('/src/three-viewer.ts').then((response) => response.text());
+    const threeImport = source.match(/from\s*["']([^"']*\/three\.js[^"']*)["']/)?.[1];
+    if (threeImport === undefined) throw new Error('Unable to resolve the transformed Three.js import.');
+    const three = await import(threeImport) as typeof import('three');
+
+    const nativeRendererDispose = three.WebGLRenderer.prototype.dispose;
+    const nativeForceContextLoss = three.WebGLRenderer.prototype.forceContextLoss;
+    const nativeGeometryDispose = three.BufferGeometry.prototype.dispose;
+    const nativeMaterialDispose = three.Material.prototype.dispose;
+    let rendererDispose = 0;
+    let forceContextLoss = 0;
+    let geometryDispose = 0;
+    let materialDispose = 0;
+    three.WebGLRenderer.prototype.dispose = function(): void {
+      rendererDispose += 1;
+      nativeRendererDispose.call(this);
+    };
+    three.WebGLRenderer.prototype.forceContextLoss = function(): void {
+      forceContextLoss += 1;
+      nativeForceContextLoss.call(this);
+    };
+    three.BufferGeometry.prototype.dispose = function(): void {
+      geometryDispose += 1;
+      nativeGeometryDispose.call(this);
+    };
+    three.Material.prototype.dispose = function(): void {
+      materialDispose += 1;
+      nativeMaterialDispose.call(this);
+    };
+
     const nativeRaf = window.requestAnimationFrame.bind(window);
     const nativeCancel = window.cancelAnimationFrame.bind(window);
     const pending = new Set<number>();
@@ -283,40 +532,62 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
       nativeCancel(id);
     };
 
-    const NativeResizeObserver = window.ResizeObserver;
+    const nativeObserve = ResizeObserver.prototype.observe;
+    const nativeDisconnect = ResizeObserver.prototype.disconnect;
+    const activeObservers = new WeakSet<ResizeObserver>();
     let observed = 0;
-    let contextListeners = 0;
-    window.ResizeObserver = class extends NativeResizeObserver {
-      #active = false;
-      override observe(target: Element, options?: ResizeObserverOptions): void {
-        if (!this.#active) { observed += 1; this.#active = true; }
-        super.observe(target, options);
+    ResizeObserver.prototype.observe = function(target: Element, options?: ResizeObserverOptions): void {
+      if (!activeObservers.has(this)) {
+        activeObservers.add(this);
+        observed += 1;
       }
-      override disconnect(): void {
-        if (this.#active) { observed -= 1; this.#active = false; }
-        super.disconnect();
-      }
+      nativeObserve.call(this, target, options);
     };
-    const add = HTMLCanvasElement.prototype.addEventListener;
-    const remove = HTMLCanvasElement.prototype.removeEventListener;
+    ResizeObserver.prototype.disconnect = function(): void {
+      if (activeObservers.delete(this)) observed -= 1;
+      nativeDisconnect.call(this);
+    };
+
+    let contextListeners = 0;
+    const canvasAdd = HTMLCanvasElement.prototype.addEventListener;
+    const canvasRemove = HTMLCanvasElement.prototype.removeEventListener;
     HTMLCanvasElement.prototype.addEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
       if (type === 'webglcontextlost') contextListeners += 1;
-      add.call(this, type, listener, options);
+      canvasAdd.call(this, type, listener, options);
     };
     HTMLCanvasElement.prototype.removeEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void {
       if (type === 'webglcontextlost') contextListeners -= 1;
-      remove.call(this, type, listener, options);
+      canvasRemove.call(this, type, listener, options);
     };
+
+    const modelViewer = customElements.get('model-viewer')!;
+    const modelViewerAdd = modelViewer.prototype.addEventListener;
+    const modelViewerRemove = modelViewer.prototype.removeEventListener;
+    let arStatusListeners = 0;
+    modelViewer.prototype.addEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
+      if (type === 'ar-status' && this.getAttribute('aria-hidden') === 'true') arStatusListeners += 1;
+      modelViewerAdd.call(this, type, listener, options);
+    };
+    modelViewer.prototype.removeEventListener = function(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void {
+      if (type === 'ar-status' && this.getAttribute('aria-hidden') === 'true') arStatusListeners -= 1;
+      modelViewerRemove.call(this, type, listener, options);
+    };
+
     Object.assign(window, {
       __resources: {
         pending,
         observed: () => observed,
         contextListeners: () => contextListeners,
+        arStatusListeners: () => arStatusListeners,
+        rendererDispose: () => rendererDispose,
+        forceContextLoss: () => forceContextLoss,
+        geometryDispose: () => geometryDispose,
+        materialDispose: () => materialDispose,
       },
     });
   });
 
-  await configureWidget(page);
+  await configureWidget(page, { ...configuration, ar: { enabled: true } });
   const initialCanvas = await page.locator('#widget').evaluate((widget) => {
     const canvas = widget.shadowRoot!.querySelector('canvas')!;
     return { width: canvas.width, height: canvas.height };
@@ -330,27 +601,55 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
   await page.evaluate(async () => {
     const widget = document.querySelector('#widget') as any;
     await widget.playAnimation('pulse-all');
+    const canvas = widget.shadowRoot.querySelector('canvas') as HTMLCanvasElement;
+    Object.assign(window, {
+      __removedWidget: widget,
+      __removedContext: canvas.getContext('webgl2'),
+    });
     widget.remove();
   });
   await expect.poll(() => page.evaluate(() => (window as any).__resources.pending.size)).toBe(0);
-  expect(await page.evaluate(() => ({
-    observed: (window as any).__resources.observed(),
-    contextListeners: (window as any).__resources.contextListeners(),
-    canvases: document.querySelectorAll('canvas').length,
-    modelViewers: document.querySelectorAll('model-viewer').length,
-  }))).toEqual({ observed: 0, contextListeners: 0, canvases: 0, modelViewers: 0 });
+  await expect.poll(() => page.evaluate(() => (window as any).__resources.forceContextLoss())).toBe(1);
+  expect(await page.evaluate(() => {
+    const widget = (window as any).__removedWidget as HTMLElement;
+    return {
+      observed: (window as any).__resources.observed(),
+      contextListeners: (window as any).__resources.contextListeners(),
+      arStatusListeners: (window as any).__resources.arStatusListeners(),
+      rendererDispose: (window as any).__resources.rendererDispose(),
+      forceContextLoss: (window as any).__resources.forceContextLoss(),
+      geometryDispose: (window as any).__resources.geometryDispose(),
+      materialDispose: (window as any).__resources.materialDispose(),
+      contextLost: (window as any).__removedContext.isContextLost(),
+      canvases: widget.shadowRoot!.querySelectorAll('canvas').length,
+      modelViewers: widget.shadowRoot!.querySelectorAll('model-viewer').length,
+    };
+  })).toEqual({
+    observed: 0,
+    contextListeners: 0,
+    arStatusListeners: 0,
+    rendererDispose: 1,
+    forceContextLoss: 1,
+    geometryDispose: 1,
+    materialDispose: 1,
+    contextLost: true,
+    canvases: 0,
+    modelViewers: 0,
+  });
 
   const reconnected = await page.evaluate(async (config) => {
     const widget = document.createElement('product-3d-widget') as any;
     document.body.append(widget);
     const result = await widget.configure(config);
+    const selection = widget.getState().selection;
     widget.remove();
     document.body.append(widget);
     while (widget.getState().lifecycle === 'STATE-LOADING-MODEL') await new Promise((resolve) => setTimeout(resolve, 20));
     return {
       initial: result.outcome,
       lifecycle: widget.getState().lifecycle,
-      selection: widget.getState().selection,
+      selection,
+      reconnectedSelection: widget.getState().selection,
       canvases: widget.shadowRoot.querySelectorAll('canvas').length,
     };
   }, configuration);
@@ -358,8 +657,57 @@ test('resize, disconnect, reconnect and cleanup release owned browser resources'
     initial: 'ready',
     lifecycle: 'STATE-READY',
     selection: { colorId: 'original', variantId: 'base' },
+    reconnectedSelection: { colorId: 'original', variantId: 'base' },
     canvases: 1,
   });
+});
+
+test('a stale disconnected initialization cannot commit after a fresh reconnect cycle', async ({ page }) => {
+  await openFixture(page);
+  const result = await page.evaluate(async (config) => {
+    const nativeFetch = window.fetch.bind(window);
+    let requestCount = 0;
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/tests/fixtures/product.gltf')) {
+        requestCount += 1;
+        if (requestCount === 1) await firstGate;
+      }
+      return nativeFetch(input, init);
+    };
+
+    const widget = document.createElement('product-3d-widget') as any;
+    document.body.append(widget);
+    let readyEvents = 0;
+    widget.addEventListener('product-3d-state-change', (event: CustomEvent) => {
+      if (event.detail.lifecycle === 'STATE-READY') readyEvents += 1;
+    });
+    const stale = widget.configure(config);
+    while (requestCount < 1) await new Promise((resolve) => setTimeout(resolve, 0));
+    widget.remove();
+    document.body.append(widget);
+    while (requestCount < 2) await new Promise((resolve) => setTimeout(resolve, 0));
+    while (widget.getState().lifecycle !== 'STATE-READY') await new Promise((resolve) => setTimeout(resolve, 10));
+    const fresh = widget.getState();
+    releaseFirst();
+    const staleResult = await stale;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    window.fetch = nativeFetch;
+    return {
+      staleResult,
+      fresh,
+      final: widget.getState(),
+      readyEvents,
+      canvases: widget.shadowRoot.querySelectorAll('canvas').length,
+    };
+  }, configuration);
+
+  expect(result.staleResult).toMatchObject({ accepted: false, outcome: 'rejected', reason: 'disconnected' });
+  expect(result.final).toEqual(result.fresh);
+  expect(result.readyEvents).toBe(1);
+  expect(result.canvases).toBe(1);
 });
 
 test('WebGL context recovery is single-attempt and a second loss becomes blocking', async ({ page }) => {
@@ -400,7 +748,15 @@ test('mode-neutral AR exposes only availability and publicly observed WebXR life
   });
 
   await configureWidget(page, { ...configuration, ar: { enabled: true } });
-  expect(await page.locator('#widget').evaluate((widget: any) => widget.getState().ar.available)).toBe(false);
+  const initial = await page.locator('#widget').evaluate((widget: any) => {
+    const modelViewer = widget.shadowRoot.querySelector('model-viewer');
+    return {
+      sourcePath: new URL(modelViewer.src).pathname,
+      iosSrc: modelViewer.iosSrc,
+      available: widget.getState().ar.available,
+    };
+  });
+  expect(initial).toEqual({ sourcePath: '/tests/fixtures/product.gltf', iosSrc: null, available: false });
 
   await page.locator('#widget').evaluate((widget) => {
     (window as any).__setArAvailable(true);
@@ -408,31 +764,52 @@ test('mode-neutral AR exposes only availability and publicly observed WebXR life
   });
   await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().ar.available)).toBe(true);
 
-  await page.evaluate(() => {
+  const withoutActivation = await page.locator('#widget').evaluate((widget: any) => widget.launchAR());
+  expect(withoutActivation).toMatchObject({ accepted: false, outcome: 'rejected', reason: 'user-activation-required' });
+  expect(await page.evaluate(() => (window as any).__arActivations())).toBe(0);
+
+  await page.evaluate(async () => {
     const widget = document.querySelector('#widget') as any;
+    await widget.playAnimation('pulse-all');
     const events: string[] = [];
-    widget.addEventListener('product-3d-ar-launched', () => events.push('launched'));
-    widget.addEventListener('product-3d-ar-returned', () => events.push('returned'));
+    for (const name of [
+      'product-3d-state-change',
+      'product-3d-animation-change',
+      'product-3d-ar-launched',
+      'product-3d-ar-returned',
+      'product-3d-error',
+    ]) widget.addEventListener(name, () => events.push(name));
     const button = document.createElement('button');
     button.id = 'launch';
     button.addEventListener('click', async () => {
       (window as any).__launchResult = await widget.launchAR();
-      (window as any).__arEvents = events;
+      events.push('resolved');
     });
     document.body.append(button);
+    Object.assign(window, { __arEvents: events });
   });
   await page.click('#launch');
   await expect.poll(() => page.evaluate(() => (window as any).__launchResult?.outcome)).toBe('initiated');
   expect(await page.evaluate(() => ({
     lifecycle: (document.querySelector('#widget') as any).getState().lifecycle,
+    animation: (document.querySelector('#widget') as any).getState().animation,
     activations: (window as any).__arActivations(),
     events: (window as any).__arEvents,
-  }))).toEqual({ lifecycle: 'STATE-READY', activations: 1, events: [] });
+  }))).toEqual({
+    lifecycle: 'STATE-READY',
+    animation: { id: null, status: 'idle' },
+    activations: 1,
+    events: ['product-3d-state-change', 'product-3d-animation-change', 'resolved'],
+  });
 
   await page.locator('#widget').evaluate((widget) => {
-    widget.shadowRoot!.querySelector('model-viewer')!.dispatchEvent(new CustomEvent('ar-status', { detail: { status: 'session-started' } }));
+    const modelViewer = widget.shadowRoot!.querySelector('model-viewer')!;
+    modelViewer.dispatchEvent(new CustomEvent('ar-status', { detail: { status: 'not-presenting' } }));
+    modelViewer.dispatchEvent(new CustomEvent('ar-status', { detail: { status: 'session-started' } }));
+    modelViewer.dispatchEvent(new CustomEvent('ar-status', { detail: { status: 'session-started' } }));
   });
   await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().lifecycle)).toBe('STATE-AR-ACTIVE');
+  expect(await page.evaluate(() => (window as any).__arEvents.filter((name: string) => name === 'product-3d-ar-launched').length)).toBe(1);
 
   const beforeFocusSignals = await page.locator('#widget').evaluate((widget: any) => JSON.stringify(widget.getState()));
   await page.evaluate(() => {
@@ -442,12 +819,101 @@ test('mode-neutral AR exposes only availability and publicly observed WebXR life
   expect(await page.locator('#widget').evaluate((widget: any) => JSON.stringify(widget.getState()))).toBe(beforeFocusSignals);
 
   await page.locator('#widget').evaluate((widget) => {
-    widget.shadowRoot!.querySelector('model-viewer')!.dispatchEvent(new CustomEvent('ar-status', { detail: { status: 'not-presenting' } }));
+    const modelViewer = widget.shadowRoot!.querySelector('model-viewer')!;
+    modelViewer.dispatchEvent(new CustomEvent('ar-status', { detail: { status: 'not-presenting' } }));
+    modelViewer.dispatchEvent(new CustomEvent('ar-status', { detail: { status: 'not-presenting' } }));
   });
   await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().lifecycle)).toBe('STATE-READY');
   const publicState = await page.locator('#widget').evaluate((widget: any) => widget.getState());
   expect(publicState.ar).toEqual({ available: true, webxrActive: false });
+  expect(publicState.animation).toEqual({ id: null, status: 'idle' });
+  expect(await page.evaluate(() => (window as any).__arEvents.filter((name: string) => name === 'product-3d-ar-returned').length)).toBe(1);
   expect(JSON.stringify(publicState)).not.toMatch(/scene-viewer|quick-look|selectedMode|arMode/i);
+});
+
+test('AR maps usable USDZ and preserves GLB fallback for unusable USDZ', async ({ page }) => {
+  await openFixture(page);
+  const usable = await configureWidget(page, {
+    ...configuration,
+    productId: 'usable-usdz',
+    usdzUrl: '/tests/fixtures/product.usdz',
+    ar: { enabled: true },
+  });
+  expect(usable.outcome).toBe('ready');
+  expect(await page.locator('#widget').evaluate((widget: any) => {
+    const modelViewer = widget.shadowRoot.querySelector('model-viewer');
+    return {
+      sourcePath: new URL(modelViewer.src).pathname,
+      iosPath: new URL(modelViewer.iosSrc, document.baseURI).pathname,
+    };
+  })).toEqual({ sourcePath: '/tests/fixtures/product.gltf', iosPath: '/tests/fixtures/product.usdz' });
+
+  await page.reload();
+  await page.waitForFunction(() => customElements.get('product-3d-widget') !== undefined);
+  const unusable = await configureWidget(page, {
+    ...configuration,
+    productId: 'unusable-usdz',
+    usdzUrl: 'http://[',
+    ar: { enabled: true },
+  });
+  expect(unusable.outcome).toBe('ready');
+  expect(await page.locator('#widget').evaluate((widget: any) => {
+    const state = widget.getState();
+    const modelViewer = widget.shadowRoot.querySelector('model-viewer');
+    return {
+      sourcePath: new URL(modelViewer.src).pathname,
+      iosSrc: modelViewer.iosSrc,
+      errorCodes: state.capabilities.localErrors.map((error: any) => error.code),
+    };
+  })).toEqual({ sourcePath: '/tests/fixtures/product.gltf', iosSrc: null, errorCodes: ['USDZ_UNUSABLE'] });
+});
+
+test('observable activateAR failure is accepted, generic and mode-neutral', async ({ page }) => {
+  await openFixture(page);
+  await page.evaluate(() => {
+    const ctor = customElements.get('model-viewer')!;
+    Object.defineProperty(ctor.prototype, 'canActivateAR', {
+      configurable: true,
+      get: () => true,
+    });
+    Object.defineProperty(ctor.prototype, 'activateAR', {
+      configurable: true,
+      value: async () => { throw new Error('platform request rejected'); },
+    });
+  });
+  await configureWidget(page, { ...configuration, ar: { enabled: true } });
+  await page.locator('#widget').evaluate((widget) => {
+    widget.shadowRoot!.querySelector('model-viewer')!.dispatchEvent(new Event('load'));
+  });
+  await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().ar.available)).toBe(true);
+
+  await page.evaluate(() => {
+    const widget = document.querySelector('#widget') as any;
+    const errors: unknown[] = [];
+    widget.addEventListener('product-3d-error', (event: CustomEvent) => errors.push(event.detail));
+    const button = document.createElement('button');
+    button.id = 'launch-failure';
+    button.addEventListener('click', async () => {
+      (window as any).__failedLaunch = await widget.launchAR();
+      (window as any).__failedLaunchErrors = errors;
+    });
+    document.body.append(button);
+  });
+  await page.click('#launch-failure');
+  await expect.poll(() => page.evaluate(() => (window as any).__failedLaunch?.outcome)).toBe('failed');
+  const result = await page.evaluate(() => ({
+    result: (window as any).__failedLaunch,
+    errors: (window as any).__failedLaunchErrors,
+    state: (document.querySelector('#widget') as any).getState(),
+  }));
+  expect(result.result).toMatchObject({
+    accepted: true,
+    outcome: 'failed',
+    error: { code: 'AR_REQUEST_FAILED', scope: 'ar' },
+    state: { lifecycle: 'STATE-READY' },
+  });
+  expect(result.errors).toHaveLength(1);
+  expect(JSON.stringify(result)).not.toMatch(/scene-viewer|quick-look|selectedMode|arMode/i);
 });
 
 test('WebGL2 absence and primary GLB failure produce exact blocking outcomes', async ({ page }) => {

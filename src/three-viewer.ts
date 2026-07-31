@@ -104,7 +104,7 @@ const localError = (
 
 // <SEMANTIC_BLOCK id="CFC-CLASS-THREE-VIEWER">
 // <INTENT>Own exactly one Three.js viewer and all of its resources.</INTENT>
-// <LINKS><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-INITIALIZE"/></LINKS>
+// <LINKS><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-INITIALIZE"/><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/></LINKS>
 export class ThreeViewer {
   readonly #container: HTMLElement;
   readonly #callbacks: ViewerCallbacks;
@@ -148,6 +148,8 @@ export class ThreeViewer {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-INITIALIZE">
+  // <INTENT>Create the single Three.js viewer, require WebGL 2, load primary GLB, validate model-bound references and render the confirmed initial selection.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-GLB-MODEL-LOADING"/><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-INITIALIZE"/></LINKS>
   async initialize(
     config: NormalizedProductConfiguration,
     selection: ConfirmedSelection,
@@ -265,7 +267,7 @@ export class ThreeViewer {
     this.#baseMaterialColors.clear();
     this.#clipsByName.clear();
 
-    this.#root!.traverse((object) => {
+    this.#root!.traverse((object: Object3D) => {
       if (object.name) this.#nodesByName.set(object.name, object);
       const morphTargetInfluences = object instanceof Mesh && object.morphTargetInfluences !== undefined
         ? Object.freeze([...object.morphTargetInfluences])
@@ -436,6 +438,8 @@ export class ThreeViewer {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-APPLY-COLOR">
+  // <INTENT>Apply one validated color or restore captured base material values without changing playback/camera/variant.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-COLOR-SELECTION"/><BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-APPLY-COLOR"/></LINKS>
   async applyColor(colorId: string): Promise<ViewerOperationResult> {
     if (!this.#enabledColors.has(colorId)) return this.#operationFailure('color', colorId);
     const previous = this.#currentSelection;
@@ -453,6 +457,8 @@ export class ThreeViewer {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-APPLY-VARIANT">
+  // <INTENT>Apply one validated structural visibility set without changing color or compatible regular playback.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION"/><BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-APPLY-VARIANT"/></LINKS>
   async applyVariant(variantId: string): Promise<ViewerOperationResult> {
     if (!this.#enabledVariants.has(variantId)) return this.#operationFailure('variant', variantId);
     const previous = this.#currentSelection;
@@ -483,35 +489,43 @@ export class ThreeViewer {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-PLAY-ANIMATION">
+  // <INTENT>Start or replace one validated regular animation using an existing clip or bounded range.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-ANIMATION-CONTROLS"/><BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-PLAY-ANIMATION"/></LINKS>
   async playAnimation(animationId: string): Promise<ViewerPlaybackResult> {
     const animation = this.#config?.animationsById.get(animationId);
     if (animation === undefined || !this.#enabledAnimations.has(animationId)) {
       return Object.freeze({ ok: false, error: this.#operationFailure('animation', animationId).error });
     }
     try {
-      await this.stopAnimationAndReset('replacement');
+      const stopped = await this.stopAnimationAndReset('replacement');
+      if (!stopped.ok) return Object.freeze({ ok: false, error: stopped.error });
       this.#startPlayback(animation, 'animation', null, null);
       return Object.freeze({ ok: true, animationId, status: 'started' });
     } catch (cause) {
-      this.#restoreOrdinaryPose();
+      try { this.#restoreOrdinaryPose(); } catch { /* preserve the original operation failure */ }
       return Object.freeze({ ok: false, error: this.#operationFailure('animation', animationId, cause).error });
     }
   }
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-STOP-ANIMATION">
+  // <INTENT>Stop regular playback and restore ordinary base pose while preserving confirmed selection and camera.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-ANIMATION-INTERRUPTION"/><BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-STOP-ANIMATION"/></LINKS>
   async stopAnimationAndReset(_reason: 'replacement' | 'scenario' | 'ar' | 'cleanup'): Promise<ViewerOperationResult> {
     if (this.#playback?.kind !== 'animation') return Object.freeze({ ok: true });
+    const animationId = this.#playback.animationId;
     try {
       this.#restoreOrdinaryPose();
       return Object.freeze({ ok: true });
     } catch (cause) {
-      return this.#operationFailure('animation', this.#playback?.animationId ?? 'active-animation', cause);
+      return this.#operationFailure('animation', animationId, cause);
     }
   }
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-START-SCENARIO">
+  // <INTENT>After caller prevalidation, establish scenario base and play step zero while preserving camera and selection.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-SCENARIO-CONTROLS"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-START-SCENARIO"/></LINKS>
   async startScenario(
     scenarioId: string,
     _mode: 'start' | 'replace' | 'restart',
@@ -524,13 +538,15 @@ export class ThreeViewer {
       this.#restoreOrdinaryPose();
       return this.#startScenarioStep(scenario, 0);
     } catch (cause) {
-      this.#restoreOrdinaryPose();
+      try { this.#restoreOrdinaryPose(); } catch { /* preserve the original operation failure */ }
       return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenarioId, cause).error });
     }
   }
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-GO-SCENARIO-STEP">
+  // <INTENT>Stop current step and replay the adjacent validated step from its beginning.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-GO-SCENARIO-STEP"/></LINKS>
   async goToScenarioStep(direction: 'back' | 'next'): Promise<ViewerScenarioResult> {
     const playback = this.#playback;
     if (playback?.kind !== 'scenario' || playback.scenarioId === null || playback.stepIndex === null) {
@@ -545,7 +561,7 @@ export class ThreeViewer {
       this.#restoreOrdinaryPose();
       return this.#startScenarioStep(scenario, stepIndex);
     } catch (cause) {
-      this.#restoreOrdinaryPose();
+      try { this.#restoreOrdinaryPose(); } catch { /* preserve the original operation failure */ }
       return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenario.id, cause).error });
     }
   }
@@ -576,7 +592,7 @@ export class ThreeViewer {
     const action = this.#mixer.clipAction(clip);
     action.reset();
     action.enabled = true;
-    action.clampWhenFinished = kind === 'scenario';
+    action.clampWhenFinished = true;
     action.setLoop(LoopOnce, 1);
     const startSeconds = animation.source.kind === 'range' ? animation.source.startSeconds : 0;
     const endSeconds = animation.source.kind === 'range' ? animation.source.endSeconds : clip.duration;
@@ -637,6 +653,8 @@ export class ThreeViewer {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-STOP-SCENARIO">
+  // <INTENT>Stop any active scenario step and restore ordinary base pose with confirmed selection/camera.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-STOP-SCENARIO"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-STOP-SCENARIO"/></LINKS>
   async stopScenario(): Promise<ViewerOperationResult> {
     if (this.#playback?.kind !== 'scenario') return Object.freeze({ ok: true });
     try {
@@ -649,6 +667,8 @@ export class ThreeViewer {
   // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-RESIZE">
+  // <INTENT>Set renderer size and camera aspect from the actual container, using 4/3 only when no applicable height exists.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-COMPONENT-STYLING-API"/><BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-RESIZE"/></LINKS>
   resize(): void {
     if (this.#renderer === null || this.#camera === null) return;
     const width = this.#container.clientWidth;
@@ -669,6 +689,8 @@ export class ThreeViewer {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-RECOVER-CONTEXT">
+  // <INTENT>Perform the single automatic WebGL recovery from last confirmed selection/camera.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-RECOVER-CONTEXT"/></LINKS>
   async #recoverContext(): Promise<void> {
     if (this.#disposed) return;
     if (this.#contextRecoveryAttempted) {
@@ -718,7 +740,7 @@ export class ThreeViewer {
     const disposedGeometries = new Set<object>();
     const disposedMaterials = new Set<Material>();
     try {
-      this.#root?.traverse((object) => {
+      this.#root?.traverse((object: Object3D) => {
         if (!(object instanceof Mesh)) return;
         if (!disposedGeometries.has(object.geometry)) {
           disposedGeometries.add(object.geometry);
@@ -728,10 +750,10 @@ export class ThreeViewer {
         for (const material of materials) {
           if (disposedMaterials.has(material)) continue;
           disposedMaterials.add(material);
-          for (const value of Object.values(material)) {
+          for (const value of Object.values(material) as unknown[]) {
             if (value instanceof Texture && !disposedTextures.has(value)) {
               disposedTextures.add(value);
-              try { value.dispose(); } catch { /* cleanup continues */ }
+              try { (value as Texture).dispose(); } catch { /* cleanup continues */ }
             }
           }
           try { material.dispose(); } catch { /* cleanup continues */ }
@@ -767,6 +789,8 @@ export class ThreeViewer {
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-DISPOSE">
+  // <INTENT>Idempotently release every viewer-owned CPU, GPU, listener, observer, mixer and canvas resource.</INTENT>
+  // <LINKS><REQUIREMENT ref="FR-DISCONNECT-CLEANUP"/><BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING"/><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-DISPOSE"/></LINKS>
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;

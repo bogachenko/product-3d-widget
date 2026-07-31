@@ -3,11 +3,9 @@ import { defineConfig, devices } from 'playwright/test';
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
-  grepInvert: /resize, disconnect, reconnect and cleanup release owned browser resources/,
   timeout: 30_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
-  workers: 1,
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'retain-on-failure',
@@ -18,28 +16,24 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // PONYTAIL: CI uses software WebGL; remove these flags when runners provide stable GPU-backed WebGL2.
+        launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+      },
+    },
     {
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
-        headless: false,
+        // PONYTAIL: force software WebGL in headless CI; remove when Firefox runners expose WebGL2 by default.
         launchOptions: {
-          env: {
-            ...process.env,
-            LIBGL_ALWAYS_SOFTWARE: '1',
-            MOZ_WEBRENDER: '1',
-          },
           firefoxUserPrefs: {
-            'gfx.webrender.fallback.software': true,
-            'gfx.webrender.reject-software-driver': false,
-            'gfx.webrender.software': true,
-            'gfx.webrender.software.opengl': true,
             'webgl.disabled': false,
-            'webgl.enable-webgl2': true,
-            'webgl.forbid-software': false,
             'webgl.force-enabled': true,
-            'webgl.ignore-blocklist': true,
+            'layers.acceleration.force-enabled': true,
           },
         },
       },
