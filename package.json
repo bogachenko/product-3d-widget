@@ -13,6 +13,7 @@
     }
   },
   "scripts": {
+    "demo": "vite --host 127.0.0.1 --port 4173 --open /examples/manual/",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "vite build",
     "build:types": "tsc -p tsconfig.declarations.json",
