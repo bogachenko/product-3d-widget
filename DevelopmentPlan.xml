@@ -1,0 +1,786 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DEVELOPMENT_PLAN id="DP-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+    <PURPOSE>Определить минимальную архитектуру, границы ответственности, потоки данных, последовательность реализации и критерии завершения product-3d-widget на основании утверждённых требований и технологий, не создавая преждевременных абстракций или кода.</PURPOSE>
+    <BASED_ON>
+        <REQUIREMENTS artifact="RequirementsAnalysis.xml" approved_revision="dbdacbd45007690b454e2f14a325bc7c06f7358f" approval_commit="8fc4558fc4b1c2d13c9354d4054a662281a3d2fd" />
+        <TECHNOLOGY artifact="Technology.xml" approved_revision="2fed2843ee692abf401e1999c5bba1e0550245ba" approval_commit="161d967588367b5e0612886b773c39bc0e1c4dda" />
+    </BASED_ON>
+    <ENGINEERING_PRINCIPLES>
+        <PRINCIPLE id="DP-PRINCIPLE-LAZY-SENIOR">
+            <NAME>Lazy senior developer: эффективно, но не небрежно</NAME>
+            <INTENT>Минимизировать объём создаваемого кода, файлов, абстракций и зависимостей, не ослабляя утверждённое поведение, корректность граничных случаев или проверяемость.</INTENT>
+            <DECISION_LADDER>
+                <RUNG order="1" id="DP-RUNG-YAGNI">
+                    <DECISION>Проверить, нужно ли вообще создавать запрошенный механизм. Если утверждённое требование его не требует, не создавать.</DECISION>
+                </RUNG>
+                <RUNG order="2" id="DP-RUNG-STANDARD-LIBRARY">
+                    <DECISION>Использовать стандартные возможности JavaScript и TypeScript, если они полностью покрывают задачу.</DECISION>
+                </RUNG>
+                <RUNG order="3" id="DP-RUNG-NATIVE-PLATFORM">
+                    <DECISION>Использовать нативную Web Platform, если она полностью покрывает задачу.</DECISION>
+                </RUNG>
+                <RUNG order="4" id="DP-RUNG-APPROVED-DEPENDENCY">
+                    <DECISION>Использовать уже утверждённую зависимость, если она является правильным инструментом и закрывает реальные платформенные особенности.</DECISION>
+                </RUNG>
+                <RUNG order="5" id="DP-RUNG-ONE-LINE">
+                    <DECISION>Если корректное решение выражается одной простой строкой без потери ясности и граничной корректности, использовать её.</DECISION>
+                </RUNG>
+                <RUNG order="6" id="DP-RUNG-MINIMUM-CODE">
+                    <DECISION>Только после предыдущих ступеней написать минимальный локальный код, достаточный для утверждённого контракта.</DECISION>
+                </RUNG>
+            </DECISION_LADDER>
+            <STOP_RULE>На каждой задаче остановиться на первой ступени, которая полностью удовлетворяет утверждённым требованиям и контрактам.</STOP_RULE>
+            <RULES>
+                <RULE id="DP-LAZY-NO-UNREQUESTED-ABSTRACTIONS">Не создавать интерфейсы, базовые классы, фабрики, контейнеры зависимостей, шины событий, реестры, плагины, generic-адаптеры или слои, если их необходимость не следует из утверждённой ответственности.</RULE>
+                <RULE id="DP-LAZY-DEPENDENCY-GATE">Не добавлять новые зависимости без производственной причины и предварительного изменения и утверждения Technology.xml. Тривиальный код не является основанием для зависимости; зрелую платформенную возможность не переизобретать ради формального отсутствия зависимости.</RULE>
+                <RULE id="DP-LAZY-FEWEST-FILES">Использовать минимальное число файлов. Модуль архитектуры не обязан быть отдельным классом, интерфейсом, каталогом или файлом.</RULE>
+                <RULE id="DP-LAZY-DELETE-FIRST">При изменении предпочитать удаление и упрощение добавлению. Предпочитать скучное прямое решение умному обобщению.</RULE>
+                <RULE id="DP-LAZY-COMPLEX-REQUEST-CHALLENGE">Перед сложным механизмом явно проверить: действительно ли нужен X, или утверждённая платформа, Web API, Three.js либо model-viewer уже покрывает задачу.</RULE>
+                <RULE id="DP-LAZY-EDGE-CORRECT">Если два решения одинаково малы, выбирать вариант с корректным поведением на граничных случаях, а не более хрупкий вариант.</RULE>
+            </RULES>
+            <PONYTAIL_COMMENT_RULE>
+                <WHEN>Если оставляется намеренное упрощение с известным потолком: глобальная блокировка, линейный или квадратичный поиск, наивная эвристика, ограниченная стратегия восстановления или иной сознательный предел.</WHEN>
+                <FORMAT>Комментарий PONYTAIL должен назвать текущий предел, допустимую область применения, условие пересмотра и прямой путь обновления.</FORMAT>
+                <EXAMPLE>PONYTAIL: линейный поиск допустим для малого конфигурационного списка; при появлении утверждённого большого лимита заменить индексом Map.</EXAMPLE>
+            </PONYTAIL_COMMENT_RULE>
+            <NON_LAZY_AREAS>
+                <AREA id="DP-NON-LAZY-TRUST-BOUNDARY">Валидация внешней конфигурации и публичных команд на границах доверия.</AREA>
+                <AREA id="DP-NON-LAZY-DATA-LOSS">Обработка ошибок и cleanup, предотвращающие потерю подтверждённого состояния или утечки ресурсов.</AREA>
+                <AREA id="DP-NON-LAZY-SECURITY">Безопасность загрузки и использования внешних ресурсов в пределах браузерной платформы.</AREA>
+                <AREA id="DP-NON-LAZY-ACCESSIBILITY">Доступность служебных состояний и ошибок в пределах утверждённой внутренней поверхности компонента.</AREA>
+                <AREA id="DP-NON-LAZY-REAL-HARDWARE">Проверки WebXR, Scene Viewer и Quick Look на реальных устройствах; эмуляция не считается доказательством.</AREA>
+            </NON_LAZY_AREAS>
+            <RUNNABLE_CHECK_RULE>
+                <MINIMUM>Каждая нетривиальная логика оставляет один самый маленький исполняемый check, который падает при её поломке. Тривиальные однострочные прокси, getters и прямые отображения отдельного теста не требуют.</MINIMUM>
+                <EXISTING_HARNESS>Использовать утверждённые Vitest и Playwright; не добавлять ещё один тестовый framework и не создавать fixtures без необходимости.</EXISTING_HARNESS>
+                <CRITICAL_BEHAVIOR>Один check является минимальным нижним пределом, а не ограничением: дополнительные проверки создаются только для отдельных контрактных свойств, реальных браузерных границ и аппаратно-зависимого AR.</CRITICAL_BEHAVIOR>
+            </RUNNABLE_CHECK_RULE>
+        </PRINCIPLE>
+    </ENGINEERING_PRINCIPLES>
+    <ARCHITECTURAL_STYLE>
+        <RUNTIME>Один браузерный ESM-пакет без backend и без production Node.js runtime.</RUNTIME>
+        <ENTRY_POINT>Один Custom Element product-3d-widget является публичной runtime-точкой входа.</ENTRY_POINT>
+        <COMPOSITION>Прямая композиция четырёх минимальных runtime-модулей. Generic framework, plugin system, DI container, command bus и внутренний event bus отсутствуют.</COMPOSITION>
+        <STATE_MODEL>Единственный владелец подтверждённого публичного состояния — контроллер компонента. Three.js viewer и AR adapter владеют только своими внутренними ресурсами и сообщают наблюдаемые результаты контроллеру.</STATE_MODEL>
+        <IMMUTABILITY>После успешного принятия конфигурация конкретного экземпляра нормализуется и не заменяется другой полной конфигурацией товара.</IMMUTABILITY>
+        <MODULE_IS_NOT_FILE>Архитектурный модуль означает границу ответственности. Он не требует отдельного класса, интерфейса, каталога или файла, если это не уменьшает риск и не улучшает соблюдение контракта.</MODULE_IS_NOT_FILE>
+    </ARCHITECTURAL_STYLE>
+    <ARCHITECTURAL_DECISIONS>
+        <DECISION id="DP-DECISION-FOUR-RUNTIME-MODULES">
+            <TITLE>Четыре runtime-модуля</TITLE>
+            <CHOICE>Использовать только MOD-WIDGET-CONTROLLER, MOD-CONFIGURATION, MOD-THREE-VIEWER и MOD-AR-ADAPTER.</CHOICE>
+            <RATIONALE>Эти границы соответствуют разным владельцам состояния и внешним библиотекам; дальнейшее дробление пока не даёт производственной пользы.</RATIONALE>
+        </DECISION>
+        <DECISION id="DP-DECISION-NO-GENERIC-ADAPTER-HIERARCHY">
+            <TITLE>Без иерархии адаптеров</TITLE>
+            <CHOICE>Three.js viewer и model-viewer AR adapter являются конкретными интеграциями без общего интерфейса и фабрики.</CHOICE>
+            <RATIONALE>У них разные обязанности и жизненные циклы; общий abstraction layer не требуется.</RATIONALE>
+        </DECISION>
+        <DECISION id="DP-DECISION-DIRECT-DOM-EVENTS">
+            <TITLE>Прямые DOM-события</TITLE>
+            <CHOICE>Контроллер отправляет CustomEvent напрямую и не использует внутреннюю шину событий.</CHOICE>
+            <RATIONALE>DOM CustomEvent уже является утверждённым транспортом хост-странице.</RATIONALE>
+        </DECISION>
+        <DECISION id="DP-DECISION-PURE-CONFIGURATION">
+            <TITLE>Чистая конфигурационная логика</TITLE>
+            <CHOICE>Статическая проверка и вычисление совместимости выполняются чистыми функциями без DOM, fetch и Three.js.</CHOICE>
+            <RATIONALE>Это минимизирует побочные эффекты и позволяет одному небольшому Vitest check проверять каждое нетривиальное правило.</RATIONALE>
+        </DECISION>
+        <DECISION id="DP-DECISION-NO-VIEWER-AR-COUPLING">
+            <TITLE>Нет прямой связи viewer ↔ AR</TITLE>
+            <CHOICE>Viewer и AR adapter не вызывают друг друга; контроллер передаёт AR adapter подтверждённый снимок выбора и ресурсы.</CHOICE>
+            <RATIONALE>Это не допускает скрытой синхронизации и сохраняет единственного владельца состояния.</RATIONALE>
+        </DECISION>
+        <DECISION id="DP-DECISION-NO-MODE-DETECTION">
+            <TITLE>Без определения AR-канала</TITLE>
+            <CHOICE>AR adapter вызывает публичный режим-нейтральный activateAR(); model-viewer самостоятельно выбирает применимый канал, а компонент не читает выбранный режим.</CHOICE>
+            <RATIONALE>Требования не требуют знания канала; внешние lifecycle-события не выводятся.</RATIONALE>
+        </DECISION>
+    </ARCHITECTURAL_DECISIONS>
+    <MODULES>
+        <MODULE id="MOD-WIDGET-CONTROLLER">
+            <NAME>Контроллер Web Component</NAME>
+            <RESPONSIBILITY>Владеть жизненным циклом Custom Element, подтверждённым публичным состоянием, gate публичных команд, оркестрацией операций, порядком событий и cleanup.</RESPONSIBILITY>
+            <NON_RESPONSIBILITIES>
+                <RULE>Не загружает и не рендерит GLB напрямую.</RULE>
+                <RULE>Не анализирует внутреннюю Three.js-сцену model-viewer.</RULE>
+                <RULE>Не определяет фактически выбранный AR-канал.</RULE>
+                <RULE>Не содержит generic command bus, event bus или dependency injection container.</RULE>
+            </NON_RESPONSIBILITIES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-PRODUCT-INITIALIZATION" />
+                <BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION" />
+                <BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK" />
+                <BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION" />
+                <BUSINESS_PROCESS ref="BP-AR-PLACEMENT" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                <REQUIREMENT ref="FR-HOST-STATE-EVENTS" />
+                <REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY" />
+                <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS" />
+                <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                <REQUIREMENT ref="FR-CURRENT-SELECTION-PRESERVATION" />
+                <REQUIREMENT ref="FR-AVAILABILITY-STATES" />
+                <REQUIREMENT ref="FR-ERROR-MESSAGES" />
+                <REQUIREMENT ref="FR-DISCONNECT-CLEANUP" />
+                <REQUIREMENT ref="FR-ANIMATION-INTERRUPTION" />
+                <REQUIREMENT ref="FR-SCENARIO-START-STOPS-ANIMATION" />
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-REPLACEMENT" />
+                <REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART" />
+                <REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-REGULAR-ANIMATIONS" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-PRODUCT-SELECTION" />
+                <REQUIREMENT ref="FR-SCENARIO-LOCK-AR" />
+                <REQUIREMENT ref="FR-ANIMATION-SELECTION-AVAILABILITY" />
+                <REQUIREMENT ref="FR-AR-LAUNCH-STOPS-ANIMATION" />
+                <REQUIREMENT ref="FR-AR-RETURN-PRESERVE-STATE" />
+                <REQUIREMENT ref="FR-AR-RETURN-NO-ANIMATION-RESUME" />
+                <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
+                <REQUIREMENT ref="FR-INSTANCE-SINGLE-PRODUCT" />
+                <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                <REQUIREMENT ref="FR-RECONNECT-FRESH-INITIALIZATION" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-REQUIRES-RECREATION" />
+                <REQUIREMENT ref="FR-HOST-NOTIFICATION-ORDER" />
+            </REQUIREMENTS>
+            <PRESERVES>
+                <INVARIANT ref="INV-REJECTED-COMMAND-PRESERVES-CONFIRMED-STATE" />
+                <INVARIANT ref="INV-ATOMIC-HOST-OBSERVATION" />
+                <INVARIANT ref="INV-ACTIVE-SCENARIO-EXCLUSIVITY" />
+                <INVARIANT ref="INV-DISCONNECTED-COMPONENT-HAS-NO-OWNED-ACTIVE-OPERATIONS" />
+                <INVARIANT ref="INV-INSTANCE-PRODUCT-IMMUTABILITY" />
+                <INVARIANT ref="INV-PRE-READY-COMMANDS-ARE-NOT-QUEUED" />
+                <INVARIANT ref="INV-RECONNECT-DOES-NOT-RESUME-RUNTIME-STATE" />
+                <INVARIANT ref="INV-PRIMARY-GLB-FAILURE-TERMINAL-FOR-INSTANCE" />
+                <INVARIANT ref="INV-HOST-NOTIFICATION-ORDER" />
+                <INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE" />
+                <INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED" />
+            </PRESERVES>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-CUSTOM-ELEMENTS" />
+                <TECH_REF ref="TECH-SHADOW-DOM" />
+                <TECH_REF ref="TECH-DOM-CUSTOM-EVENT" />
+                <TECH_REF ref="TECH-JS-PROMISE" />
+                <TECH_REF ref="TECH-CSS-SHADOW-PARTS" />
+            </TECHNOLOGIES>
+            <DEPENDS_ON>
+                <MODULE ref="MOD-CONFIGURATION" />
+                <MODULE ref="MOD-THREE-VIEWER" />
+                <MODULE ref="MOD-AR-ADAPTER" />
+            </DEPENDS_ON>
+            <COLLABORATES_WITH />
+        </MODULE>
+        <MODULE id="MOD-CONFIGURATION">
+            <NAME>Проверка и нормализация конфигурации</NAME>
+            <RESPONSIBILITY>Проверять внешнюю конфигурацию, отделять блокирующие ошибки от локально отключаемых возможностей и вычислять неизменяемые производные данные совместимости.</RESPONSIBILITY>
+            <NON_RESPONSIBILITIES>
+                <RULE>Не создаёт DOM и не отправляет события.</RULE>
+                <RULE>Не загружает GLB или USDZ.</RULE>
+                <RULE>Не мутирует Three.js-объекты.</RULE>
+                <RULE>Не хранит runtime-состояние пользователя.</RULE>
+            </NON_RESPONSIBILITIES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-CONFIGURATION-VALIDATION" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE" />
+                <REQUIREMENT ref="FR-COLOR-SWATCH-REQUIRED" />
+                <REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY" />
+                <REQUIREMENT ref="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION" />
+                <REQUIREMENT ref="FR-SCENARIO-EMPTY-COMPATIBILITY-HANDLING" />
+                <REQUIREMENT ref="FR-SCENARIO-INVALID-CONFIGURATION-HANDLING" />
+                <REQUIREMENT ref="FR-ANIMATION-INVALID-CONFIGURATION-HANDLING" />
+                <REQUIREMENT ref="FR-BASE-STATE-AS-VARIANT" />
+                <REQUIREMENT ref="FR-VARIANT-GROUP-DEFAULT-REQUIRED" />
+                <REQUIREMENT ref="FR-VARIANT-GROUP-INVALID-DEFAULT-HANDLING" />
+                <REQUIREMENT ref="FR-INVALID-DEFAULT-VARIANT-DISABLE-GROUP" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBILITY-STRUCTURAL-VARIANTS-ONLY" />
+                <REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED" />
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET" />
+            </REQUIREMENTS>
+            <PRESERVES>
+                <INVARIANT ref="INV-PRIMARY-GLB-IS-ONLY-MANDATORY" />
+                <INVARIANT ref="INV-OPTIONAL-CAPABILITY-FAILURE-ISOLATION" />
+                <INVARIANT ref="INV-COMPATIBILITY-USES-STRUCTURAL-VARIANTS-ONLY" />
+                <INVARIANT ref="INV-SCENARIO-COMPATIBILITY-IS-STEP-INTERSECTION" />
+            </PRESERVES>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-TYPESCRIPT" />
+                <TECH_REF ref="TECH-PRINCIPLE-EXACT-VERSIONS" />
+            </TECHNOLOGIES>
+            <DEPENDS_ON />
+            <COLLABORATES_WITH>
+                <MODULE ref="MOD-THREE-VIEWER" />
+            </COLLABORATES_WITH>
+        </MODULE>
+        <MODULE id="MOD-THREE-VIEWER">
+            <NAME>Основной Three.js viewer</NAME>
+            <RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, GLB-ресурсами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>
+            <NON_RESPONSIBILITIES>
+                <RULE>Не является владельцем подтверждённого состояния хост-страницы.</RULE>
+                <RULE>Не отправляет публичные CustomEvent напрямую.</RULE>
+                <RULE>Не запускает AR и не зависит от model-viewer.</RULE>
+                <RULE>Не создаёт отдельные GLB для структурных вариантов.</RULE>
+            </NON_RESPONSIBILITIES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-LOAD-AND-FAILURE-HANDLING" />
+                <BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION" />
+                <BUSINESS_PROCESS ref="BP-ANIMATION-PLAYBACK" />
+                <BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
+                <REQUIREMENT ref="FR-MODEL-INTERACTION" />
+                <REQUIREMENT ref="FR-COLOR-SELECTION" />
+                <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />
+                <REQUIREMENT ref="FR-ANIMATION-CONTROLS" />
+                <REQUIREMENT ref="FR-SCENARIO-CONTROLS" />
+                <REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT" />
+                <REQUIREMENT ref="FR-ANIMATION-RANGE-PLAYBACK" />
+                <REQUIREMENT ref="FR-ANIMATION-RESET-AFTER-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME" />
+                <REQUIREMENT ref="FR-STOP-SCENARIO" />
+                <REQUIREMENT ref="FR-SCENARIO-BACK-REPLAY" />
+                <REQUIREMENT ref="FR-SCENARIO-NEXT-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-NAVIGATION-DURING-PLAYBACK" />
+                <REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION" />
+                <REQUIREMENT ref="FR-SCENARIO-ALLOW-VIEW-INTERACTION" />
+                <REQUIREMENT ref="FR-ANIMATION-ALLOW-VIEW-INTERACTION" />
+                <REQUIREMENT ref="FR-ANIMATION-PRESERVE-CAMERA-VIEW" />
+                <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
+                <REQUIREMENT ref="FR-ANIMATION-VARIANT-COMPATIBILITY" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANTS-WHITELIST" />
+                <REQUIREMENT ref="FR-ANIMATION-INCOMPATIBLE-SELECTED-VARIANT" />
+                <REQUIREMENT ref="FR-ANIMATION-COMPATIBLE-VARIANT-CHANGE" />
+                <REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE" />
+                <REQUIREMENT ref="FR-VARIANT-INVALID-MODEL-REFERENCE-HANDLING" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-ONLY-VIEW" />
+                <REQUIREMENT ref="FR-NO-SEPARATE-CAMERA-CONTROLS" />
+                <REQUIREMENT ref="FR-COMPONENT-STYLING-API" />
+                <REQUIREMENT ref="FR-DEFAULT-MINIMAL-STYLING" />
+                <REQUIREMENT ref="FR-NEUTRAL-DEFAULT-STYLING" />
+                <REQUIREMENT ref="FR-RESPONSIVE-CONTAINER-LAYOUT" />
+                <REQUIREMENT ref="FR-VIEWER-FILLS-CONTAINER" />
+                <REQUIREMENT ref="FR-VIEWER-RESIZE" />
+                <REQUIREMENT ref="FR-VIEWER-DEFAULT-ASPECT-RATIO" />
+                <REQUIREMENT ref="FR-PRIMARY-GLB-FAILURE-HANDLING" />
+                <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY" />
+            </REQUIREMENTS>
+            <PRESERVES>
+                <INVARIANT ref="INV-SELECTION-INDEPENDENCE" />
+                <INVARIANT ref="INV-CAMERA-PRESERVATION" />
+                <INVARIANT ref="INV-COMPATIBILITY-USES-STRUCTURAL-VARIANTS-ONLY" />
+                <INVARIANT ref="INV-SCENARIO-COMPATIBILITY-IS-STEP-INTERSECTION" />
+            </PRESERVES>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-WEBGL2" />
+                <TECH_REF ref="TECH-THREE-JS" />
+                <TECH_REF ref="TECH-THREE-TYPES" />
+                <TECH_REF ref="FORMAT-GLB" />
+            </TECHNOLOGIES>
+            <DEPENDS_ON />
+            <COLLABORATES_WITH>
+                <MODULE ref="MOD-CONFIGURATION" />
+            </COLLABORATES_WITH>
+        </MODULE>
+        <MODULE id="MOD-AR-ADAPTER">
+            <NAME>Режим-нейтральный AR adapter</NAME>
+            <RESPONSIBILITY>Владеть скрытым model-viewer, синхронизировать подтверждённые GLB/USDZ-ресурсы и выбор, отражать доступность, вызывать activateAR() и сообщать только фактически наблюдаемый WebXR lifecycle и общие ошибки AR.</RESPONSIBILITY>
+            <NON_RESPONSIBILITIES>
+                <RULE>Не используется как основной 3D viewer.</RULE>
+                <RULE>Не определяет, не принуждает и не раскрывает выбранный AR-канал.</RULE>
+                <RULE>Не выводит lifecycle Scene Viewer или Quick Look по Promise, visibility или отсутствию ошибки.</RULE>
+                <RULE>Не обращается к внутренней Three.js-сцене или внутренним символам model-viewer.</RULE>
+            </NON_RESPONSIBILITIES>
+            <IMPLEMENTS>
+                <BUSINESS_PROCESS ref="BP-AR-PLACEMENT" />
+            </IMPLEMENTS>
+            <REQUIREMENTS>
+                <REQUIREMENT ref="FR-AR-LAUNCH" />
+                <REQUIREMENT ref="FR-AR-AVAILABILITY-REFLECTION" />
+                <REQUIREMENT ref="FR-AR-ASSET-MAPPING" />
+                <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION" />
+                <REQUIREMENT ref="FR-QUICK-LOOK-USDZ-GENERATION" />
+                <REQUIREMENT ref="FR-OPTIONAL-USDZ-FAILURE-FALLBACK" />
+                <REQUIREMENT ref="FR-AR-LIFECYCLE-OBSERVABILITY" />
+                <REQUIREMENT ref="FR-AR-MODE-NEUTRAL-LAUNCH" />
+                <REQUIREMENT ref="FR-QUICK-LOOK-FALLBACK-NONCONFIGURABLE-V1" />
+            </REQUIREMENTS>
+            <PRESERVES>
+                <INVARIANT ref="INV-PRIMARY-GLB-IS-ONLY-MANDATORY" />
+                <INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE" />
+                <INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED" />
+            </PRESERVES>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-MODEL-VIEWER-AR" />
+                <TECH_REF ref="TECH-AR-OBSERVABILITY" />
+                <TECH_REF ref="FORMAT-GLB" />
+                <TECH_REF ref="FORMAT-USDZ" />
+            </TECHNOLOGIES>
+            <DEPENDS_ON />
+            <COLLABORATES_WITH />
+        </MODULE>
+    </MODULES>
+    <STATE_OWNERSHIP>
+        <STATE_OWNER id="DP-STATE-COMPONENT" module="MOD-WIDGET-CONTROLLER">Все публично наблюдаемые состояния, выбранные значения, активная операция, доступность команд и порядок уведомлений.</STATE_OWNER>
+        <STATE_OWNER id="DP-STATE-CONFIGURATION" module="MOD-CONFIGURATION">Неизменяемая нормализованная конфигурация и вычисленные наборы совместимости после успешной инициализации.</STATE_OWNER>
+        <STATE_OWNER id="DP-STATE-THREE" module="MOD-THREE-VIEWER">Three.js объекты, transient playback position, камера и графические ресурсы; эти данные не являются самостоятельным публичным источником истины.</STATE_OWNER>
+        <STATE_OWNER id="DP-STATE-AR" module="MOD-AR-ADAPTER">Скрытый model-viewer, подготовленные AR-ресурсы и фактически наблюдаемая WebXR-сессия; идентичность выбранного канала не хранится.</STATE_OWNER>
+    </STATE_OWNERSHIP>
+    <DEPENDENCY_GRAPH>
+        <DEPENDENCY source="MOD-WIDGET-CONTROLLER" target="MOD-CONFIGURATION">
+            <PURPOSE>Получить валидированную неизменяемую конфигурацию и производные правила.</PURPOSE>
+        </DEPENDENCY>
+        <DEPENDENCY source="MOD-WIDGET-CONTROLLER" target="MOD-THREE-VIEWER">
+            <PURPOSE>Инициировать 3D-операции и получить фактически наблюдаемые результаты.</PURPOSE>
+        </DEPENDENCY>
+        <DEPENDENCY source="MOD-WIDGET-CONTROLLER" target="MOD-AR-ADAPTER">
+            <PURPOSE>Передать подтверждённый выбор и ресурсы, инициировать AR и получить наблюдаемые WebXR/ошибочные события.</PURPOSE>
+        </DEPENDENCY>
+        <FORBIDDEN_DEPENDENCIES>
+            <DEPENDENCY source="MOD-THREE-VIEWER" target="MOD-AR-ADAPTER">
+                <REASON>AR-синхронизация проходит только через подтверждённое состояние контроллера.</REASON>
+            </DEPENDENCY>
+            <DEPENDENCY source="MOD-AR-ADAPTER" target="MOD-THREE-VIEWER">
+                <REASON>AR adapter не должен знать внутреннюю Three.js-сцену основного viewer.</REASON>
+            </DEPENDENCY>
+            <DEPENDENCY source="MOD-CONFIGURATION" target="MOD-WIDGET-CONTROLLER">
+                <REASON>Конфигурационная логика остаётся чистой и не управляет lifecycle.</REASON>
+            </DEPENDENCY>
+        </FORBIDDEN_DEPENDENCIES>
+        <ACYCLICITY>Граф runtime-зависимостей ацикличен: контроллер зависит от трёх leaf-модулей; leaf-модули не зависят от контроллера и друг от друга, кроме явного обмена данными через вызовы контроллера.</ACYCLICITY>
+    </DEPENDENCY_GRAPH>
+    <DATA_FLOWS>
+        <FLOW id="DP-FLOW-INITIALIZATION">
+            <NAME>Инициализация</NAME>
+            <STEPS>
+                <STEP order="1">Хост передаёт конфигурацию контроллеру.</STEP>
+                <STEP order="2">Контроллер передаёт данные MOD-CONFIGURATION.</STEP>
+                <STEP order="3">После успешной обязательной проверки контроллер переводит состояние к загрузке модели.</STEP>
+                <STEP order="4">MOD-THREE-VIEWER загружает GLB и проверяет model-bound ссылки необязательных возможностей.</STEP>
+                <STEP order="5">Контроллер фиксирует подтверждённый снимок и только затем публикует готовность.</STEP>
+            </STEPS>
+        </FLOW>
+        <FLOW id="DP-FLOW-COMMAND">
+            <NAME>Публичная команда</NAME>
+            <STEPS>
+                <STEP order="1">Контроллер проверяет lifecycle gate и применимость команды.</STEP>
+                <STEP order="2">Отклонённая команда не меняет подтверждённое состояние и не ставится в очередь.</STEP>
+                <STEP order="3">Принятая команда вызывает ровно необходимую операцию viewer или AR adapter.</STEP>
+                <STEP order="4">После фактического результата контроллер фиксирует состояние.</STEP>
+                <STEP order="5">Публикуется общее уведомление, затем специализированное, затем разрешается Promise команды.</STEP>
+            </STEPS>
+        </FLOW>
+        <FLOW id="DP-FLOW-AR">
+            <NAME>Режим-нейтральный AR</NAME>
+            <STEPS>
+                <STEP order="1">Контроллер при необходимости останавливает обычную анимацию.</STEP>
+                <STEP order="2">Контроллер передаёт AR adapter подтверждённый выбор и применимые GLB/USDZ-ресурсы.</STEP>
+                <STEP order="3">AR adapter вызывает публичный activateAR() без определения канала.</STEP>
+                <STEP order="4">После принятого запроса компонент остаётся STATE-READY.</STEP>
+                <STEP order="5">Только публично наблюдаемый старт WebXR переводит компонент в STATE-AR-ACTIVE; завершение возвращает STATE-READY.</STEP>
+                <STEP order="6">Scene Viewer и Quick Look не создают lifecycle-событий компонента.</STEP>
+            </STEPS>
+        </FLOW>
+        <FLOW id="DP-FLOW-DISCONNECT">
+            <NAME>Отключение</NAME>
+            <STEPS>
+                <STEP order="1">Контроллер блокирует новые операции и инициирует cleanup.</STEP>
+                <STEP order="2">Viewer останавливает playback, удаляет listeners и освобождает Three/WebGL-ресурсы.</STEP>
+                <STEP order="3">AR adapter удаляет свои listeners и owned DOM.</STEP>
+                <STEP order="4">Контроллер очищает собственные listeners и фиксирует STATE-DISCONNECTED.</STEP>
+            </STEPS>
+        </FLOW>
+    </DATA_FLOWS>
+    <MINIMAL_FILE_STRATEGY>
+        <RULE>Начать с минимального набора файлов. Не создавать отдельные utils, constants, errors, interfaces, repositories, services, factories или folders только ради структуры.</RULE>
+        <INITIAL_SOURCE_FILES ceiling="4">
+            <FILE path="src/product-3d-widget.ts" module="MOD-WIDGET-CONTROLLER" purpose="Custom Element, публичные типы и exports, если объём остаётся читаемым." />
+            <FILE path="src/configuration.ts" module="MOD-CONFIGURATION" purpose="Чистая проверка, нормализация и compatibility derivation." />
+            <FILE path="src/three-viewer.ts" module="MOD-THREE-VIEWER" purpose="Конкретная Three.js интеграция." />
+            <FILE path="src/ar-adapter.ts" module="MOD-AR-ADAPTER" purpose="Конкретная model-viewer интеграция." />
+        </INITIAL_SOURCE_FILES>
+        <NO_INDEX_FILE>Не создавать src/index.ts, если Vite может использовать src/product-3d-widget.ts как прямую library entry и публичный export surface остаётся ясным.</NO_INDEX_FILE>
+        <NO_TYPES_FILE>Не создавать отдельный types.ts до появления доказанной циклической зависимости или нечитаемого публичного export surface.</NO_TYPES_FILE>
+        <SPLIT_TRIGGER>Файл разделяется только если в нём появились две утверждённые независимые ответственности, разные владельцы lifecycle/ресурсов или изменение одной части постоянно затрагивает несвязанную часть.</SPLIT_TRIGGER>
+        <REQUIRED_PROJECT_FILES>
+            <FILE path="package.json" purpose="Точные зависимости, scripts и ESM metadata." />
+            <FILE path="package-lock.json" purpose="Воспроизводимый dependency graph." />
+            <FILE path="tsconfig.json" purpose="Type-check исходников и тестов без декларационного emit." />
+            <FILE path="tsconfig.declarations.json" purpose="Отдельный declaration=true, emitDeclarationOnly=true." />
+            <FILE path="vite.config.ts" purpose="ESM library build и при необходимости общая конфигурация Vitest." />
+            <FILE path="playwright.config.ts" purpose="Минимальная browser matrix и dev-server integration, если CLI defaults недостаточны." />
+            <FILE path="tests/core.test.ts" purpose="Минимальные Vitest checks для чистой нетривиальной логики." />
+            <FILE path="tests/browser.spec.ts" purpose="Минимальные Playwright checks для Custom Element, Shadow DOM, событий и WebGL/browser boundaries." />
+        </REQUIRED_PROJECT_FILES>
+    </MINIMAL_FILE_STRATEGY>
+    <IMPLEMENTATION_STAGES>
+        <STAGE id="DP-STAGE-01-FOUNDATION" order="1">
+            <NAME>Минимальная основа пакета</NAME>
+            <DEPENDS_ON />
+            <SCOPE>
+                <ITEM>Создать npm package только с утверждёнными точными версиями.</ITEM>
+                <ITEM>Настроить прямой ESM library entry без UMD/CommonJS.</ITEM>
+                <ITEM>Разделить type-check/build и declaration emit.</ITEM>
+                <ITEM>Настроить минимальные Vitest и Playwright harness без лишних fixtures.</ITEM>
+                <ITEM>Добавить checks package-lock, npm ci, npm ls three и bundle analysis.</ITEM>
+            </SCOPE>
+            <OUTPUTS>
+                <OUTPUT>package.json и package-lock.json</OUTPUT>
+                <OUTPUT>tsconfig.json и tsconfig.declarations.json</OUTPUT>
+                <OUTPUT>vite.config.ts</OUTPUT>
+                <OUTPUT>минимальные test scripts</OUTPUT>
+            </OUTPUTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-NPM" />
+                <TECH_REF ref="TECH-NODEJS-BUILD-RUNTIME" />
+                <TECH_REF ref="TECH-TYPESCRIPT" />
+                <TECH_REF ref="TECH-VITE" />
+                <TECH_REF ref="TECH-TSC-DECLARATIONS" />
+                <TECH_REF ref="TECH-VITEST" />
+                <TECH_REF ref="TECH-PLAYWRIGHT" />
+                <TECH_REF ref="TECH-THREE-SINGLE-COPY" />
+                <TECH_REF ref="TECH-PUBLISH-FORMAT" />
+                <TECH_REF ref="TECH-DEPENDENCY-BUILD-CHECKS" />
+            </TECHNOLOGIES>
+            <MODULE_WORK />
+            <COMPLETION_CRITERIA>
+                <CRITERION>npm ci воспроизводимо устанавливает ровно утверждённые прямые версии.</CRITERION>
+                <CRITERION>Сборка создаёт только ESM library output.</CRITERION>
+                <CRITERION>Отдельный tsc создаёт .d.ts.</CRITERION>
+                <CRITERION>npm ls three и bundle analysis доказывают единственную копию Three.js.</CRITERION>
+                <CRITERION>Нет runtime backend и production Node.js процесса.</CRITERION>
+            </COMPLETION_CRITERIA>
+            <LAZY_REVIEW>
+                <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
+                <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
+            </LAZY_REVIEW>
+            <MINIMUM_RUNNABLE_CHECK>Один runnable build check выполняет npm ci, type-check, library build, declaration emit и single-copy Three.js verification.</MINIMUM_RUNNABLE_CHECK>
+        </STAGE>
+        <STAGE id="DP-STAGE-02-CONFIGURATION-LIFECYCLE" order="2">
+            <NAME>Конфигурация и lifecycle shell</NAME>
+            <DEPENDS_ON>
+                <STAGE ref="DP-STAGE-01-FOUNDATION" />
+            </DEPENDS_ON>
+            <SCOPE>
+                <ITEM>Реализовать минимальную чистую проверку и нормализацию конфигурации.</ITEM>
+                <ITEM>Создать Custom Element shell, Shadow DOM и явные lifecycle states.</ITEM>
+                <ITEM>Обеспечить single-product immutability, pre-ready rejection и reconnect rules.</ITEM>
+                <ITEM>Не создавать заглушки viewer, animation или AR, если lifecycle shell можно проверить без них.</ITEM>
+            </SCOPE>
+            <OUTPUTS>
+                <OUTPUT>MOD-CONFIGURATION</OUTPUT>
+                <OUTPUT>lifecycle skeleton MOD-WIDGET-CONTROLLER</OUTPUT>
+                <OUTPUT>подтверждённая immutable configuration representation</OUTPUT>
+            </OUTPUTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-CUSTOM-ELEMENTS" />
+                <TECH_REF ref="TECH-SHADOW-DOM" />
+                <TECH_REF ref="TECH-TYPESCRIPT" />
+                <TECH_REF ref="TECH-JS-PROMISE" />
+            </TECHNOLOGIES>
+            <MODULE_WORK>
+                <MODULE ref="MOD-CONFIGURATION">Полная конфигурационная ответственность.</MODULE>
+                <MODULE ref="MOD-WIDGET-CONTROLLER">Только lifecycle shell, immutable instance, readiness gates и blocking-error handling.</MODULE>
+            </MODULE_WORK>
+            <COMPLETION_CRITERIA>
+                <CRITERION>Обязательная ошибка не запускает загрузку GLB.</CRITERION>
+                <CRITERION>Локальная ошибка optional capability отключает только её.</CRITERION>
+                <CRITERION>Команды до ready немедленно отклоняются и не ставятся в очередь.</CRITERION>
+                <CRITERION>Повторное подключение начинает свежую инициализацию, кроме terminal primary GLB failure.</CRITERION>
+                <CRITERION>Нет абстракций сверх четырёх утверждённых runtime-модулей.</CRITERION>
+            </COMPLETION_CRITERIA>
+            <LAZY_REVIEW>
+                <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
+                <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
+            </LAZY_REVIEW>
+            <MINIMUM_RUNNABLE_CHECK>Самый маленький Vitest check покрывает каждое отдельное нетривиальное правило конфигурации; один Playwright check доказывает lifecycle shell и pre-ready rejection.</MINIMUM_RUNNABLE_CHECK>
+        </STAGE>
+        <STAGE id="DP-STAGE-03-THREE-VIEWER-CORE" order="3">
+            <NAME>Основной Three.js viewer</NAME>
+            <DEPENDS_ON>
+                <STAGE ref="DP-STAGE-02-CONFIGURATION-LIFECYCLE" />
+            </DEPENDS_ON>
+            <SCOPE>
+                <ITEM>Проверить WebGL 2 capability.</ITEM>
+                <ITEM>Создать WebGLRenderer, сцену, камеру и прямую загрузку основной GLB.</ITEM>
+                <ITEM>Поддержать native camera interaction без отдельного UI.</ITEM>
+                <ITEM>Реализовать ResizeObserver, заполнение контейнера и fallback aspect ratio.</ITEM>
+                <ITEM>Реализовать ровно одну автоматическую попытку context recovery.</ITEM>
+            </SCOPE>
+            <OUTPUTS>
+                <OUTPUT>MOD-THREE-VIEWER core</OUTPUT>
+                <OUTPUT>GLB loading path</OUTPUT>
+                <OUTPUT>camera/resize/context lifecycle</OUTPUT>
+            </OUTPUTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-WEBGL2" />
+                <TECH_REF ref="TECH-THREE-JS" />
+                <TECH_REF ref="TECH-THREE-TYPES" />
+                <TECH_REF ref="TECH-BROWSER-WEB-PLATFORM" />
+                <TECH_REF ref="FORMAT-GLB" />
+            </TECHNOLOGIES>
+            <MODULE_WORK>
+                <MODULE ref="MOD-THREE-VIEWER">GLB load, WebGL2, camera, resize, styling surface и context recovery.</MODULE>
+            </MODULE_WORK>
+            <COMPLETION_CRITERIA>
+                <CRITERION>Primary GLB-only configuration reaches READY and renders.</CRITERION>
+                <CRITERION>WebGL 2 absence creates blocking 3D-unavailable error.</CRITERION>
+                <CRITERION>Primary GLB failure is terminal for the instance.</CRITERION>
+                <CRITERION>Resize preserves available-container behavior and fallback aspect ratio.</CRITERION>
+                <CRITERION>Second context-loss failure does not start another automatic recovery.</CRITERION>
+            </COMPLETION_CRITERIA>
+            <LAZY_REVIEW>
+                <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
+                <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
+            </LAZY_REVIEW>
+            <MINIMUM_RUNNABLE_CHECK>Один минимальный browser check доказывает Custom Element + Shadow DOM + GLB load + resize; context recovery получает отдельный check из-за независимого инварианта.</MINIMUM_RUNNABLE_CHECK>
+        </STAGE>
+        <STAGE id="DP-STAGE-04-PRODUCT-CONTROLS" order="4">
+            <NAME>Выбор, анимации и сценарии</NAME>
+            <DEPENDS_ON>
+                <STAGE ref="DP-STAGE-03-THREE-VIEWER-CORE" />
+            </DEPENDS_ON>
+            <SCOPE>
+                <ITEM>Применить независимые цветовые и структурные варианты к основной GLB.</ITEM>
+                <ITEM>Реализовать именованные клипы и временные диапазоны через Three.js AnimationMixer.</ITEM>
+                <ITEM>Реализовать scenario steps без отдельного workflow framework.</ITEM>
+                <ITEM>Соблюсти compatibility, restart/replacement, camera preservation и scenario locks.</ITEM>
+            </SCOPE>
+            <OUTPUTS>
+                <OUTPUT>selection operations</OUTPUT>
+                <OUTPUT>animation operations</OUTPUT>
+                <OUTPUT>scenario operations</OUTPUT>
+            </OUTPUTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-THREE-JS" />
+                <TECH_REF ref="TECH-TYPESCRIPT" />
+            </TECHNOLOGIES>
+            <MODULE_WORK>
+                <MODULE ref="MOD-THREE-VIEWER">Selection, animations и scenarios.</MODULE>
+                <MODULE ref="MOD-WIDGET-CONTROLLER">Runtime orchestration, compatibility gates, replacement/restart и scenario locks.</MODULE>
+            </MODULE_WORK>
+            <COMPLETION_CRITERIA>
+                <CRITERION>Color and structural variant state are independent.</CRITERION>
+                <CRITERION>Animation compatibility uses only structural variants.</CRITERION>
+                <CRITERION>Scenario compatibility is the intersection of all steps.</CRITERION>
+                <CRITERION>Valid scenario restart/replacement is atomic; invalid replacement preserves current operation.</CRITERION>
+                <CRITERION>Scenario locks regular animations, selection and AR but not camera interaction.</CRITERION>
+                <CRITERION>Playback reset preserves confirmed selection and camera.</CRITERION>
+            </COMPLETION_CRITERIA>
+            <LAZY_REVIEW>
+                <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
+                <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
+            </LAZY_REVIEW>
+            <MINIMUM_RUNNABLE_CHECK>Каждое независимое state-transition property получает один малый Vitest check; Playwright проверяет только реальное Three.js/DOM integration, не повторяя чистую логику.</MINIMUM_RUNNABLE_CHECK>
+        </STAGE>
+        <STAGE id="DP-STAGE-05-HOST-INTEGRATION" order="5">
+            <NAME>Публичный API и наблюдаемость</NAME>
+            <DEPENDS_ON>
+                <STAGE ref="DP-STAGE-04-PRODUCT-CONTROLS" />
+            </DEPENDS_ON>
+            <SCOPE>
+                <ITEM>Открыть только утверждённые instance methods и state snapshot.</ITEM>
+                <ITEM>Реализовать Promise acceptance/rejection semantics.</ITEM>
+                <ITEM>Отправлять DOM CustomEvent напрямую.</ITEM>
+                <ITEM>Соблюсти порядок confirmed state → general event → specialized event → command resolution.</ITEM>
+                <ITEM>Завершить disconnect cleanup.</ITEM>
+            </SCOPE>
+            <OUTPUTS>
+                <OUTPUT>public control surface</OUTPUT>
+                <OUTPUT>state snapshot</OUTPUT>
+                <OUTPUT>host event protocol</OUTPUT>
+                <OUTPUT>cleanup integration</OUTPUT>
+            </OUTPUTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-DOM-CUSTOM-EVENT" />
+                <TECH_REF ref="TECH-JS-PROMISE" />
+                <TECH_REF ref="TECH-CUSTOM-ELEMENTS" />
+                <TECH_REF ref="TECH-CSS-SHADOW-PARTS" />
+            </TECHNOLOGIES>
+            <MODULE_WORK>
+                <MODULE ref="MOD-WIDGET-CONTROLLER">Полная публичная API/event/state/cleanup ответственность.</MODULE>
+            </MODULE_WORK>
+            <COMPLETION_CRITERIA>
+                <CRITERION>Host never observes an intermediate contradictory state.</CRITERION>
+                <CRITERION>Rejected command has no state change and no error event.</CRITERION>
+                <CRITERION>Accepted execution failure is distinguishable from rejection when observable.</CRITERION>
+                <CRITERION>Notification order is deterministic.</CRITERION>
+                <CRITERION>Disconnect leaves no owned active operations or listeners.</CRITERION>
+            </COMPLETION_CRITERIA>
+            <LAZY_REVIEW>
+                <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
+                <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
+            </LAZY_REVIEW>
+            <MINIMUM_RUNNABLE_CHECK>Один Playwright check records event order and Promise resolution; отдельный cleanup check используется потому, что ресурсная утечка является независимым риском.</MINIMUM_RUNNABLE_CHECK>
+        </STAGE>
+        <STAGE id="DP-STAGE-06-AR" order="6">
+            <NAME>Режим-нейтральный AR adapter</NAME>
+            <DEPENDS_ON>
+                <STAGE ref="DP-STAGE-05-HOST-INTEGRATION" />
+            </DEPENDS_ON>
+            <SCOPE>
+                <ITEM>Создать скрытый model-viewer только для AR.</ITEM>
+                <ITEM>Передать применимые GLB/USDZ и подтверждённый выбор в пределах публичных возможностей.</ITEM>
+                <ITEM>Использовать canActivateAR и activateAR() без внутренних API и без определения режима.</ITEM>
+                <ITEM>Поддержать WebXR launched/returned только по фактически наблюдаемым событиям.</ITEM>
+                <ITEM>Не создавать lifecycle Scene Viewer/Quick Look и не использовать visibility inference.</ITEM>
+                <ITEM>Сохранить неотключаемый Quick Look GLB→USDZ fallback.</ITEM>
+            </SCOPE>
+            <OUTPUTS>
+                <OUTPUT>MOD-AR-ADAPTER</OUTPUT>
+                <OUTPUT>AR availability integration</OUTPUT>
+                <OUTPUT>WebXR observable lifecycle</OUTPUT>
+                <OUTPUT>real-device verification checklist input</OUTPUT>
+            </OUTPUTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-MODEL-VIEWER-AR" />
+                <TECH_REF ref="TECH-AR-OBSERVABILITY" />
+                <TECH_REF ref="TECH-REAL-DEVICE-AR-TESTS" />
+                <TECH_REF ref="FORMAT-GLB" />
+                <TECH_REF ref="FORMAT-USDZ" />
+            </TECHNOLOGIES>
+            <MODULE_WORK>
+                <MODULE ref="MOD-AR-ADAPTER">Полная AR responsibility.</MODULE>
+                <MODULE ref="MOD-WIDGET-CONTROLLER">AR command gate, animation stop и confirmed-state integration.</MODULE>
+            </MODULE_WORK>
+            <COMPLETION_CRITERIA>
+                <CRITERION>AR request does not require or expose selected mode.</CRITERION>
+                <CRITERION>Accepted external AR request leaves component READY.</CRITERION>
+                <CRITERION>Only observed WebXR start/end changes AR state.</CRITERION>
+                <CRITERION>External visibility changes create no AR lifecycle event.</CRITERION>
+                <CRITERION>Optional USDZ failure falls back to GLB path.</CRITERION>
+                <CRITERION>No model-viewer internal symbols or internal Three.js scene are accessed.</CRITERION>
+            </COMPLETION_CRITERIA>
+            <LAZY_REVIEW>
+                <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
+                <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
+            </LAZY_REVIEW>
+            <MINIMUM_RUNNABLE_CHECK>Playwright проверяет публичную browser integration и отсутствие visibility inference; WebXR, Scene Viewer и Quick Look получают отдельные минимальные checks на реальных устройствах.</MINIMUM_RUNNABLE_CHECK>
+        </STAGE>
+        <STAGE id="DP-STAGE-07-VERIFICATION-RELEASE" order="7">
+            <NAME>Сквозная верификация и выпуск</NAME>
+            <DEPENDS_ON>
+                <STAGE ref="DP-STAGE-06-AR" />
+            </DEPENDS_ON>
+            <SCOPE>
+                <ITEM>Связать каждый контракт с минимальным исполняемым check.</ITEM>
+                <ITEM>Выполнить browser matrix для core 3D.</ITEM>
+                <ITEM>Выполнить real-device AR matrix.</ITEM>
+                <ITEM>Проверить exports, ESM consumption, .d.ts, lock file и single-copy Three.js.</ITEM>
+                <ITEM>Удалить неиспользуемый код, конфигурацию, dependency и test fixture перед выпуском.</ITEM>
+            </SCOPE>
+            <OUTPUTS>
+                <OUTPUT>verified package</OUTPUT>
+                <OUTPUT>browser/device evidence</OUTPUT>
+                <OUTPUT>release-ready artifact</OUTPUT>
+            </OUTPUTS>
+            <TECHNOLOGIES>
+                <TECH_REF ref="TECH-VITEST" />
+                <TECH_REF ref="TECH-PLAYWRIGHT" />
+                <TECH_REF ref="TECH-BROWSER-SUPPORT-POLICY" />
+                <TECH_REF ref="TECH-REAL-DEVICE-AR-TESTS" />
+                <TECH_REF ref="TECH-DEPENDENCY-BUILD-CHECKS" />
+            </TECHNOLOGIES>
+            <MODULE_WORK>
+                <MODULE ref="MOD-CONFIGURATION">Contract-derived checks.</MODULE>
+                <MODULE ref="MOD-THREE-VIEWER">Browser and resource-lifecycle checks.</MODULE>
+                <MODULE ref="MOD-WIDGET-CONTROLLER">State/event/order checks.</MODULE>
+                <MODULE ref="MOD-AR-ADAPTER">Browser plus real-device AR evidence.</MODULE>
+            </MODULE_WORK>
+            <COMPLETION_CRITERIA>
+                <CRITERION>Все VerificationCriteria имеют PASS/FAIL evidence.</CRITERION>
+                <CRITERION>Нет неразрешённых validation errors.</CRITERION>
+                <CRITERION>Core 3D проверен на утверждённой browser matrix.</CRITERION>
+                <CRITERION>AR проверен на реальных совместимых устройствах.</CRITERION>
+                <CRITERION>Package exports, declarations и dependency graph воспроизводимы.</CRITERION>
+                <CRITERION>Неиспользуемые файлы, abstractions и dependencies удалены.</CRITERION>
+            </COMPLETION_CRITERIA>
+            <LAZY_REVIEW>
+                <QUESTION>Нужно ли создавать каждый предложенный механизм, или утверждённая стандартная, платформенная либо библиотечная возможность уже полностью его покрывает?</QUESTION>
+                <RESULT_REQUIRED>Зафиксировать только созданные элементы и краткую причину, почему более ранняя ступень decision ladder не покрыла задачу.</RESULT_REQUIRED>
+            </LAZY_REVIEW>
+            <MINIMUM_RUNNABLE_CHECK>Один release command агрегирует детерминированные checks; аппаратные checks остаются отдельным наблюдаемым evidence и не подменяются эмуляцией.</MINIMUM_RUNNABLE_CHECK>
+        </STAGE>
+    </IMPLEMENTATION_STAGES>
+    <ARCHITECTURAL_MENTAL_CHECKS>
+        <MENTAL_CHECK id="DP-MENTAL-PRIMARY-GLB-ONLY">
+            <INPUT>Конфигурация содержит только корректную основную GLB.</INPUT>
+            <EXPECTED_PATH>MOD-CONFIGURATION принимает конфигурацию → MOD-THREE-VIEWER загружает GLB → MOD-WIDGET-CONTROLLER фиксирует READY.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>Ни один optional module path не требуется для базового viewer.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+        <MENTAL_CHECK id="DP-MENTAL-OPTIONAL-FAILURE">
+            <INPUT>Одна optional animation/scenario/variant/USDZ некорректна.</INPUT>
+            <EXPECTED_PATH>Ошибка изолируется владельцем возможности → остальная конфигурация и primary GLB продолжают инициализацию.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>Не создаётся общий error-recovery framework.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+        <MENTAL_CHECK id="DP-MENTAL-PRE-READY">
+            <INPUT>Хост вызывает команду во время загрузки.</INPUT>
+            <EXPECTED_PATH>MOD-WIDGET-CONTROLLER отклоняет Promise немедленно без queue и без изменения state.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>Не требуется command queue.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+        <MENTAL_CHECK id="DP-MENTAL-SCENARIO-REPLACEMENT">
+            <INPUT>Во время активного сценария запрошен другой сценарий.</INPUT>
+            <EXPECTED_PATH>Сначала чистая compatibility validation → valid request атомарно заменяет current scenario; invalid request оставляет current scenario.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>Не требуется workflow engine или transaction framework.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+        <MENTAL_CHECK id="DP-MENTAL-AR-EXTERNAL">
+            <INPUT>model-viewer выбирает Scene Viewer или Quick Look.</INPUT>
+            <EXPECTED_PATH>MOD-AR-ADAPTER вызывает activateAR() → controller остаётся READY → visibility changes игнорируются для AR lifecycle.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>Компонент не знает и не хранит канал.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+        <MENTAL_CHECK id="DP-MENTAL-WEBXR">
+            <INPUT>Публично наблюдается WebXR start и затем end.</INPUT>
+            <EXPECTED_PATH>READY → AR-ACTIVE → READY; launched/returned формируются только на этих событиях.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>Та же модель не применяется к внешним каналам.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+        <MENTAL_CHECK id="DP-MENTAL-RECONNECT">
+            <INPUT>Отключённый элемент подключён снова.</INPUT>
+            <EXPECTED_PATH>Owned resources очищены → новая initialization с исходным selection; terminal primary GLB failure требует нового instance.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>Не требуется runtime reconfiguration или resume store.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+        <MENTAL_CHECK id="DP-MENTAL-THREE-SINGLE-COPY">
+            <INPUT>model-viewer и основной viewer используют dependency graph.</INPUT>
+            <EXPECTED_PATH>package-lock + npm ls three + bundle analysis доказывают одну Three.js copy.</EXPECTED_PATH>
+            <ARCHITECTURAL_CONCLUSION>resolve.dedupe является дополнительной настройкой, не единственным доказательством.</ARCHITECTURAL_CONCLUSION>
+        </MENTAL_CHECK>
+    </ARCHITECTURAL_MENTAL_CHECKS>
+    <RISKS>
+        <RISK id="DP-RISK-OVERENGINEERING">
+            <DESCRIPTION>Преждевременные abstractions и file proliferation увеличат surface area и затруднят контракты.</DESCRIPTION>
+            <MITIGATION>Decision ladder, four-module ceiling, forbidden generic layers и обязательный lazy review каждого stage.</MITIGATION>
+        </RISK>
+        <RISK id="DP-RISK-THREE-DUPLICATION">
+            <DESCRIPTION>Несколько копий Three.js могут вызвать несовместимость объектов и раздувание bundle.</DESCRIPTION>
+            <MITIGATION>Exact versions, package-lock, peer compatibility, npm ls three и bundle analysis.</MITIGATION>
+        </RISK>
+        <RISK id="DP-RISK-AR-OBSERVABILITY">
+            <DESCRIPTION>Внешний AR lifecycle невозможно надёжно наблюдать.</DESCRIPTION>
+            <MITIGATION>Mode-neutral contract; не выводить lifecycle Scene Viewer/Quick Look; WebXR только по публичным событиям.</MITIGATION>
+        </RISK>
+        <RISK id="DP-RISK-BROWSER-DIVERGENCE">
+            <DESCRIPTION>WebGL, WebXR и native AR отличаются по browser/device.</DESCRIPTION>
+            <MITIGATION>Capability-first checks, Playwright для browser boundaries и real-device evidence для AR.</MITIGATION>
+        </RISK>
+        <RISK id="DP-RISK-RESOURCE-LEAK">
+            <DESCRIPTION>Disconnect, animation replacement или context loss могут оставить listeners/GPU resources.</DESCRIPTION>
+            <MITIGATION>Явное ownership, cleanup flow и отдельный минимальный cleanup/recovery check.</MITIGATION>
+        </RISK>
+        <RISK id="DP-RISK-TEST-BLOAT">
+            <DESCRIPTION>Fixtures и повторяющиеся тесты могут стать больше реализации.</DESCRIPTION>
+            <MITIGATION>Один минимальный check на отдельное нетривиальное свойство; не дублировать pure logic в Playwright; не добавлять framework.</MITIGATION>
+        </RISK>
+    </RISKS>
+    <VALIDATION_EXPECTATIONS>
+        <CHECK id="DP-VALIDATE-REFS">Все ref разрешаются в RequirementsAnalysis.xml, Technology.xml либо DevelopmentPlan.xml.</CHECK>
+        <CHECK id="DP-VALIDATE-REQUIREMENT-COVERAGE">Объединение MODULE/REQUIREMENTS покрывает все функциональные требования ровно без неизвестных ID.</CHECK>
+        <CHECK id="DP-VALIDATE-PROCESS-COVERAGE">Каждый business process реализуется хотя бы одним MODULE/IMPLEMENTS.</CHECK>
+        <CHECK id="DP-VALIDATE-ACYCLIC-DEPS">Runtime dependency graph остаётся ацикличным.</CHECK>
+        <CHECK id="DP-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS пуст перед утверждением.</CHECK>
+    </VALIDATION_EXPECTATIONS>
+    <UNRESOLVED_DECISIONS />
+    <APPROVAL_GATE status="PENDING">
+        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
+        <CONDITION>Утвердить минимальную четырёхмодульную архитектуру, decision ladder lazy senior, dependency/file constraints, state ownership, implementation stages, mental checks and risks. После утверждения создавать ModuleContracts.xml; реализация по-прежнему запрещена.</CONDITION>
+    </APPROVAL_GATE>
+</DEVELOPMENT_PLAN>
