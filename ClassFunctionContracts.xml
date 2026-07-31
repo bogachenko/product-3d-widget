@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<CLASS_FUNCTION_CONTRACTS id="CFC-PRODUCT-3D-WIDGET" status="READY_FOR_APPROVAL">
+<CLASS_FUNCTION_CONTRACTS id="CFC-PRODUCT-3D-WIDGET" status="APPROVED">
     <PURPOSE>Зафиксировать минимальную реализационную поверхность классов, функций, публичных типов и событий, достаточную для утверждённых module contracts без преждевременных abstractions.</PURPOSE>
     <BASED_ON>
         <REQUIREMENTS artifact="RequirementsAnalysis.xml" approved_revision="dbdacbd45007690b454e2f14a325bc7c06f7358f" approval_commit="8fc4558fc4b1c2d13c9354d4054a662281a3d2fd" />
@@ -1649,8 +1649,10 @@
         <CHECK id="CFC-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS is empty before approval.</CHECK>
     </VALIDATION_EXPECTATIONS>
     <UNRESOLVED_DECISIONS />
-    <APPROVAL_GATE status="PENDING">
-        <READY_STATE>READY_FOR_HUMAN_APPROVAL</READY_STATE>
-        <CONDITION>Approve the exact public API, public events, closed public/internal data types, styling API, three concrete runtime classes, one pure configuration function, four-file layout, constructor and method signatures, pre/postconditions, side effects, failure behavior, requirement links, scenario playback phase and minimum runnable checks. After approval implementation may proceed directly under these contracts; no additional design artifact is required by this project decision.</CONDITION>
+    <APPROVAL_GATE status="APPROVED">
+        <APPROVED_REVISION>aa8e69ab73f69496c968b115e15105bbb95079b1</APPROVED_REVISION>
+        <APPROVED_AT>2026-07-31T16:30:00+03:00</APPROVED_AT>
+        <APPROVAL_STATEMENT>Утверждаю ClassFunctionContracts.xml в редакции commit aa8e69ab73f69496c968b115e15105bbb95079b1, включая три конкретных runtime-класса, одну чистую конфигурационную функцию, четыре runtime-файла, десять публичных методов, восемь публичных событий, замкнутые публичные и межмодульные типы, публичную стилизационную поверхность через parts viewer, loading и error, CSS custom property --product-3d-aspect-ratio со значением по умолчанию 4 / 3, различение playing и holding-final-frame для шага сценария, точные контракты конструкторов и операций, разрешение ограниченных private local helpers, режим-нейтральный AR без выбранного внешнего канала, точное владение 86 функциональными требованиями и прямой переход к реализации и исполняемым тестам без отдельных MentalScenarios.xml и VerificationCriteria.xml.</APPROVAL_STATEMENT>
+        <APPROVED_SCOPE>Полная редакция ClassFunctionContracts.xml: три concrete runtime classes; одна pure configuration function; четыре runtime source files; десять public methods; восемь public events; closed public/internal data types; stable styling API через viewer/loading/error parts и --product-3d-aspect-ratio=4 / 3; scenario phases playing/holding-final-frame; constructor и operation contracts; ограниченные private local helpers; mode-neutral AR; exact ownership of 86 functional requirements; direct transition to implementation and executable tests.</APPROVED_SCOPE>
     </APPROVAL_GATE>
 </CLASS_FUNCTION_CONTRACTS>
