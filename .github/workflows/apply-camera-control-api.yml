@@ -23,7 +23,9 @@ jobs:
           cache: npm
 
       - name: Apply approved GRACE and implementation patch
-        run: python3 tools/apply-camera-control-api.py
+        run: |
+          python3 tools/fix-camera-patch.py
+          python3 tools/apply-camera-control-api.py
 
       - name: Validate GRACE artifacts
         run: |
@@ -108,7 +110,7 @@ jobs:
               file.write('\n')
           PY
 
-          rm -f tools/apply-camera-control-api.py .github/workflows/apply-camera-control-api.yml
+          rm -f tools/apply-camera-control-api.py tools/fix-camera-patch.py .github/workflows/apply-camera-control-api.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
