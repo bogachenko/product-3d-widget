@@ -13,9 +13,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.1
+          cache: npm
       - name: Apply pending PBR implementation
         if: ${{ hashFiles('scripts/apply-pbr-texture-variants.mjs') != '' }}
         run: |
+          for name in DevelopmentPlan.xml ModuleContracts.xml ClassFunctionContracts.xml MentalScenarios.xml VerificationCriteria.xml; do
+            path=$(find . -type f -name "$name" -print -quit)
+            if [ -z "$path" ]; then
+              echo "Missing GRACE artifact: $name" >&2
+              exit 1
+            fi
+            path=${path#./}
+            sed -i "s|'$name'|'$path'|g" scripts/apply-pbr-texture-variants.mjs
+          done
           node scripts/apply-pbr-texture-variants.mjs
           rm scripts/apply-pbr-texture-variants.mjs
           rm -f .github/workflows/inspect-pbr-implementation.yml
@@ -24,10 +37,6 @@ jobs:
           git add -A
           git commit -m 'Add PBR textures to color variants'
           git push origin HEAD:${{ github.head_ref }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.18.1
-          cache: npm
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
