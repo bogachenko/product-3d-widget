@@ -1,0 +1,424 @@
+name: Apply scenario camera view implementation
+
+on:
+  push:
+    branches:
+      - agent/scenario-camera-view
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/scenario-camera-view
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.1
+          cache: npm
+      - name: Apply approved change
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import json
+          import re
+          from datetime import datetime, timezone
+
+          def read(path: str) -> str:
+              return Path(path).read_text()
+
+          def write(path: str, text: str) -> None:
+              Path(path).write_text(text)
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              text = read(path)
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{path}: expected one exact match, found {count}: {old[:100]!r}')
+              write(path, text.replace(old, new, 1))
+
+          def sub_once(path: str, pattern: str, replacement: str) -> None:
+              text = read(path)
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.DOTALL)
+              if count != 1:
+                  raise RuntimeError(f'{path}: expected one regex match, found {count}: {pattern}')
+              write(path, updated)
+
+          def update_block(path: str, tag: str, block_id: str, transform) -> None:
+              text = read(path)
+              pattern = rf'(<{tag} id="{re.escape(block_id)}".*?</{tag}>)'
+              match = re.search(pattern, text, flags=re.DOTALL)
+              if match is None:
+                  raise RuntimeError(f'{path}: block {block_id} not found')
+              block = match.group(1)
+              updated = transform(block)
+              if updated == block:
+                  raise RuntimeError(f'{path}: block {block_id} was not changed')
+              write(path, text[:match.start()] + updated + text[match.end():])
+
+          # RequirementsAnalysis.xml
+          replace_once(
+              'RequirementsAnalysis.xml',
+              '<BUSINESS_PROCESS id="BP-SCENARIO-EXECUTION"><DESCRIPTION>Хост-страница запрашивает запуск сценария, переходы между шагами и остановку. Компонент управляет связанными анимациями и делает состояние сценария и текущего шага наблюдаемыми для хост-страницы.</DESCRIPTION></BUSINESS_PROCESS>',
+              '<BUSINESS_PROCESS id="BP-SCENARIO-EXECUTION"><DESCRIPTION>Хост-страница запрашивает запуск сценария, переходы между шагами и остановку. Для шага с cameraViewId компонент сначала завершает переход к связанному именованному ракурсу, затем запускает анимацию шага; шаг без cameraViewId сохраняет текущий ракурс. Компонент делает состояние сценария и текущего шага наблюдаемыми для хост-страницы.</DESCRIPTION></BUSINESS_PROCESS>',
+          )
+          sub_once(
+              'RequirementsAnalysis.xml',
+              r'(<ENTITY id="ENTITY-SCENARIO-STEP"><NAME>.*?</NAME><DESCRIPTION>).*?(</DESCRIPTION></ENTITY>)',
+              r'\1Шаг пошагового сценария, содержащий идентификатор, описание, ссылку на настроенную анимацию и необязательную ссылку cameraViewId на именованный ракурс, применяемый перед анимацией шага.\2',
+          )
+          requirement = '        <FUNCTIONAL_REQUIREMENT id="FR-SCENARIO-CAMERA-VIEW"><DESCRIPTION>Шаг сценария может необязательно ссылаться через cameraViewId на настроенный именованный ракурс. При запуске сценария и переходе назад или вперёд компонент должен сначала завершить переход к ракурсу шага, затем запустить его анимацию. Шаг без cameraViewId сохраняет текущий ракурс. Неизвестный или недоступный cameraViewId должен отключать только соответствующий сценарий.</DESCRIPTION><LINKS><ENTITY ref="ENTITY-SCENARIO-STEP"/><ENTITY ref="ENTITY-CAMERA-VIEW"/><BUSINESS_PROCESS ref="BP-SCENARIO-EXECUTION"/></LINKS></FUNCTIONAL_REQUIREMENT>\n'
+          replace_once(
+              'RequirementsAnalysis.xml',
+              '        <FUNCTIONAL_REQUIREMENT id="FR-CAMERA-TRANSITION-ISOLATION">',
+              requirement + '        <FUNCTIONAL_REQUIREMENT id="FR-CAMERA-TRANSITION-ISOLATION">',
+          )
+          sub_once(
+              'RequirementsAnalysis.xml',
+              r'(<INVARIANT id="INV-CAMERA-PRESERVATION">\s*<DESCRIPTION>).*?(</DESCRIPTION>)',
+              r'\1Операции анимации, сценария и AR-запроса сохраняют пользовательский ракурс, если шаг сценария не содержит cameraViewId и хост-страница не вызвала явную публичную camera-команду; фактическое завершение WebXR также не сбрасывает ракурс.\2',
+          )
+
+          # Technology.xml
+          replace_once(
+              'Technology.xml',
+              '                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS"/>\n                <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/>',
+              '                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS"/>\n                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW"/>\n                <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/>',
+          )
+
+          # DevelopmentPlan.xml
+          replace_once(
+              'DevelopmentPlan.xml',
+              '<RESPONSIBILITY>Проверять внешнюю конфигурацию, нормализовать необязательные rest pose и именованные camera views, отделять блокирующие ошибки от локально отключаемых возможностей и вычислять неизменяемые производные данные совместимости.</RESPONSIBILITY>',
+              '<RESPONSIBILITY>Проверять внешнюю конфигурацию, нормализовать необязательные rest pose, именованные camera views и ссылки cameraViewId шагов сценария, отделять блокирующие ошибки от локально отключаемых возможностей и вычислять неизменяемые производные данные совместимости.</RESPONSIBILITY>',
+          )
+          replace_once(
+              'DevelopmentPlan.xml',
+              '<RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, OrbitControls, программными camera transitions и restore snapshot, GLB-ресурсами, базовой и настроенной обычной позами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>',
+              '<RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, OrbitControls, программными camera transitions и restore snapshot, GLB-ресурсами, базовой и настроенной обычной позами, применением выбора, воспроизведением анимаций и сценариев, включая переход к cameraViewId шага до его анимации, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>',
+          )
+          def add_dev_config_requirement(block: str) -> str:
+              old = '                <REQUIREMENT ref="FR-CAMERA-VIEW-CONFIGURATION" />\n'
+              if block.count(old) != 1:
+                  raise RuntimeError('DevelopmentPlan configuration requirement anchor mismatch')
+              return block.replace(old, old + '                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n', 1)
+          update_block('DevelopmentPlan.xml', 'MODULE', 'MOD-CONFIGURATION', add_dev_config_requirement)
+          def add_dev_viewer_requirement(block: str) -> str:
+              old = '                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />\n'
+              if block.count(old) != 1:
+                  raise RuntimeError('DevelopmentPlan viewer requirement anchor mismatch')
+              return block.replace(old, old + '                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n', 1)
+          update_block('DevelopmentPlan.xml', 'MODULE', 'MOD-THREE-VIEWER', add_dev_viewer_requirement)
+
+          # ModuleContracts.xml
+          def update_config_contract(block: str) -> str:
+              old = '                <REQUIREMENT ref="FR-CAMERA-VIEW-CONFIGURATION" />\n'
+              if block.count(old) != 1:
+                  raise RuntimeError('ModuleContracts configuration requirement anchor mismatch')
+              block = block.replace(old, old + '                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n', 1)
+              anchor = '                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-06">Одинаковый input всегда даёт структурно одинаковый result.</PROPERTY>'
+              if block.count(anchor) != 1:
+                  raise RuntimeError('ModuleContracts configuration property anchor mismatch')
+              return block.replace(anchor, anchor + '\n                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-07">Неизвестный cameraViewId отключает только содержащий его сценарий.</PROPERTY>', 1)
+          update_block('ModuleContracts.xml', 'MODULE_CONTRACT', 'CONTRACT-MOD-CONFIGURATION', update_config_contract)
+          def update_viewer_contract(block: str) -> str:
+              old_resp = '<RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-07">Управлять обычной анимацией и шагами сценария, включая final-frame, back, next, stop и replacement.</RESPONSIBILITY>'
+              new_resp = '<RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-07">Управлять обычной анимацией и шагами сценария, включая необязательный cameraViewId перед playback, final-frame, back, next, stop и replacement.</RESPONSIBILITY>'
+              if block.count(old_resp) != 1:
+                  raise RuntimeError('ModuleContracts viewer responsibility anchor mismatch')
+              block = block.replace(old_resp, new_resp, 1)
+              old_req = '                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />\n'
+              if block.count(old_req) != 1:
+                  raise RuntimeError('ModuleContracts viewer requirement anchor mismatch')
+              return block.replace(old_req, old_req + '                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n', 1)
+          update_block('ModuleContracts.xml', 'MODULE_CONTRACT', 'CONTRACT-MOD-THREE-VIEWER', update_viewer_contract)
+
+          # ClassFunctionContracts.xml
+          scenario_step_contract = '''        <DATA_CONTRACT id="CFC-TYPE-SCENARIO-STEP-CONFIG" visibility="PUBLIC" kind="readonly interface">
+            <NAME>ScenarioStepConfig</NAME>
+            <FIELDS>
+                <FIELD name="id" type="string" required="YES">Unique non-empty step identifier within the scenario.</FIELD>
+                <FIELD name="description" type="string" required="YES">Host-facing step description.</FIELD>
+                <FIELD name="animationId" type="string" required="YES">Enabled configured animation played by the step.</FIELD>
+                <FIELD name="cameraViewId" type="string" required="NO">Optional enabled named camera view completed before step animation starts.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>An unknown cameraViewId disables only the containing scenario.</RULE>
+                <RULE>Absence of cameraViewId preserves the current camera view.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
+'''
+          replace_once(
+              'ClassFunctionContracts.xml',
+              '        <DATA_CONTRACT id="CFC-TYPE-SCENARIO-CONFIG" visibility="PUBLIC" kind="readonly interface">',
+              scenario_step_contract + '        <DATA_CONTRACT id="CFC-TYPE-SCENARIO-CONFIG" visibility="PUBLIC" kind="readonly interface">',
+          )
+          replace_once(
+              'ClassFunctionContracts.xml',
+              '                <RULE>Each step has stable id, description and animationId referencing a configured regular animation definition.</RULE>',
+              '                <RULE>Each step has stable id, description and animationId referencing a configured regular animation definition, plus an optional cameraViewId referencing a configured named camera view.</RULE>',
+          )
+          replace_once(
+              'ClassFunctionContracts.xml',
+              '                <FIELD name="restPose" type="NormalizedRestPose | null" required="YES">Validated optional animation endpoint reference or null for the GLB base pose fallback.</FIELD>\n                <FIELD name="colorsById"',
+              '                <FIELD name="restPose" type="NormalizedRestPose | null" required="YES">Validated optional animation endpoint reference or null for the GLB base pose fallback.</FIELD>\n                <FIELD name="cameraViewsById" type="ReadonlyMap&lt;string, NormalizedCameraView&gt;" required="YES">Structurally valid named camera views used by public commands and optional scenario step references.</FIELD>\n                <FIELD name="colorsById"',
+          )
+          def add_contract_requirement(block_id: str, anchor: str, addition: str) -> None:
+              def transform(block: str) -> str:
+                  if block.count(anchor) != 1:
+                      raise RuntimeError(f'{block_id}: requirement anchor mismatch')
+                  return block.replace(anchor, anchor + addition, 1)
+              update_block('ClassFunctionContracts.xml', 'FUNCTION_CONTRACT', block_id, transform)
+          add_contract_requirement(
+              'CFC-FN-NORMALIZE-CONFIG',
+              '                <REQUIREMENT ref="FR-CAMERA-VIEW-CONFIGURATION" />\n',
+              '                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n',
+          )
+          add_contract_requirement(
+              'CFC-FN-WIDGET-START-SCENARIO',
+              '                        <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />\n',
+              '                        <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n',
+          )
+          add_contract_requirement(
+              'CFC-FN-WIDGET-PREVIOUS-STEP',
+              '                        <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />\n',
+              '                        <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n',
+          )
+          add_contract_requirement(
+              'CFC-FN-WIDGET-NEXT-STEP',
+              '                        <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />\n',
+              '                        <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n',
+          )
+          for contract_id in ('CFC-FN-VIEWER-START-SCENARIO', 'CFC-FN-VIEWER-GO-SCENARIO-STEP'):
+              def transform_viewer(block: str, contract_id=contract_id) -> str:
+                  marker = '                    </REQUIREMENTS>'
+                  if marker not in block:
+                      raise RuntimeError(f'{contract_id}: requirements end not found')
+                  if '<REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />' in block:
+                      return block
+                  return block.replace(marker, '                        <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />\n' + marker, 1)
+              update_block('ClassFunctionContracts.xml', 'FUNCTION_CONTRACT', contract_id, transform_viewer)
+
+          # Public type and normalization.
+          replace_once(
+              'src/product-3d-widget.ts',
+              "export interface ScenarioStepConfig {\n  readonly id: string;\n  readonly description: string;\n  readonly animationId: string;\n}",
+              "export interface ScenarioStepConfig {\n  readonly id: string;\n  readonly description: string;\n  readonly animationId: string;\n  readonly cameraViewId?: string;\n}",
+          )
+          replace_once(
+              'src/configuration.ts',
+              "const normalizeScenarios = (\n  value: unknown,\n  animationsById: ReadonlyMap<string, NormalizedAnimation>,\n  localErrors: WidgetError[],\n): ReadonlyMap<string, NormalizedScenario> => {",
+              "const normalizeScenarios = (\n  value: unknown,\n  animationsById: ReadonlyMap<string, NormalizedAnimation>,\n  cameraViewsById: ReadonlyMap<string, NormalizedCameraView>,\n  localErrors: WidgetError[],\n): ReadonlyMap<string, NormalizedScenario> => {",
+          )
+          replace_once(
+              'src/configuration.ts',
+              "        || !nonEmptyString(rawStep.animationId)\n        || stepIds.has(rawStep.id.trim())) {",
+              "        || !nonEmptyString(rawStep.animationId)\n        || (rawStep.cameraViewId !== undefined && !nonEmptyString(rawStep.cameraViewId))\n        || stepIds.has(rawStep.id.trim())) {",
+          )
+          replace_once(
+              'src/configuration.ts',
+              "      const step = Object.freeze({\n        id: rawStep.id.trim(),\n        description: rawStep.description.trim(),\n        animationId: rawStep.animationId.trim(),\n      });",
+              "      const cameraViewId = rawStep.cameraViewId === undefined ? undefined : rawStep.cameraViewId.trim();\n      if (cameraViewId !== undefined && !cameraViewsById.has(cameraViewId)) {\n        valid = false;\n        continue;\n      }\n      const step: ScenarioStepConfig = Object.freeze(cameraViewId === undefined ? {\n        id: rawStep.id.trim(),\n        description: rawStep.description.trim(),\n        animationId: rawStep.animationId.trim(),\n      } : {\n        id: rawStep.id.trim(),\n        description: rawStep.description.trim(),\n        animationId: rawStep.animationId.trim(),\n        cameraViewId,\n      });",
+          )
+          replace_once(
+              'src/configuration.ts',
+              '  const scenariosById = normalizeScenarios(input.scenarios, animationsById, localErrors);',
+              '  const scenariosById = normalizeScenarios(input.scenarios, animationsById, cameraViewsById, localErrors);',
+          )
+
+          # Three.js viewer model-bound validation and ordered scenario execution.
+          replace_once(
+              'src/three-viewer.ts',
+              "      const allAnimationsEnabled = scenario.steps.every((step) => this.#enabledAnimations.has(step.animationId));\n      const hasCompatibleVariant = [...scenario.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));\n      if (allAnimationsEnabled && hasCompatibleVariant) {",
+              "      const allAnimationsEnabled = scenario.steps.every((step) => this.#enabledAnimations.has(step.animationId));\n      const allCameraViewsEnabled = scenario.steps.every((step) =>\n        step.cameraViewId === undefined || this.#enabledCameraViews.has(step.cameraViewId));\n      const hasCompatibleVariant = [...scenario.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));\n      if (allAnimationsEnabled && allCameraViewsEnabled && hasCompatibleVariant) {",
+          )
+          replace_once(
+              'src/three-viewer.ts',
+              '      return this.#startScenarioStep(scenario, 0);',
+              '      return await this.#startScenarioStep(scenario, 0);',
+          )
+          replace_once(
+              'src/three-viewer.ts',
+              '      return this.#startScenarioStep(scenario, stepIndex);',
+              '      return await this.#startScenarioStep(scenario, stepIndex);',
+          )
+          replace_once(
+              'src/three-viewer.ts',
+              "  #startScenarioStep(scenario: NormalizedScenario, stepIndex: number): Extract<ViewerScenarioResult, { ok: true }> {\n    const step = scenario.steps[stepIndex]!;\n    const animation = this.#config!.animationsById.get(step.animationId)!;\n    this.#startPlayback(animation, 'scenario', scenario.id, stepIndex);",
+              "  async #startScenarioStep(\n    scenario: NormalizedScenario,\n    stepIndex: number,\n  ): Promise<Extract<ViewerScenarioResult, { ok: true }>> {\n    const step = scenario.steps[stepIndex]!;\n    if (step.cameraViewId !== undefined) {\n      const cameraResult = await this.setCameraView(step.cameraViewId);\n      if (!cameraResult.ok) throw new Error(`Camera view \"${step.cameraViewId}\" could not be applied.`);\n    }\n    const animation = this.#config!.animationsById.get(step.animationId)!;\n    this.#startPlayback(animation, 'scenario', scenario.id, stepIndex);",
+          )
+
+          # Unit tests.
+          replace_once(
+              'tests/configuration.test.ts',
+              "        { id: 'first', description: 'First step', animationId: 'pulse-all' },",
+              "        { id: 'first', description: 'First step', animationId: 'pulse-all', cameraViewId: 'front' },",
+          )
+          unit_tests = '''
+
+  it('normalizes optional scenario camera views', () => {
+    const result = normalizeProductConfiguration(validConfiguration());
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.scenariosById.get('tour')!.steps).toEqual([
+        { id: 'first', description: 'First step', animationId: 'pulse-all', cameraViewId: 'front' },
+        { id: 'second', description: 'Second step', animationId: 'pulse-base' },
+      ]);
+    }
+  });
+
+  it('disables only a scenario that references an unknown camera view', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      scenarios: [{
+        id: 'bad-camera',
+        label: 'Bad camera',
+        steps: [{ id: 'one', description: 'One', animationId: 'pulse-all', cameraViewId: 'missing' }],
+      }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.scenariosById.size).toBe(0);
+      expect([...result.configuration.cameraViewsById.keys()]).toEqual(['front']);
+      expect(result.configuration.animationsById.has('pulse-all')).toBe(true);
+      expect(result.configuration.localErrors.some((item) => item.code === 'SCENARIO_DISABLED' && item.entityId === 'bad-camera')).toBe(true);
+    }
+  });
+'''
+          replace_once(
+              'tests/configuration.test.ts',
+              "\n  it('keeps GLB-to-USDZ fallback when the optional USDZ URL is unusable', () => {",
+              unit_tests + "\n  it('keeps GLB-to-USDZ fallback when the optional USDZ URL is unusable', () => {",
+          )
+
+          # Browser fixture: two scenario steps with automatic zero-duration camera views.
+          replace_once(
+              'tests/camera-control.spec.ts',
+              "    { id: 'side', positionNodeName: 'CAM_Side', targetNodeName: 'FOCUS_Product', durationMs: 1000 },",
+              "    { id: 'side', positionNodeName: 'CAM_Side', targetNodeName: 'FOCUS_Product', durationMs: 1000 },\n    { id: 'side-now', positionNodeName: 'CAM_Side', targetNodeName: 'FOCUS_Product', durationMs: 0 },",
+          )
+          replace_once(
+              'tests/camera-control.spec.ts',
+              "  scenarios: [{ id: 'assembly', label: 'Assembly', steps: [{ id: 'one', description: 'One', animationId: 'pulse' }] }],",
+              "  scenarios: [{\n    id: 'assembly',\n    label: 'Assembly',\n    steps: [\n      { id: 'one', description: 'One', animationId: 'pulse', cameraViewId: 'close' },\n      { id: 'two', description: 'Two', animationId: 'pulse', cameraViewId: 'side-now' },\n    ],\n  }],",
+          )
+          browser_test = '''
+
+test('applies scenario cameraViewId before each step animation', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Deterministic camera rendering assertions run in Chromium.');
+  await page.goto('/tests/fixtures/');
+  await page.waitForFunction(() => customElements.get('product-3d-widget') !== undefined);
+  const outcome = await page.evaluate(async (config) => {
+    const widget = document.createElement('product-3d-widget') as any;
+    widget.id = 'widget';
+    widget.style.width = '400px';
+    widget.style.height = '300px';
+    document.body.append(widget);
+    return (await widget.configure(config)).outcome;
+  }, configuration);
+  expect(outcome).toBe('ready');
+
+  const initialPixels = await visiblePixelCount(page);
+  expect(await page.locator('#widget').evaluate((widget: any) => widget.startScenario('assembly'))).toMatchObject({
+    accepted: true,
+    outcome: 'completed',
+    state: { scenario: { stepIndex: 0 } },
+  });
+  const closePixels = await visiblePixelCount(page);
+  expect(closePixels).toBeGreaterThan(initialPixels * 1.5);
+
+  await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().scenario.status)).toBe('holding-final-frame');
+  expect(await page.locator('#widget').evaluate((widget: any) => widget.nextScenarioStep())).toMatchObject({
+    accepted: true,
+    outcome: 'completed',
+    state: { scenario: { stepIndex: 1 } },
+  });
+  const sidePixels = await visiblePixelCount(page);
+  expect(sidePixels).toBeLessThan(closePixels * 0.5);
+});
+'''
+          write('tests/camera-control.spec.ts', read('tests/camera-control.spec.ts') + browser_test)
+
+          # Documentation: JSON-driven scenario binding plus manual override remains available.
+          docs = read('docs/camera-control-api.md')
+          marker = '## Instruction sequence\n'
+          automatic = '''## Automatic scenario views
+
+A scenario step can bind one configured view through `cameraViewId`:
+
+```json
+{
+  "id": "attach-back-cross",
+  "description": "Attach the rear cross brace",
+  "animationId": "attach-back-cross",
+  "cameraViewId": "back-cross"
+}
+```
+
+`startScenario()`, `nextScenarioStep()` and `previousScenarioStep()` complete the step camera transition before starting its animation. A step without `cameraViewId` keeps the current view. Manual public camera commands remain available for host overrides.
+
+'''
+          if docs.count(marker) != 1:
+              raise RuntimeError('camera documentation marker mismatch')
+          write('docs/camera-control-api.md', docs.replace(marker, automatic + marker, 1))
+
+          # Well-formedness before runtime verification.
+          import xml.etree.ElementTree as ET
+          for xml_path in ('RequirementsAnalysis.xml', 'Technology.xml', 'DevelopmentPlan.xml', 'ModuleContracts.xml', 'ClassFunctionContracts.xml'):
+              ET.parse(xml_path)
+
+          report = {
+              'status': 'PENDING',
+              'scope': 'scenario-camera-view',
+              'generated_at': datetime.now(timezone.utc).isoformat(),
+              'checks': [],
+          }
+          Path('validation-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+          PY
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run build:types
+      - run: npm run verify:api
+      - run: npm run test:unit
+      - run: npm run verify:three
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: xvfb-run --auto-servernum npm run test:e2e
+      - name: Record verified result
+        run: |
+          python <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          from datetime import datetime, timezone
+          from pathlib import Path
+          for path in ('RequirementsAnalysis.xml', 'Technology.xml', 'DevelopmentPlan.xml', 'ModuleContracts.xml', 'ClassFunctionContracts.xml'):
+              ET.parse(path)
+          report = {
+              'status': 'PASS',
+              'scope': 'scenario-camera-view',
+              'generated_at': datetime.now(timezone.utc).isoformat(),
+              'checks': [
+                  {'id': 'requirements-propagation', 'status': 'PASS'},
+                  {'id': 'xml-well-formed', 'status': 'PASS'},
+                  {'id': 'typecheck', 'status': 'PASS'},
+                  {'id': 'production-build', 'status': 'PASS'},
+                  {'id': 'declarations', 'status': 'PASS'},
+                  {'id': 'public-api', 'status': 'PASS'},
+                  {'id': 'unit-tests', 'status': 'PASS'},
+                  {'id': 'scenario-camera-e2e', 'status': 'PASS'},
+                  {'id': 'full-playwright-matrix', 'status': 'PASS'},
+                  {'id': 'single-three', 'status': 'PASS'},
+              ],
+          }
+          Path('validation-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+          PY
+          rm .github/workflows/agent-scenario-camera-view.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Add automatic scenario camera views [skip ci]'
+          git push origin HEAD:agent/scenario-camera-view
