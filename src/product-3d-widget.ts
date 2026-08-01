@@ -36,6 +36,15 @@ export interface CameraFocusOptions extends CameraTransitionOptions {
   readonly padding?: number;
 }
 
+export interface SurfaceTextureConfig {
+  readonly baseColorTextureUrl?: string;
+  readonly normalTextureUrl?: string;
+  readonly metallicRoughnessTextureUrl?: string;
+  readonly occlusionTextureUrl?: string;
+  readonly repeat?: readonly [number, number];
+  readonly baseColorFactor?: string;
+}
+
 export interface ColorVariantConfig {
   readonly id: string;
   readonly label: string;
@@ -43,6 +52,7 @@ export interface ColorVariantConfig {
   readonly isDefault: boolean;
   readonly isBase: boolean;
   readonly materialNames: readonly string[];
+  readonly surface?: SurfaceTextureConfig;
 }
 
 export interface StructuralVariantConfig {

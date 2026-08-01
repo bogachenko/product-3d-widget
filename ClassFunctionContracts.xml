@@ -159,19 +159,37 @@
         </DATA_CONTRACT>
         <DATA_CONTRACT id="CFC-TYPE-CAMERA-TRANSITION-OPTIONS" visibility="PUBLIC" kind="readonly interface"><NAME>CameraTransitionOptions</NAME><FIELDS><FIELD name="durationMs" type="number" required="NO">Finite transition duration from 0 through 60000.</FIELD></FIELDS></DATA_CONTRACT>
         <DATA_CONTRACT id="CFC-TYPE-CAMERA-FOCUS-OPTIONS" visibility="PUBLIC" kind="readonly interface"><NAME>CameraFocusOptions</NAME><FIELDS><FIELD name="durationMs" type="number" required="NO">Finite transition duration from 0 through 60000.</FIELD><FIELD name="positionNodeName" type="string" required="NO">Optional GLB node fixing the viewing side and exact camera position.</FIELD><FIELD name="distance" type="number" required="NO">Positive finite target distance used only without positionNodeName.</FIELD><FIELD name="padding" type="number" required="NO">Finite framing multiplier from 1 through 10; default 1.25.</FIELD></FIELDS></DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-SURFACE-TEXTURE-CONFIG" visibility="PUBLIC" kind="readonly interface">
+            <NAME>SurfaceTextureConfig</NAME>
+            <FIELDS>
+                <FIELD name="baseColorTextureUrl" type="string" required="NO">Optional supported URL for the sRGB base-color map.</FIELD>
+                <FIELD name="normalTextureUrl" type="string" required="NO">Optional supported URL for the linear normal map.</FIELD>
+                <FIELD name="metallicRoughnessTextureUrl" type="string" required="NO">Optional supported URL for the glTF-packed linear map: roughness in G and metalness in B.</FIELD>
+                <FIELD name="occlusionTextureUrl" type="string" required="NO">Optional supported URL for the linear ambient-occlusion map.</FIELD>
+                <FIELD name="repeat" type="readonly [number, number]" required="NO">Positive finite U/V repeat, each not greater than 1000; defaults to [1, 1].</FIELD>
+                <FIELD name="baseColorFactor" type="string" required="NO">Solid CSS multiplier for the textured surface; defaults to #ffffff.</FIELD>
+            </FIELDS>
+            <RULES>
+                <RULE>At least one texture URL is required when surface is present.</RULE>
+                <RULE>The base color variant may not declare surface and restores original GLB material values.</RULE>
+                <RULE>swatch remains required and host-facing even when surface is present.</RULE>
+            </RULES>
+        </DATA_CONTRACT>
         <DATA_CONTRACT id="CFC-TYPE-COLOR-VARIANT-CONFIG" visibility="PUBLIC" kind="readonly interface">
             <NAME>ColorVariantConfig</NAME>
             <FIELDS>
                 <FIELD name="id" type="string" required="YES">Unique non-empty identifier within the color group.</FIELD>
                 <FIELD name="label" type="string" required="YES">Host-facing human-readable label.</FIELD>
-                <FIELD name="swatch" type="string" required="YES">Valid solid CSS color used by the host and, for non-base variants, as the material color.</FIELD>
+                <FIELD name="swatch" type="string" required="YES">Valid solid CSS color used by the host and, when surface is absent, as the material color.</FIELD>
                 <FIELD name="isDefault" type="boolean" required="YES">Exactly one enabled color variant is default in a non-empty valid group.</FIELD>
                 <FIELD name="isBase" type="boolean" required="YES">True only for the ordinary variant representing original GLB material values.</FIELD>
-                <FIELD name="materialNames" type="readonly string[]" required="YES">Explicit material names affected by a non-base color; base may use an empty list and restores captured originals.</FIELD>
+                <FIELD name="materialNames" type="readonly string[]" required="YES">Explicit material names affected by a non-base color or surface; base may use an empty list and restores captured originals.</FIELD>
+                <FIELD name="surface" type="SurfaceTextureConfig" required="NO">Optional PBR maps applied as part of this existing color choice; this does not create a separate material-variant category.</FIELD>
             </FIELDS>
             <RULES>
                 <RULE>Color compatibility never participates in animation or scenario compatibility.</RULE>
-                <RULE>A missing or invalid swatch disables only that color unless it was the sole declared default, in which case the group is disabled.</RULE>
+                <RULE>A missing or invalid swatch or surface disables only that color unless it was the sole declared default, in which case the group is disabled.</RULE>
+                <RULE>A surface asset load failure follows the same isolated/default-group failure rule.</RULE>
             </RULES>
         </DATA_CONTRACT>
         <DATA_CONTRACT id="CFC-TYPE-STRUCTURAL-VARIANT-CONFIG" visibility="PUBLIC" kind="readonly interface">
@@ -1161,7 +1179,7 @@
                     <FAILURE_BEHAVIOR>
                         <RULE>No WebGL 2 is blocking.</RULE>
                         <RULE>Primary GLB load/parse failure is terminal for the component instance.</RULE>
-                        <RULE>Optional model reference errors disable only affected capabilities.</RULE>
+                        <RULE>Optional model reference errors and surface texture load failures disable only affected capabilities.</RULE>
                     </FAILURE_BEHAVIOR>
                     <REQUIREMENTS>
                         <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
@@ -1179,26 +1197,27 @@
                     <NAME>applyColor</NAME>
                     <SIGNATURE>applyColor(colorId: string): Promise&lt;ViewerOperationResult&gt;</SIGNATURE>
                     <CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER" />
-                    <INTENT>Apply one validated color or restore captured base material values without changing playback/camera/variant.</INTENT>
+                    <INTENT>Apply one validated solid color or preloaded PBR surface, or restore all captured base material values, without changing playback/camera/variant.</INTENT>
                     <PRECONDITIONS>
                         <CONDITION>colorId is model-bound enabled.</CONDITION>
                     </PRECONDITIONS>
                     <POSTCONDITIONS>
-                        <CONDITION>Success changes only intended materials.</CONDITION>
+                        <CONDITION>Success changes only intended materials and atomically restores/replaces color, base-color map, normal map, metallic/roughness maps and occlusion map.</CONDITION>
                         <CONDITION>Running animation continues at the same logical playback position.</CONDITION>
                     </POSTCONDITIONS>
                     <SIDE_EFFECTS>
                         <EFFECT>Mutates owned Three.js materials and requests render.</EFFECT>
                     </SIDE_EFFECTS>
                     <FAILURE_BEHAVIOR>
-                        <RULE>Operation failure leaves or restores the prior rendered color as far as internally observable.</RULE>
+                        <RULE>Operation failure leaves or restores the prior rendered color and texture set as far as internally observable.</RULE>
                     </FAILURE_BEHAVIOR>
                     <REQUIREMENTS>
                         <REQUIREMENT ref="FR-COLOR-SELECTION" />
+                        <REQUIREMENT ref="FR-COLOR-SURFACE-TEXTURES" />
                         <REQUIREMENT ref="FR-ANIMATION-COLOR-CHANGE" />
                         <REQUIREMENT ref="FR-COLOR-AND-PRODUCT-VARIANT-INDEPENDENCE" />
                     </REQUIREMENTS>
-                    <MINIMUM_RUNNABLE_CHECK>Applying color during playback does not recreate mixer/action or reset time.</MINIMUM_RUNNABLE_CHECK>
+                    <MINIMUM_RUNNABLE_CHECK>Applying textured color changes rendered base-color pixels, restoring base restores GLB maps, and playback time is not reset.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
                 <FUNCTION_CONTRACT id="CFC-FN-VIEWER-APPLY-VARIANT" visibility="INTERNAL">
                     <NAME>applyVariant</NAME>
@@ -1459,6 +1478,7 @@
                 <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />
                 <REQUIREMENT ref="FR-MODEL-INTERACTION" />
                 <REQUIREMENT ref="FR-COLOR-SELECTION" />
+                        <REQUIREMENT ref="FR-COLOR-SURFACE-TEXTURES" />
                 <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />
                 <REQUIREMENT ref="FR-ANIMATION-CONTROLS" />
                 <REQUIREMENT ref="FR-SCENARIO-CONTROLS" />

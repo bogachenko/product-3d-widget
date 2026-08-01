@@ -64,6 +64,34 @@ console.log(widget.getState());
 
 Минимально обязательны `productId` и `glbUrl`. Один DOM-экземпляр принимает конфигурацию только для одного товара.
 
+
+## PBR-текстуры цветовых вариантов
+
+Существующий цветовой вариант может дополнительно переключать PBR-карты поверхности. `swatch` остаётся обязательным цветом кнопки внешнего интерфейса; отдельная категория `materials` не создаётся.
+
+```js
+{
+  id: 'samsala-dark-gray',
+  label: 'Samsala, тёмно-серый',
+  swatch: '#625f5a',
+  isDefault: false,
+  isBase: false,
+  materialNames: ['Upholstery'],
+  surface: {
+    baseColorTextureUrl: '/textures/samsala/base-color.webp',
+    normalTextureUrl: '/textures/samsala/normal.webp',
+    metallicRoughnessTextureUrl: '/textures/samsala/metallic-roughness.webp',
+    occlusionTextureUrl: '/textures/samsala/occlusion.webp',
+    repeat: [4, 4],
+    baseColorFactor: '#ffffff',
+  },
+}
+```
+
+`metallicRoughnessTextureUrl` использует упаковку glTF: roughness хранится в зелёном канале, metalness — в синем. `baseColorFactor` умножается на base-color map и по умолчанию равен `#ffffff`. Модель должна иметь UV-развёртку; отдельный GLB для каждой ткани не нужен. Конфигурации без `surface` полностью совместимы и продолжают менять только сплошной цвет.
+
+В основном Three.js-просмотрщике карты могут добавляться к любому `MeshStandardMaterial`. При AR-синхронизации model-viewer заменяет только те texture slots, которые доступны через его публичный scene-graph API; для гарантированного переноса конкретной карты в AR соответствующий slot должен существовать в исходном GLB. Внешние Scene Viewer и Quick Look могут дополнительно ограничивать перенос runtime-изменений.
+
 ## Публичные методы
 
 - `configure(configuration)`

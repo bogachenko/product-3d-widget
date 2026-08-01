@@ -11,13 +11,16 @@ import {
   Material,
   Mesh,
   MeshStandardMaterial,
+  NoColorSpace,
   Object3D,
   PerspectiveCamera,
   Quaternion,
+  RepeatWrapping,
   Scene,
   Sphere,
   SRGBColorSpace,
   Texture,
+  TextureLoader,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -33,6 +36,7 @@ import type {
   NormalizedAnimation,
   NormalizedProductConfiguration,
   NormalizedScenario,
+  NormalizedColorVariant,
 } from './configuration.js';
 
 export type ViewerInitializationResult =
@@ -85,6 +89,22 @@ type CameraSnapshot = Readonly<{
   position: Vector3;
   quaternion: Quaternion;
   target: Vector3;
+}>;
+
+type MaterialSnapshot = Readonly<{
+  color: Color;
+  map: Texture | null;
+  normalMap: Texture | null;
+  roughnessMap: Texture | null;
+  metalnessMap: Texture | null;
+  aoMap: Texture | null;
+}>;
+
+type SurfaceTextureSet = Readonly<{
+  baseColor: Texture | null;
+  normal: Texture | null;
+  metallicRoughness: Texture | null;
+  occlusion: Texture | null;
 }>;
 
 type CameraTransition = {
@@ -172,7 +192,10 @@ export class ThreeViewer {
   readonly #baseTransforms = new Map<Object3D, TransformSnapshot>();
   readonly #ordinaryTransforms = new Map<Object3D, TransformSnapshot>();
   readonly #baseVisibility = new Map<Object3D, boolean>();
-  readonly #baseMaterialColors = new Map<MeshStandardMaterial, Color>();
+  readonly #baseMaterialSnapshots = new Map<MeshStandardMaterial, MaterialSnapshot>();
+  readonly #surfaceTexturesByColorId = new Map<string, SurfaceTextureSet>();
+  readonly #surfaceTextureCache = new Map<string, Promise<Texture>>();
+  readonly #ownedSurfaceTextures = new Set<Texture>();
   readonly #clipsByName = new Map<string, AnimationClip>();
   readonly #enabledColors = new Set<string>();
   readonly #enabledVariants = new Set<string>();
@@ -292,7 +315,7 @@ export class ThreeViewer {
       this.#scene!.add(this.#root);
       this.#mixer = new AnimationMixer(this.#root);
       this.#indexModel();
-      const result = this.#validateModelBoundCapabilities();
+      const result = await this.#validateModelBoundCapabilities();
       this.#captureOrdinaryPose();
       this.#currentSelection = result.selection;
       this.#restoreOrdinaryTransforms();
@@ -324,7 +347,10 @@ export class ThreeViewer {
     this.#baseTransforms.clear();
     this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
-    this.#baseMaterialColors.clear();
+    this.#baseMaterialSnapshots.clear();
+    this.#surfaceTexturesByColorId.clear();
+    this.#surfaceTextureCache.clear();
+    this.#ownedSurfaceTextures.clear();
     this.#clipsByName.clear();
 
     this.#root!.traverse((object) => {
@@ -346,7 +372,16 @@ export class ThreeViewer {
           const name = material.name;
           if (!this.#materialsByName.has(name)) this.#materialsByName.set(name, []);
           this.#materialsByName.get(name)!.push(material);
-          if (!this.#baseMaterialColors.has(material)) this.#baseMaterialColors.set(material, material.color.clone());
+          if (!this.#baseMaterialSnapshots.has(material)) {
+            this.#baseMaterialSnapshots.set(material, Object.freeze({
+              color: material.color.clone(),
+              map: material.map,
+              normalMap: material.normalMap,
+              roughnessMap: material.roughnessMap,
+              metalnessMap: material.metalnessMap,
+              aoMap: material.aoMap,
+            }));
+          }
         }
       }
     });
@@ -380,7 +415,54 @@ export class ThreeViewer {
     return box;
   }
 
-  #validateModelBoundCapabilities(): Extract<ViewerInitializationResult, { ok: true }> {
+
+  async #loadSurfaceTexture(
+    url: string,
+    role: 'base-color' | 'normal' | 'metallic-roughness' | 'occlusion',
+    repeat: readonly [number, number],
+  ): Promise<Texture> {
+    const key = `${role} ${url} ${repeat[0]} ${repeat[1]}`;
+    let pending = this.#surfaceTextureCache.get(key);
+    if (pending === undefined) {
+      pending = new TextureLoader().loadAsync(url).then((texture) => {
+        if (this.#disposed) {
+          texture.dispose();
+          throw new Error('Viewer disposed during surface texture loading.');
+        }
+        texture.flipY = false;
+        texture.wrapS = RepeatWrapping;
+        texture.wrapT = RepeatWrapping;
+        texture.repeat.set(repeat[0], repeat[1]);
+        texture.colorSpace = role === 'base-color' ? SRGBColorSpace : NoColorSpace;
+        texture.needsUpdate = true;
+        this.#ownedSurfaceTextures.add(texture);
+        return texture;
+      }).catch((cause) => {
+        this.#surfaceTextureCache.delete(key);
+        throw cause;
+      });
+      this.#surfaceTextureCache.set(key, pending);
+    }
+    return pending;
+  }
+
+  async #preloadSurfaceTextures(color: NormalizedColorVariant): Promise<SurfaceTextureSet> {
+    const surface = color.surface;
+    if (surface === null) {
+      return Object.freeze({ baseColor: null, normal: null, metallicRoughness: null, occlusion: null });
+    }
+    const load = (url: string | null, role: 'base-color' | 'normal' | 'metallic-roughness' | 'occlusion'): Promise<Texture | null> =>
+      url === null ? Promise.resolve(null) : this.#loadSurfaceTexture(url, role, surface.repeat);
+    const [baseColor, normal, metallicRoughness, occlusion] = await Promise.all([
+      load(surface.baseColorTextureUrl, 'base-color'),
+      load(surface.normalTextureUrl, 'normal'),
+      load(surface.metallicRoughnessTextureUrl, 'metallic-roughness'),
+      load(surface.occlusionTextureUrl, 'occlusion'),
+    ]);
+    return Object.freeze({ baseColor, normal, metallicRoughness, occlusion });
+  }
+
+  async #validateModelBoundCapabilities(): Promise<Extract<ViewerInitializationResult, { ok: true }>> {
     const localErrors: WidgetError[] = [];
     this.#enabledColors.clear();
     this.#enabledVariants.clear();
@@ -389,10 +471,20 @@ export class ThreeViewer {
     this.#enabledCameraViews.clear();
 
     for (const color of this.#config!.colorsById.values()) {
-      if (color.isBase || color.materialNames.every((name) => this.#materialsByName.has(name))) {
-        this.#enabledColors.add(color.id);
-      } else {
+      if (!color.isBase && !color.materialNames.every((name) => this.#materialsByName.has(name))) {
         localErrors.push(localError('COLOR_DISABLED', 'color', `Color "${color.id}" references a missing material.`, color.id));
+        continue;
+      }
+      try {
+        if (color.surface !== null) this.#surfaceTexturesByColorId.set(color.id, await this.#preloadSurfaceTextures(color));
+        this.#enabledColors.add(color.id);
+      } catch (cause) {
+        localErrors.push(localError(
+          'COLOR_DISABLED',
+          'color',
+          `Color "${color.id}" surface texture could not be loaded: ${cause instanceof Error ? cause.message : String(cause)}.`,
+          color.id,
+        ));
       }
     }
     const defaultColor = [...this.#config!.colorsById.values()].find((color) => color.isDefault)?.id ?? null;
@@ -596,13 +688,32 @@ export class ThreeViewer {
       for (const name of variant.hiddenNodeNames) this.#nodesByName.get(name)!.visible = false;
     }
 
-    for (const [material, color] of this.#baseMaterialColors) material.color.copy(color);
+    for (const [material, snapshot] of this.#baseMaterialSnapshots) {
+      material.color.copy(snapshot.color);
+      material.map = snapshot.map;
+      material.normalMap = snapshot.normalMap;
+      material.roughnessMap = snapshot.roughnessMap;
+      material.metalnessMap = snapshot.metalnessMap;
+      material.aoMap = snapshot.aoMap;
+      material.needsUpdate = true;
+    }
     const color = this.#currentSelection.colorId === null
       ? undefined
       : this.#config!.colorsById.get(this.#currentSelection.colorId);
     if (color !== undefined && !color.isBase) {
+      const textures = this.#surfaceTexturesByColorId.get(color.id);
       for (const name of color.materialNames) {
-        for (const material of this.#materialsByName.get(name) ?? []) material.color.setStyle(color.swatch);
+        for (const material of this.#materialsByName.get(name) ?? []) {
+          material.color.setStyle(color.surface?.baseColorFactor ?? color.swatch);
+          if (textures?.baseColor !== null && textures?.baseColor !== undefined) material.map = textures.baseColor;
+          if (textures?.normal !== null && textures?.normal !== undefined) material.normalMap = textures.normal;
+          if (textures?.metallicRoughness !== null && textures?.metallicRoughness !== undefined) {
+            material.roughnessMap = textures.metallicRoughness;
+            material.metalnessMap = textures.metallicRoughness;
+          }
+          if (textures?.occlusion !== null && textures?.occlusion !== undefined) material.aoMap = textures.occlusion;
+          material.needsUpdate = true;
+        }
       }
     }
   }
@@ -1090,6 +1201,11 @@ export class ThreeViewer {
     this.#fillLight = null;
 
     const disposedTextures = new Set<Texture>();
+    for (const texture of this.#ownedSurfaceTextures) {
+      if (disposedTextures.has(texture)) continue;
+      disposedTextures.add(texture);
+      try { texture.dispose(); } catch { /* cleanup continues */ }
+    }
     const disposedGeometries = new Set<object>();
     const disposedMaterials = new Set<Material>();
     try {
@@ -1134,7 +1250,10 @@ export class ThreeViewer {
     this.#baseTransforms.clear();
     this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
-    this.#baseMaterialColors.clear();
+    this.#baseMaterialSnapshots.clear();
+    this.#surfaceTexturesByColorId.clear();
+    this.#surfaceTextureCache.clear();
+    this.#ownedSurfaceTextures.clear();
     this.#clipsByName.clear();
     this.#enabledColors.clear();
     this.#enabledVariants.clear();

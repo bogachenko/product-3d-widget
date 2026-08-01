@@ -87,6 +87,69 @@ describe('normalizeProductConfiguration', () => {
     }
   });
 
+  it('normalizes an optional PBR surface and keeps swatch-only compatibility', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: input.colors!.map((color) => color.id === 'red' ? {
+        ...color,
+        surface: {
+          baseColorTextureUrl: '/tests/fixtures/surface-red.png',
+          normalTextureUrl: '/tests/fixtures/surface-normal.png',
+          metallicRoughnessTextureUrl: '/tests/fixtures/surface-mr.png',
+          occlusionTextureUrl: '/tests/fixtures/surface-ao.png',
+          repeat: [3, 5] as const,
+          baseColorFactor: '#eeeeee',
+        },
+      } : color),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.colorsById.get('red')!.surface).toEqual({
+        baseColorTextureUrl: '/tests/fixtures/surface-red.png',
+        normalTextureUrl: '/tests/fixtures/surface-normal.png',
+        metallicRoughnessTextureUrl: '/tests/fixtures/surface-mr.png',
+        occlusionTextureUrl: '/tests/fixtures/surface-ao.png',
+        repeat: [3, 5],
+        baseColorFactor: '#eeeeee',
+      });
+      expect(result.configuration.colorsById.get('original')!.surface).toBeNull();
+    }
+  });
+
+  it('disables only a non-default color with an invalid PBR surface', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: [...input.colors!, {
+        id: 'bad-surface',
+        label: 'Bad surface',
+        swatch: '#123456',
+        isDefault: false,
+        isBase: false,
+        materialNames: ['Body'],
+        surface: { baseColorTextureUrl: 'javascript:bad', repeat: [1, 1] },
+      }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.colorsById.has('bad-surface')).toBe(false);
+      expect(result.configuration.colorsById.has('red')).toBe(true);
+    }
+  });
+
+  it('disables the color group when its default PBR surface is invalid', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: input.colors!.map((color) => color.id === 'original'
+        ? { ...color, isDefault: false }
+        : { ...color, isDefault: true, surface: { repeat: [0, 1] } }),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.colorsById.size).toBe(0);
+  });
+
   it('disables only an invalid non-default color', () => {
     const input = validConfiguration();
     const result = normalizeProductConfiguration({
