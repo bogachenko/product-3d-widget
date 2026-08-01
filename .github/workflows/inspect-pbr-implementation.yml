@@ -1,4 +1,4 @@
-name: Inspect PBR implementation targets
+name: Apply PBR texture implementation
 
 on:
   push:
@@ -6,19 +6,29 @@ on:
       - agent/pbr-texture-variants
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  inspect:
+  implement:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Repository files
-        run: find . -maxdepth 3 -type f | sort
-      - name: Relevant tests
+        with:
+          ref: agent/pbr-texture-variants
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.1
+          cache: npm
+      - run: node scripts/apply-pbr-texture-variants.mjs
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run build
+      - name: Commit implementation
         run: |
-          grep -RIl "normalizeProductConfiguration\|applyColor\|COLOR_DISABLED" test tests src 2>/dev/null || true
-      - name: Validation tools
-        run: |
-          find tools scripts -maxdepth 3 -type f -print 2>/dev/null | sort
-          cat package.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add RequirementsAnalysis.xml Technology.xml DevelopmentPlan.xml ModuleContracts.xml ClassFunctionContracts.xml MentalScenarios.xml VerificationCriteria.xml README.md src tests
+          git commit -m 'Add PBR textures to color variants'
+          git push origin HEAD:agent/pbr-texture-variants
