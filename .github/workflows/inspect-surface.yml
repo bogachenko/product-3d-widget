@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - agent/surface-texture-variants
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: surface-texture-implementation
+  cancel-in-progress: true
 
 permissions:
   contents: write
