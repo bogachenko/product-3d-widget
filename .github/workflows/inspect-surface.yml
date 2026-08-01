@@ -1,9 +1,6 @@
 name: Inspect surface implementation
 
 on:
-  push:
-    branches:
-      - agent/surface-texture-variants
   pull_request:
     branches:
       - main
@@ -16,9 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: List files
-        run: find . -maxdepth 3 -type f | sort
-      - name: Show color contracts and implementation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.1
+          cache: npm
+      - run: npm ci
+      - name: Show model-viewer material texture types
         run: |
-          grep -RIn -C 8 "CFC-TYPE-COLOR-VARIANT-CONFIG\|FR-COLOR-SELECTION\|EXCL-MATERIAL-VARIANT-CATEGORY" RequirementsAnalysis.xml Technology.xml DevelopmentPlan.xml ModuleContracts.xml ClassFunctionContracts.xml || true
-          grep -RIn -C 12 "ColorVariantConfig\|NormalizedColorVariant\|#applySelectionDirect\|syncSelection" src tests examples scripts || true
+          grep -RIn -C 12 "interface TextureInfo\|interface Texture\|createTexture(uri\|class ModelViewerElement" node_modules/@google/model-viewer/lib node_modules/@google/model-viewer/src 2>/dev/null | head -1200 || true
