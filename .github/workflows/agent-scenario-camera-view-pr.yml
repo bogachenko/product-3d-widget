@@ -65,5 +65,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'Add automatic scenario camera views [skip ci]'
+          git commit -m 'Add automatic scenario camera views'
           git push origin HEAD:agent/scenario-camera-view
