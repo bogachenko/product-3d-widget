@@ -448,8 +448,10 @@ export class ThreeViewer {
 
     for (const scenario of this.#config!.scenariosById.values()) {
       const allAnimationsEnabled = scenario.steps.every((step) => this.#enabledAnimations.has(step.animationId));
+      const allCameraViewsEnabled = scenario.steps.every((step) =>
+        step.cameraViewId === undefined || this.#enabledCameraViews.has(step.cameraViewId));
       const hasCompatibleVariant = [...scenario.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));
-      if (allAnimationsEnabled && hasCompatibleVariant) {
+      if (allAnimationsEnabled && allCameraViewsEnabled && hasCompatibleVariant) {
         this.#enabledScenarios.add(scenario.id);
       } else {
         localErrors.push(localError('SCENARIO_DISABLED', 'scenario', `Scenario "${scenario.id}" is unavailable in the loaded model.`, scenario.id));
@@ -860,7 +862,7 @@ export class ThreeViewer {
     }
     try {
       this.#restoreOrdinaryPose();
-      return this.#startScenarioStep(scenario, 0);
+      return await this.#startScenarioStep(scenario, 0);
     } catch (cause) {
       this.#restoreOrdinaryPose();
       return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenarioId, cause).error });
@@ -881,7 +883,7 @@ export class ThreeViewer {
     }
     try {
       this.#restoreOrdinaryPose();
-      return this.#startScenarioStep(scenario, stepIndex);
+      return await this.#startScenarioStep(scenario, stepIndex);
     } catch (cause) {
       this.#restoreOrdinaryPose();
       return Object.freeze({ ok: false, error: this.#operationFailure('scenario', scenario.id, cause).error });
@@ -889,8 +891,15 @@ export class ThreeViewer {
   }
   // </SEMANTIC_BLOCK>
 
-  #startScenarioStep(scenario: NormalizedScenario, stepIndex: number): Extract<ViewerScenarioResult, { ok: true }> {
+  async #startScenarioStep(
+    scenario: NormalizedScenario,
+    stepIndex: number,
+  ): Promise<Extract<ViewerScenarioResult, { ok: true }>> {
     const step = scenario.steps[stepIndex]!;
+    if (step.cameraViewId !== undefined) {
+      const cameraResult = await this.setCameraView(step.cameraViewId);
+      if (!cameraResult.ok) throw new Error(`Camera view "${step.cameraViewId}" could not be applied.`);
+    }
     const animation = this.#config!.animationsById.get(step.animationId)!;
     this.#startPlayback(animation, 'scenario', scenario.id, stepIndex);
     return Object.freeze({

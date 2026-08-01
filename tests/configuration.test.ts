@@ -25,7 +25,7 @@ const validConfiguration = (): ProductConfiguration => ({
       id: 'tour',
       label: 'Tour',
       steps: [
-        { id: 'first', description: 'First step', animationId: 'pulse-all' },
+        { id: 'first', description: 'First step', animationId: 'pulse-all', cameraViewId: 'front' },
         { id: 'second', description: 'Second step', animationId: 'pulse-base' },
       ],
     },
@@ -195,6 +195,37 @@ describe('normalizeProductConfiguration', () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.configuration.scenariosById.size).toBe(0);
+  });
+
+
+  it('normalizes optional scenario camera views', () => {
+    const result = normalizeProductConfiguration(validConfiguration());
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.scenariosById.get('tour')!.steps).toEqual([
+        { id: 'first', description: 'First step', animationId: 'pulse-all', cameraViewId: 'front' },
+        { id: 'second', description: 'Second step', animationId: 'pulse-base' },
+      ]);
+    }
+  });
+
+  it('disables only a scenario that references an unknown camera view', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      scenarios: [{
+        id: 'bad-camera',
+        label: 'Bad camera',
+        steps: [{ id: 'one', description: 'One', animationId: 'pulse-all', cameraViewId: 'missing' }],
+      }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.scenariosById.size).toBe(0);
+      expect([...result.configuration.cameraViewsById.keys()]).toEqual(['front']);
+      expect(result.configuration.animationsById.has('pulse-all')).toBe(true);
+      expect(result.configuration.localErrors.some((item) => item.code === 'SCENARIO_DISABLED' && item.entityId === 'bad-camera')).toBe(true);
+    }
   });
 
   it('keeps GLB-to-USDZ fallback when the optional USDZ URL is unusable', () => {

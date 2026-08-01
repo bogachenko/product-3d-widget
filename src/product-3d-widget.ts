@@ -65,6 +65,7 @@ export interface ScenarioStepConfig {
   readonly id: string;
   readonly description: string;
   readonly animationId: string;
+  readonly cameraViewId?: string;
 }
 
 export interface ScenarioConfig {

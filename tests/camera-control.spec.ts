@@ -6,10 +6,18 @@ const configuration = {
   cameraViews: [
     { id: 'close', positionNodeName: 'CAM_Close', targetNodeName: 'FOCUS_Product', durationMs: 0 },
     { id: 'side', positionNodeName: 'CAM_Side', targetNodeName: 'FOCUS_Product', durationMs: 1000 },
+    { id: 'side-now', positionNodeName: 'CAM_Side', targetNodeName: 'FOCUS_Product', durationMs: 0 },
   ],
   variants: [{ id: 'base', label: 'Base', isDefault: true, isBase: true, visibleNodeNames: [], hiddenNodeNames: [] }],
   animations: [{ id: 'pulse', label: 'Pulse', source: { kind: 'clip', clipName: 'Pulse' }, compatibleVariantIds: ['base'] }],
-  scenarios: [{ id: 'assembly', label: 'Assembly', steps: [{ id: 'one', description: 'One', animationId: 'pulse' }] }],
+  scenarios: [{
+    id: 'assembly',
+    label: 'Assembly',
+    steps: [
+      { id: 'one', description: 'One', animationId: 'pulse', cameraViewId: 'close' },
+      { id: 'two', description: 'Two', animationId: 'pulse', cameraViewId: 'side-now' },
+    ],
+  }],
 };
 
 const visiblePixelCount = async (page: any): Promise<number> => {
@@ -48,7 +56,7 @@ test('supports named views, multi-node focus, restore and cancellation during a 
     return (await widget.configure(config)).outcome;
   }, configuration);
   expect(outcome).toBe('ready');
-  expect(await page.locator('#widget').evaluate((widget: any) => widget.getState().capabilities.cameraViews)).toEqual([{ id: 'close' }, { id: 'side' }]);
+  expect(await page.locator('#widget').evaluate((widget: any) => widget.getState().capabilities.cameraViews)).toEqual([{ id: 'close' }, { id: 'side' }, { id: 'side-now' }]);
 
   const initialPixels = await visiblePixelCount(page);
   expect(await page.locator('#widget').evaluate((widget: any) => widget.setCameraView('close'))).toMatchObject({ accepted: true, outcome: 'completed' });
@@ -71,4 +79,38 @@ test('supports named views, multi-node focus, restore and cancellation during a 
   expect(cancellation.moving).toMatchObject({ accepted: true, outcome: 'cancelled' });
   expect(cancellation.cancelled).toMatchObject({ accepted: true, outcome: 'completed' });
   expect(cancellation.lifecycle).toBe('STATE-SCENARIO-ACTIVE');
+});
+
+
+test('applies scenario cameraViewId before each step animation', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Deterministic camera rendering assertions run in Chromium.');
+  await page.goto('/tests/fixtures/');
+  await page.waitForFunction(() => customElements.get('product-3d-widget') !== undefined);
+  const outcome = await page.evaluate(async (config) => {
+    const widget = document.createElement('product-3d-widget') as any;
+    widget.id = 'widget';
+    widget.style.width = '400px';
+    widget.style.height = '300px';
+    document.body.append(widget);
+    return (await widget.configure(config)).outcome;
+  }, configuration);
+  expect(outcome).toBe('ready');
+
+  const initialPixels = await visiblePixelCount(page);
+  expect(await page.locator('#widget').evaluate((widget: any) => widget.startScenario('assembly'))).toMatchObject({
+    accepted: true,
+    outcome: 'completed',
+    state: { scenario: { stepIndex: 0 } },
+  });
+  const closePixels = await visiblePixelCount(page);
+  expect(closePixels).toBeGreaterThan(initialPixels * 1.5);
+
+  await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().scenario.status)).toBe('holding-final-frame');
+  expect(await page.locator('#widget').evaluate((widget: any) => widget.nextScenarioStep())).toMatchObject({
+    accepted: true,
+    outcome: 'completed',
+    state: { scenario: { stepIndex: 1 } },
+  });
+  const sidePixels = await visiblePixelCount(page);
+  expect(sidePixels).toBeLessThan(closePixels * 0.5);
 });
