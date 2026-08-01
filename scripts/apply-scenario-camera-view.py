@@ -41,4 +41,12 @@ script, count = re.subn(
 if count != 1:
     raise RuntimeError('Could not replace format-dependent ClassFunctionContracts patch section')
 
+script += '''
+replace_once(
+    'tests/camera-control.spec.ts',
+    "expect(await page.locator('#widget').evaluate((widget: any) => widget.getState().capabilities.cameraViews)).toEqual([{ id: 'close' }, { id: 'side' }]);",
+    "expect(await page.locator('#widget').evaluate((widget: any) => widget.getState().capabilities.cameraViews)).toEqual([{ id: 'close' }, { id: 'side' }, { id: 'side-now' }]);",
+)
+'''
+
 exec(compile(script, 'scenario-camera-view-patch.py', 'exec'))
