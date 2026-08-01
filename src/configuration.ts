@@ -1,5 +1,6 @@
 import type {
   AnimationConfig,
+  CameraViewConfig,
   ClipSource,
   ColorVariantConfig,
   ConfirmedSelection,
@@ -10,6 +11,8 @@ import type {
   StructuralVariantConfig,
   WidgetError,
 } from './product-3d-widget.js';
+
+export interface NormalizedCameraView extends Required<CameraViewConfig> {}
 
 export interface NormalizedColorVariant {
   readonly id: string;
@@ -50,6 +53,7 @@ export interface NormalizedProductConfiguration {
   readonly glbUrl: string;
   readonly usdzUrl: string | null;
   readonly restPose: NormalizedRestPose | null;
+  readonly cameraViewsById: ReadonlyMap<string, NormalizedCameraView>;
   readonly colorsById: ReadonlyMap<string, NormalizedColorVariant>;
   readonly variantsById: ReadonlyMap<string, NormalizedStructuralVariant>;
   readonly animationsById: ReadonlyMap<string, NormalizedAnimation>;
@@ -127,6 +131,45 @@ const isSolidCssColor = (value: string): boolean => {
   return /^#[\da-f]{3,4}(?:[\da-f]{3,4})?$/i.test(candidate)
     || CSS_NAMED_COLORS.has(candidate.toLowerCase())
     || /^(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\([^()]+\)$/i.test(candidate);
+};
+
+const normalizeCameraViews = (
+  value: unknown,
+  localErrors: WidgetError[],
+): ReadonlyMap<string, NormalizedCameraView> => {
+  if (value === undefined) return new Map();
+  if (!Array.isArray(value)) {
+    localErrors.push(error('CAMERA_VIEW_DISABLED', 'camera', 'cameraViews must be an array when provided.'));
+    return new Map();
+  }
+  const result = new Map<string, NormalizedCameraView>();
+  const seen = new Set<string>();
+  for (const item of value) {
+    const entityId = isObject(item) && nonEmptyString(item.id) ? item.id.trim() : undefined;
+    const durationMs = isObject(item) && item.durationMs === undefined ? 700 : isObject(item) ? item.durationMs : undefined;
+    if (!isObject(item)
+      || !nonEmptyString(item.id)
+      || !nonEmptyString(item.positionNodeName)
+      || !nonEmptyString(item.targetNodeName)
+      || typeof durationMs !== 'number'
+      || !Number.isFinite(durationMs)
+      || durationMs < 0
+      || durationMs > 60_000
+      || seen.has(item.id.trim())) {
+      localErrors.push(error('CAMERA_VIEW_DISABLED', 'camera', 'A camera view is invalid.', entityId));
+      if (entityId !== undefined) seen.add(entityId);
+      continue;
+    }
+    const id = item.id.trim();
+    seen.add(id);
+    result.set(id, Object.freeze({
+      id,
+      positionNodeName: item.positionNodeName.trim(),
+      targetNodeName: item.targetNodeName.trim(),
+      durationMs,
+    }));
+  }
+  return result;
 };
 
 const normalizeColorGroup = (
@@ -431,6 +474,7 @@ export function normalizeProductConfiguration(input: unknown): ConfigurationVali
   const variantsById = normalizeVariantGroup(input.variants, localErrors);
   const animationsById = normalizeAnimations(input.animations, variantsById, localErrors);
   const restPose = normalizeRestPose(input.restPose, animationsById, localErrors);
+  const cameraViewsById = normalizeCameraViews(input.cameraViews, localErrors);
   const scenariosById = normalizeScenarios(input.scenarios, animationsById, localErrors);
 
   let usdzUrl: string | null = null;
@@ -452,6 +496,7 @@ export function normalizeProductConfiguration(input: unknown): ConfigurationVali
     glbUrl: (input.glbUrl as string).trim(),
     usdzUrl,
     restPose,
+    cameraViewsById,
     colorsById,
     variantsById,
     animationsById,

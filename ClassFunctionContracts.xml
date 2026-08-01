@@ -130,6 +130,7 @@
                 <FIELD name="glbUrl" type="string" required="YES">Non-empty URL of the required primary GLB asset.</FIELD>
                 <FIELD name="usdzUrl" type="string" required="NO">Optional separate USDZ asset; absence preserves automatic GLB-to-USDZ Quick Look fallback.</FIELD>
                 <FIELD name="restPose" type="RestPoseConfig" required="NO">Optional ordinary pose derived from the endpoint of one configured regular animation.</FIELD>
+                <FIELD name="cameraViews" type="readonly CameraViewConfig[]" required="NO">Optional named camera positions and targets resolved against the primary GLB.</FIELD>
                 <FIELD name="colors" type="readonly ColorVariantConfig[]" required="NO">Optional independent color group.</FIELD>
                 <FIELD name="variants" type="readonly StructuralVariantConfig[]" required="NO">Optional independent structural variant group.</FIELD>
                 <FIELD name="animations" type="readonly AnimationConfig[]" required="NO">Optional regular animations.</FIELD>
@@ -153,6 +154,11 @@
                 <RULE>Rest pose does not become a public operation or lifecycle state.</RULE>
             </RULES>
         </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-CAMERA-VIEW-CONFIG" visibility="PUBLIC" kind="readonly interface">
+            <NAME>CameraViewConfig</NAME><FIELDS><FIELD name="id" type="string" required="YES">Unique non-empty camera view id.</FIELD><FIELD name="positionNodeName" type="string" required="YES">GLB node whose world position becomes the camera position.</FIELD><FIELD name="targetNodeName" type="string" required="YES">GLB node whose world position becomes the OrbitControls target.</FIELD><FIELD name="durationMs" type="number" required="NO">Finite transition duration from 0 through 60000; default 700.</FIELD></FIELDS>
+        </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-CAMERA-TRANSITION-OPTIONS" visibility="PUBLIC" kind="readonly interface"><NAME>CameraTransitionOptions</NAME><FIELDS><FIELD name="durationMs" type="number" required="NO">Finite transition duration from 0 through 60000.</FIELD></FIELDS></DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-CAMERA-FOCUS-OPTIONS" visibility="PUBLIC" kind="readonly interface"><NAME>CameraFocusOptions</NAME><FIELDS><FIELD name="durationMs" type="number" required="NO">Finite transition duration from 0 through 60000.</FIELD><FIELD name="positionNodeName" type="string" required="NO">Optional GLB node fixing the viewing side and exact camera position.</FIELD><FIELD name="distance" type="number" required="NO">Positive finite target distance used only without positionNodeName.</FIELD><FIELD name="padding" type="number" required="NO">Finite framing multiplier from 1 through 10; default 1.25.</FIELD></FIELDS></DATA_CONTRACT>
         <DATA_CONTRACT id="CFC-TYPE-COLOR-VARIANT-CONFIG" visibility="PUBLIC" kind="readonly interface">
             <NAME>ColorVariantConfig</NAME>
             <FIELDS>
@@ -337,6 +343,7 @@
                 <FIELD name="variants" type="readonly Readonly&lt;{ id: string; label: string }&gt;[]" required="YES">Enabled structural-variant descriptors.</FIELD>
                 <FIELD name="animations" type="readonly Readonly&lt;{ id: string; label: string; compatibleVariantIds: readonly string[] }&gt;[]" required="YES">Enabled regular animations and their explicit structural compatibility.</FIELD>
                 <FIELD name="scenarios" type="readonly Readonly&lt;{ id: string; label: string; compatibleVariantIds: readonly string[] }&gt;[]" required="YES">Enabled scenarios and their computed structural compatibility intersections.</FIELD>
+                <FIELD name="cameraViews" type="readonly Readonly&lt;{ id: string }&gt;[]" required="YES">Model-bound enabled named camera views.</FIELD>
                 <FIELD name="arConfigured" type="boolean" required="YES">Whether AR was enabled by accepted configuration.</FIELD>
                 <FIELD name="localErrors" type="readonly WidgetError[]" required="YES">Non-blocking capability errors accumulated during configuration, model-bound validation or optional AR setup.</FIELD>
             </FIELDS>
@@ -356,6 +363,11 @@
                 <VALUE>unknown-variant</VALUE>
                 <VALUE>unknown-animation</VALUE>
                 <VALUE>unknown-scenario</VALUE>
+                <VALUE>unknown-camera-view</VALUE>
+                <VALUE>unknown-node</VALUE>
+                <VALUE>invalid-camera-target</VALUE>
+                <VALUE>no-camera-view-to-restore</VALUE>
+                <VALUE>camera-transition-active</VALUE>
                 <VALUE>scenario-active</VALUE>
                 <VALUE>no-active-scenario</VALUE>
                 <VALUE>scenario-boundary</VALUE>
@@ -378,6 +390,7 @@
                 <VALUE>VARIANT_DISABLED</VALUE>
                 <VALUE>ANIMATION_DISABLED</VALUE>
                 <VALUE>REST_POSE_DISABLED</VALUE>
+                <VALUE>CAMERA_VIEW_DISABLED</VALUE>
                 <VALUE>SCENARIO_DISABLED</VALUE>
                 <VALUE>USDZ_UNUSABLE</VALUE>
                 <VALUE>WEBGL2_UNAVAILABLE</VALUE>
@@ -499,7 +512,7 @@
         <DATA_CONTRACT id="CFC-TYPE-VIEWER-INITIALIZATION-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
             <NAME>ViewerInitializationResult</NAME>
             <VARIANTS>
-                <VARIANT name="ready" type="{ ok: true; selection: ConfirmedSelection; enabledColorIds: readonly string[]; enabledVariantIds: readonly string[]; enabledAnimationIds: readonly string[]; enabledScenarioIds: readonly string[]; localErrors: readonly WidgetError[] }">Primary viewer is ready after model-bound capability validation.</VARIANT>
+                <VARIANT name="ready" type="{ ok: true; selection: ConfirmedSelection; enabledColorIds: readonly string[]; enabledVariantIds: readonly string[]; enabledAnimationIds: readonly string[]; enabledScenarioIds: readonly string[]; enabledCameraViewIds: readonly string[]; localErrors: readonly WidgetError[] }">Primary viewer is ready after model-bound capability validation.</VARIANT>
                 <VARIANT name="failed" type="{ ok: false; terminal: boolean; error: WidgetError }">Blocking viewer initialization failed; terminal is true for primary GLB failure.</VARIANT>
             </VARIANTS>
         </DATA_CONTRACT>
@@ -524,6 +537,7 @@
                 <VARIANT name="failed" type="{ ok: false; error: WidgetError }">Accepted scenario operation failed.</VARIANT>
             </VARIANTS>
         </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-VIEWER-CAMERA-RESULT" visibility="INTERNAL" kind="discriminated readonly union"><NAME>ViewerCameraResult</NAME><VARIANTS><VARIANT name="completed" type="{ ok: true; outcome: 'completed' }">Target view was reached.</VARIANT><VARIANT name="cancelled" type="{ ok: true; outcome: 'cancelled' }">Transition stopped at its current interpolated pose.</VARIANT><VARIANT name="rejected" type="{ ok: false; rejected: true; reason: camera rejection reason }">No camera mutation was accepted.</VARIANT><VARIANT name="failed" type="{ ok: false; rejected: false; error: WidgetError }">Accepted camera operation failed.</VARIANT></VARIANTS></DATA_CONTRACT>
         <DATA_CONTRACT id="CFC-TYPE-VIEWER-RECOVERY-RESULT" visibility="INTERNAL" kind="discriminated readonly union">
             <NAME>ViewerRecoveryResult</NAME>
             <VARIANTS>
@@ -876,6 +890,8 @@
                     </FAILURE_BEHAVIOR>
                     <REQUIREMENTS>
                         <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />
+                <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />
                         <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>Boundary rejection leaves current step/playback unchanged.</MINIMUM_RUNNABLE_CHECK>
@@ -929,6 +945,11 @@
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>Stopping at any step clears scenario and preserves selection/camera.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-SET-CAMERA-VIEW" visibility="PUBLIC"><NAME>setCameraView</NAME><SIGNATURE>setCameraView(viewId: string): Promise&lt;CommandResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET"/><INTENT>Move to one enabled named camera view without changing product execution or public snapshot.</INTENT><PRECONDITIONS><CONDITION>READY, ANIMATION-PLAYING or SCENARIO-ACTIVE.</CONDITION><CONDITION>No camera transition is active.</CONDITION></PRECONDITIONS><POSTCONDITIONS><CONDITION>Success reaches configured position and target; cancellation leaves the interpolated pose.</CONDITION></POSTCONDITIONS><FAILURE_BEHAVIOR><RULE>Unknown or disabled view is rejected without error event.</RULE></FAILURE_BEHAVIOR><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS"/><REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>A named view changes the rendered framing and does not stop scenario playback.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-FOCUS-NODE" visibility="PUBLIC"><NAME>focusOnNode</NAME><SIGNATURE>focusOnNode(nodeName: string, options?: CameraFocusOptions): Promise&lt;CommandResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET"/><INTENT>Focus one model node through the same multi-node operation.</INTENT><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>One valid node is accepted; an absent node is rejected without mutation.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-FOCUS-NODES" visibility="PUBLIC"><NAME>focusOnNodes</NAME><SIGNATURE>focusOnNodes(nodeNames: readonly string[], options?: CameraFocusOptions): Promise&lt;CommandResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET"/><INTENT>Frame the union of one or more model nodes from the current direction or an explicit position node.</INTENT><PRECONDITIONS><CONDITION>At least one unique non-empty node name.</CONDITION><CONDITION>Options are finite and within contracted bounds.</CONDITION></PRECONDITIONS><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/><REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>Two focus nodes are jointly visible after a zero-duration command.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-RESTORE-CAMERA-VIEW" visibility="PUBLIC"><NAME>restoreCameraView</NAME><SIGNATURE>restoreCameraView(options?: CameraTransitionOptions): Promise&lt;CommandResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET"/><INTENT>Return to the camera captured before the first accepted programmatic camera command.</INTENT><FAILURE_BEHAVIOR><RULE>Without a saved view, reject without mutation.</RULE></FAILURE_BEHAVIOR><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>Several camera moves followed by restore return to the original rendered framing.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-WIDGET-CANCEL-CAMERA-TRANSITION" visibility="PUBLIC"><NAME>cancelCameraTransition</NAME><SIGNATURE>cancelCameraTransition(): Promise&lt;CommandResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-PRODUCT-3D-WIDGET"/><INTENT>Stop only the active camera transition and preserve its restore origin.</INTENT><POSTCONDITIONS><CONDITION>Idempotent when no transition is active.</CONDITION></POSTCONDITIONS><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL"/><REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>Cancel resolves the active camera command as cancelled and leaves animation/scenario unchanged.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
                 <FUNCTION_CONTRACT id="CFC-FN-WIDGET-LAUNCH-AR" visibility="PUBLIC">
                     <NAME>launchAR</NAME>
                     <SIGNATURE>launchAR(): Promise&lt;CommandResult&gt;</SIGNATURE>
@@ -1329,6 +1350,10 @@
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>Stop works at any step and preserves selection/camera.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-SET-CAMERA-VIEW" visibility="INTERNAL"><NAME>setCameraView</NAME><SIGNATURE>setCameraView(viewId: string): Promise&lt;ViewerCameraResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER"/><INTENT>Resolve configured GLB nodes and run one camera transition.</INTENT><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-VIEW-CONFIGURATION"/><REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>Exact position and target node world positions are reached.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-FOCUS-NODES" visibility="INTERNAL"><NAME>focusOnNodes</NAME><SIGNATURE>focusOnNodes(nodeNames: readonly string[], options?: CameraFocusOptions): Promise&lt;ViewerCameraResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER"/><INTENT>Compute a union bound and a camera position that frames all requested nodes.</INTENT><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>Union framing includes separated nodes and supports an empty-node world position.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-RESTORE-CAMERA-VIEW" visibility="INTERNAL"><NAME>restoreCameraView</NAME><SIGNATURE>restoreCameraView(options?: CameraTransitionOptions): Promise&lt;ViewerCameraResult&gt;</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER"/><INTENT>Transition to and clear the saved restore snapshot only after successful completion.</INTENT><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>Cancellation retains the restore snapshot; completion clears it.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
+                <FUNCTION_CONTRACT id="CFC-FN-VIEWER-CANCEL-CAMERA-TRANSITION" visibility="INTERNAL"><NAME>cancelCameraTransition</NAME><SIGNATURE>cancelCameraTransition(): ViewerOperationResult</SIGNATURE><CLASS_CONTRACT ref="CFC-CLASS-THREE-VIEWER"/><INTENT>Cancel one camera RAF without touching playback RAF or restore origin.</INTENT><REQUIREMENTS><REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL"/><REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION"/></REQUIREMENTS><MINIMUM_RUNNABLE_CHECK>Playback continues after camera cancellation.</MINIMUM_RUNNABLE_CHECK></FUNCTION_CONTRACT>
                 <FUNCTION_CONTRACT id="CFC-FN-VIEWER-RESIZE" visibility="INTERNAL">
                     <NAME>resize</NAME>
                     <SIGNATURE>resize(): void</SIGNATURE>
@@ -1407,6 +1432,11 @@
             </METHODS>
             <REQUIREMENTS>
                 <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
+                <REQUIREMENT ref="FR-CAMERA-VIEW-CONFIGURATION" />
+                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />
+                <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS" />
+                <REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL" />
+                <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />
                 <REQUIREMENT ref="FR-MODEL-INTERACTION" />
                 <REQUIREMENT ref="FR-COLOR-SELECTION" />
                 <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />

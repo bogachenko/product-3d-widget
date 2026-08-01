@@ -71,14 +71,19 @@ test('lifecycle, exact host API, immutable state and styling surface', async ({ 
 
   expect(before.lifecycle).toBe('STATE-NOT-CONFIGURED');
   expect(before.prototypeMethods).toEqual([
+    'cancelCameraTransition',
     'configure',
+    'focusOnNode',
+    'focusOnNodes',
     'getState',
     'launchAR',
     'nextScenarioStep',
     'playAnimation',
     'previousScenarioStep',
+    'restoreCameraView',
     'selectColor',
     'selectVariant',
+    'setCameraView',
     'startScenario',
     'stopScenario',
   ]);
