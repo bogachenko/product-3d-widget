@@ -14,6 +14,14 @@
 npm ci
 ```
 
+## Production-сборка
+
+```bash
+npm run build
+```
+
+Команда создаёт `dist/product-3d-widget.js` как полностью минифицированный ESM-bundle и отдельный source map `dist/product-3d-widget.js.map`. Полная минификация выполняется встроенным Oxc Minifier через Rolldown; дополнительная зависимость для минификации не требуется.
+
 ## Ручной стенд
 
 ```bash
@@ -109,6 +117,8 @@ npm run test:unit
 xvfb-run --auto-servernum npm run test:e2e
 npm run verify:three
 ```
+
+`npm run verify:three` также проверяет, что полная production-минификация явно включена и не может быть незаметно удалена из Vite-конфигурации.
 
 Или одной командой:
 
