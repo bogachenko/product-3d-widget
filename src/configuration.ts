@@ -9,10 +9,20 @@ import type {
   RestPoseConfig,
   ScenarioStepConfig,
   StructuralVariantConfig,
+  SurfaceTextureConfig,
   WidgetError,
 } from './product-3d-widget.js';
 
 export interface NormalizedCameraView extends Required<CameraViewConfig> {}
+
+export interface NormalizedSurfaceTexture {
+  readonly baseColorTextureUrl: string | null;
+  readonly normalTextureUrl: string | null;
+  readonly metallicRoughnessTextureUrl: string | null;
+  readonly occlusionTextureUrl: string | null;
+  readonly repeat: readonly [number, number];
+  readonly baseColorFactor: string;
+}
 
 export interface NormalizedColorVariant {
   readonly id: string;
@@ -21,6 +31,7 @@ export interface NormalizedColorVariant {
   readonly isDefault: boolean;
   readonly isBase: boolean;
   readonly materialNames: readonly string[];
+  readonly surface: NormalizedSurfaceTexture | null;
 }
 
 export interface NormalizedStructuralVariant {
@@ -133,6 +144,45 @@ const isSolidCssColor = (value: string): boolean => {
     || /^(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\([^()]+\)$/i.test(candidate);
 };
 
+const normalizeSurface = (value: unknown): NormalizedSurfaceTexture | null | false => {
+  if (value === undefined) return null;
+  if (!isObject(value)) return false;
+  const textureFields = [
+    'baseColorTextureUrl',
+    'normalTextureUrl',
+    'metallicRoughnessTextureUrl',
+    'occlusionTextureUrl',
+  ] as const satisfies readonly (keyof SurfaceTextureConfig)[];
+  const urls: Record<(typeof textureFields)[number], string | null> = {
+    baseColorTextureUrl: null,
+    normalTextureUrl: null,
+    metallicRoughnessTextureUrl: null,
+    occlusionTextureUrl: null,
+  };
+  for (const field of textureFields) {
+    const candidate = value[field];
+    if (candidate === undefined) continue;
+    if (!usableAssetUrl(candidate)) return false;
+    urls[field] = candidate.trim();
+  }
+  if (textureFields.every((field) => urls[field] === null)) return false;
+
+  let repeat: readonly [number, number] = Object.freeze([1, 1]);
+  if (value.repeat !== undefined) {
+    if (!Array.isArray(value.repeat)
+      || value.repeat.length !== 2
+      || value.repeat.some((item) => typeof item !== 'number' || !Number.isFinite(item) || item <= 0 || item > 1000)) return false;
+    repeat = Object.freeze([value.repeat[0] as number, value.repeat[1] as number]);
+  }
+  const baseColorFactor = value.baseColorFactor === undefined ? '#ffffff' : value.baseColorFactor;
+  if (!nonEmptyString(baseColorFactor) || !isSolidCssColor(baseColorFactor)) return false;
+  return Object.freeze({
+    ...urls,
+    repeat,
+    baseColorFactor: baseColorFactor.trim(),
+  });
+};
+
 const normalizeCameraViews = (
   value: unknown,
   localErrors: WidgetError[],
@@ -206,7 +256,8 @@ const normalizeColorGroup = (
     }
     const id = item.id.trim();
     const materialNames = uniqueStrings(item.materialNames);
-    if (seen.has(id) || materialNames === null || (!item.isBase && materialNames.length === 0) || !isSolidCssColor(item.swatch)) {
+    const surface = normalizeSurface(item.surface);
+    if (seen.has(id) || materialNames === null || (!item.isBase && materialNames.length === 0) || !isSolidCssColor(item.swatch) || surface === false || (item.isBase && surface !== null)) {
       localErrors.push(error('COLOR_DISABLED', 'color', `Color variant "${id}" is invalid.`, id));
       seen.add(id);
       continue;
@@ -219,6 +270,7 @@ const normalizeColorGroup = (
       isDefault: item.isDefault,
       isBase: item.isBase,
       materialNames,
+      surface,
     }));
   }
 

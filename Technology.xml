@@ -100,8 +100,10 @@
             <NAME>Three.js</NAME>
             <STATUS>SELECTED</STATUS>
             <VERSION>0.183.2</VERSION>
-            <RESPONSIBILITY>Основной встроенный 3D-просмотр: загрузка GLB, WebGLRenderer, сцена, камера, OrbitControls, программные переходы к именованным ракурсам и узлам, материалы и цвета, видимость узлов структурных вариантов, AnimationMixer, именованные клипы, временные диапазоны, восстановление состояния и обработка потери WebGL-контекста.</RESPONSIBILITY>
+            <RESPONSIBILITY>Основной встроенный 3D-просмотр: загрузка GLB, WebGLRenderer, сцена, камера, OrbitControls, программные переходы к именованным ракурсам и узлам, материалы, цвета и PBR-карты поверхности, видимость узлов структурных вариантов, AnimationMixer, именованные клипы, временные диапазоны, восстановление состояния и обработка потери WebGL-контекста.</RESPONSIBILITY>
             <CONSTRAINT>Three.js является единственным средством основного 3D-рендеринга. WebGPU renderer и альтернативный renderer в первой версии не используются.</CONSTRAINT>
+            <CONSTRAINT>Необязательные карты поверхности загружаются через TextureLoader, кешируются в пределах экземпляра, используют flipY=false для glTF UV, sRGB только для base color и линейное пространство для non-color карт.</CONSTRAINT>
+            <CONSTRAINT>Один metallic-roughness asset трактуется по glTF: зелёный канал задаёт roughness, синий — metalness; повторение UV применяется через RepeatWrapping.</CONSTRAINT>
             <LINKS>
                 <REQUIREMENT ref="FR-GLB-MODEL-LOADING"/>
                 <REQUIREMENT ref="FR-MODEL-INTERACTION"/>
@@ -109,7 +111,7 @@
                 <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW"/>
                 <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/>
                 <REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL"/>
-                <REQUIREMENT ref="FR-COLOR-SELECTION"/>
+                <REQUIREMENT ref="FR-COLOR-SELECTION"/><REQUIREMENT ref="FR-COLOR-SURFACE-TEXTURES"/>
                 <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION"/>
                 <REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT"/>
                 <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/>
@@ -132,7 +134,7 @@
                 <CONSTRAINT>model-viewer не используется как основной 3D-просмотр.</CONSTRAINT>
                 <CONSTRAINT>Компонент не определяет заранее, не принуждает и не читает фактически выбранный model-viewer AR-канал.</CONSTRAINT>
                 <CONSTRAINT>Внутренняя Three.js-сцена model-viewer, внутренний выбранный режим и непубличные API не используются.</CONSTRAINT>
-                <CONSTRAINT>Перенос цветов и структурных вариантов в AR выполняется только в пределах публично поддерживаемых возможностей самостоятельно выбранного AR-канала.</CONSTRAINT>
+                <CONSTRAINT>Перенос цветов, публично заменяемых PBR-карт и структурных вариантов в AR выполняется только в пределах публично поддерживаемых возможностей самостоятельно выбранного AR-канала; отсутствующий публичный TextureInfo не создаётся через внутренние API.</CONSTRAINT>
                 <CONSTRAINT>canActivateAR, разрешение activateAR(), изменение видимости страницы и отсутствие ошибки не считаются доказательством фактического запуска внешнего AR.</CONSTRAINT>
             </CONSTRAINTS>
             <LINKS>

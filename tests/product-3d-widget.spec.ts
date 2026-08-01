@@ -249,6 +249,81 @@ test('selection, compatibility, animation, scenario and event order are atomic',
   expect(result.order[selectionIndex - 1]).toBe('product-3d-state-change');
 });
 
+test('PBR surface textures switch rendered material maps and isolate load failures', async ({ page }) => {
+  await openFixture(page);
+  const requested = new Set<string>();
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname.includes('/tests/fixtures/surface-')) requested.add(pathname);
+  });
+  const surfaceConfiguration = {
+    productId: 'surface-product',
+    glbUrl: '/tests/fixtures/surface.gltf',
+    colors: [
+      { id: 'original', label: 'Original', swatch: '#ffffff', isDefault: true, isBase: true, materialNames: [] },
+      {
+        id: 'red-surface', label: 'Red', swatch: '#eb1e1e', isDefault: false, isBase: false, materialNames: ['Body'],
+        surface: {
+          baseColorTextureUrl: '/tests/fixtures/surface-red.png',
+          normalTextureUrl: '/tests/fixtures/surface-normal.png',
+          metallicRoughnessTextureUrl: '/tests/fixtures/surface-mr.png',
+          occlusionTextureUrl: '/tests/fixtures/surface-ao.png',
+          repeat: [2, 2],
+        },
+      },
+      {
+        id: 'blue-surface', label: 'Blue', swatch: '#1932eb', isDefault: false, isBase: false, materialNames: ['Body'],
+        surface: { baseColorTextureUrl: '/tests/fixtures/surface-blue.png' },
+      },
+      {
+        id: 'missing-surface', label: 'Missing', swatch: '#555555', isDefault: false, isBase: false, materialNames: ['Body'],
+        surface: { baseColorTextureUrl: '/tests/fixtures/surface-missing.png' },
+      },
+    ],
+  };
+  const initialized = await configureWidget(page, surfaceConfiguration);
+  expect(initialized.outcome).toBe('ready');
+
+  const result = await page.locator('#widget').evaluate(async (widget: any) => {
+    const sample = (): { red: number; green: number; blue: number } => {
+      const canvas = widget.shadowRoot.querySelector('canvas') as HTMLCanvasElement;
+      const gl = canvas.getContext('webgl2')!;
+      const pixels = new Uint8Array(canvas.width * canvas.height * 4);
+      gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let red = 0; let green = 0; let blue = 0; let count = 0;
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (pixels[index + 3]! < 16) continue;
+        red += pixels[index]!;
+        green += pixels[index + 1]!;
+        blue += pixels[index + 2]!;
+        count += 1;
+      }
+      return { red: red / Math.max(count, 1), green: green / Math.max(count, 1), blue: blue / Math.max(count, 1) };
+    };
+    await widget.selectColor('red-surface');
+    const red = sample();
+    await widget.selectColor('blue-surface');
+    const blue = sample();
+    await widget.selectColor('original');
+    return { red, blue, state: widget.getState() };
+  });
+
+  expect(result.red.red).toBeGreaterThan(result.red.blue * 1.4);
+  expect(result.blue.blue).toBeGreaterThan(result.blue.red * 1.4);
+  expect(result.state.selection.colorId).toBe('original');
+  expect(result.state.capabilities.colors.map((item: { id: string }) => item.id)).toEqual(['original', 'red-surface', 'blue-surface']);
+  expect(result.state.capabilities.localErrors).toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: 'COLOR_DISABLED', entityId: 'missing-surface' }),
+  ]));
+  expect([...requested]).toEqual(expect.arrayContaining([
+    '/tests/fixtures/surface-red.png',
+    '/tests/fixtures/surface-blue.png',
+    '/tests/fixtures/surface-normal.png',
+    '/tests/fixtures/surface-mr.png',
+    '/tests/fixtures/surface-ao.png',
+  ]));
+});
+
 test('natural completion and scenario final-frame holding are observable', async ({ page }) => {
   await openFixture(page);
   await configureWidget(page);

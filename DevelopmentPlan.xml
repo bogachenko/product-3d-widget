@@ -239,6 +239,7 @@
                 <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />
                 <REQUIREMENT ref="FR-MODEL-INTERACTION" />
                 <REQUIREMENT ref="FR-COLOR-SELECTION" />
+                        <REQUIREMENT ref="FR-COLOR-SURFACE-TEXTURES" />
                 <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />
                 <REQUIREMENT ref="FR-ANIMATION-CONTROLS" />
                 <REQUIREMENT ref="FR-SCENARIO-CONTROLS" />
