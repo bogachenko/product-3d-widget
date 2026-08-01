@@ -10,6 +10,11 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'product-3d-widget.js',
     },
+    rolldownOptions: {
+      output: {
+        minify: true,
+      },
+    },
     sourcemap: true,
     emptyOutDir: true,
   },
