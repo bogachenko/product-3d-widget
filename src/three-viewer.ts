@@ -136,6 +136,7 @@ export class ThreeViewer {
   readonly #nodesByName = new Map<string, Object3D>();
   readonly #materialsByName = new Map<string, MeshStandardMaterial[]>();
   readonly #baseTransforms = new Map<Object3D, TransformSnapshot>();
+  readonly #ordinaryTransforms = new Map<Object3D, TransformSnapshot>();
   readonly #baseVisibility = new Map<Object3D, boolean>();
   readonly #baseMaterialColors = new Map<MeshStandardMaterial, Color>();
   readonly #clipsByName = new Map<string, AnimationClip>();
@@ -257,8 +258,9 @@ export class ThreeViewer {
       this.#mixer = new AnimationMixer(this.#root);
       this.#indexModel();
       const result = this.#validateModelBoundCapabilities();
+      this.#captureOrdinaryPose();
       this.#currentSelection = result.selection;
-      this.#restoreBasePose();
+      this.#restoreOrdinaryTransforms();
       this.#applySelectionDirect();
       const modelBounds = this.#configureModelPresentation();
 
@@ -285,6 +287,7 @@ export class ThreeViewer {
     this.#nodesByName.clear();
     this.#materialsByName.clear();
     this.#baseTransforms.clear();
+    this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
     this.#baseMaterialColors.clear();
     this.#clipsByName.clear();
@@ -389,6 +392,16 @@ export class ThreeViewer {
       }
     }
 
+    const restPose = this.#config!.restPose;
+    if (restPose !== null && !this.#enabledAnimations.has(restPose.animationId)) {
+      localErrors.push(localError(
+        'REST_POSE_DISABLED',
+        'animation',
+        `restPose animation "${restPose.animationId}" is unavailable in the loaded model; the GLB base pose is used.`,
+        restPose.animationId,
+      ));
+    }
+
     for (const scenario of this.#config!.scenariosById.values()) {
       const allAnimationsEnabled = scenario.steps.every((step) => this.#enabledAnimations.has(step.animationId));
       const hasCompatibleVariant = [...scenario.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));
@@ -461,9 +474,23 @@ export class ThreeViewer {
     this.#controls!.update();
   }
 
-  #restoreBasePose(): void {
-    this.#mixer?.stopAllAction();
-    for (const [object, snapshot] of this.#baseTransforms) {
+  #captureTransforms(target: Map<Object3D, TransformSnapshot>): void {
+    target.clear();
+    this.#root!.traverse((object) => {
+      const morphTargetInfluences = object instanceof Mesh && object.morphTargetInfluences !== undefined
+        ? Object.freeze([...object.morphTargetInfluences])
+        : null;
+      target.set(object, Object.freeze({
+        position: object.position.clone(),
+        quaternion: object.quaternion.clone(),
+        scale: object.scale.clone(),
+        morphTargetInfluences,
+      }));
+    });
+  }
+
+  #restoreTransforms(source: ReadonlyMap<Object3D, TransformSnapshot>): void {
+    for (const [object, snapshot] of source) {
       object.position.copy(snapshot.position);
       object.quaternion.copy(snapshot.quaternion);
       object.scale.copy(snapshot.scale);
@@ -471,6 +498,45 @@ export class ThreeViewer {
         object.morphTargetInfluences.splice(0, object.morphTargetInfluences.length, ...snapshot.morphTargetInfluences);
       }
     }
+  }
+
+  #captureOrdinaryPose(): void {
+    this.#restoreBasePose();
+    const restPose = this.#config!.restPose;
+    if (restPose === null || !this.#enabledAnimations.has(restPose.animationId)) {
+      for (const [object, snapshot] of this.#baseTransforms) this.#ordinaryTransforms.set(object, snapshot);
+      return;
+    }
+
+    const animation = this.#config!.animationsById.get(restPose.animationId)!;
+    const clip = this.#clipsByName.get(animation.source.clipName)!;
+    const action = this.#mixer!.clipAction(clip);
+    const endSeconds = animation.source.kind === 'range'
+      ? Math.min(animation.source.endSeconds, clip.duration)
+      : clip.duration;
+    action.reset();
+    action.enabled = true;
+    action.clampWhenFinished = true;
+    action.setLoop(LoopOnce, 1);
+    action.play();
+    action.time = endSeconds;
+    this.#mixer!.update(0);
+    this.#captureTransforms(this.#ordinaryTransforms);
+    action.stop();
+    this.#mixer!.stopAllAction();
+    this.#restoreBasePose();
+  }
+
+  #restoreOrdinaryTransforms(): void {
+    this.#mixer?.stopAllAction();
+    this.#restoreTransforms(this.#ordinaryTransforms.size > 0
+      ? this.#ordinaryTransforms
+      : this.#baseTransforms);
+  }
+
+  #restoreBasePose(): void {
+    this.#mixer?.stopAllAction();
+    this.#restoreTransforms(this.#baseTransforms);
   }
 
   #applySelectionDirect(): void {
@@ -711,7 +777,7 @@ export class ThreeViewer {
     const camera = this.#camera !== null && this.#controls !== null ? this.#captureCamera() : null;
     this.#playback?.action.stop();
     this.#playback = null;
-    this.#restoreBasePose();
+    this.#restoreOrdinaryTransforms();
     this.#applySelectionDirect();
     if (camera !== null) this.#restoreCamera(camera);
     this.#render();
@@ -841,6 +907,7 @@ export class ThreeViewer {
     this.#nodesByName.clear();
     this.#materialsByName.clear();
     this.#baseTransforms.clear();
+    this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
     this.#baseMaterialColors.clear();
     this.#clipsByName.clear();

@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "scope": "configurable-rest-pose",
+  "generated_at": "2026-08-01T08:29:22.263608+00:00",
+  "checks": [
+    {
+      "id": "typecheck",
+      "status": "PASS"
+    },
+    {
+      "id": "build",
+      "status": "PASS"
+    },
+    {
+      "id": "declarations",
+      "status": "PASS"
+    },
+    {
+      "id": "public-api",
+      "status": "PASS"
+    },
+    {
+      "id": "unit",
+      "status": "PASS"
+    },
+    {
+      "id": "single-three",
+      "status": "PASS"
+    },
+    {
+      "id": "e2e-chromium",
+      "status": "PASS"
+    }
+  ]
+}
