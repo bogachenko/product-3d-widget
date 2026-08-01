@@ -33,7 +33,7 @@ robust_contract_patch = '''for contract_id in (
 
 script, count = re.subn(
     r"def add_contract_requirement\(.*?update_block\('ClassFunctionContracts.xml', 'FUNCTION_CONTRACT', contract_id, transform_viewer\)\n",
-    robust_contract_patch,
+    lambda _: robust_contract_patch,
     script,
     count=1,
     flags=re.DOTALL,
