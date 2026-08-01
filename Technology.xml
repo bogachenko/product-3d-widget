@@ -106,6 +106,7 @@
                 <REQUIREMENT ref="FR-GLB-MODEL-LOADING"/>
                 <REQUIREMENT ref="FR-MODEL-INTERACTION"/>
                 <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS"/>
+                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW"/>
                 <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/>
                 <REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL"/>
                 <REQUIREMENT ref="FR-COLOR-SELECTION"/>

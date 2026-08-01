@@ -49,6 +49,21 @@ await widget.focusOnNodes(
 );
 ```
 
+## Automatic scenario views
+
+A scenario step can bind one configured view through `cameraViewId`:
+
+```json
+{
+  "id": "attach-back-cross",
+  "description": "Attach the rear cross brace",
+  "animationId": "attach-back-cross",
+  "cameraViewId": "back-cross"
+}
+```
+
+`startScenario()`, `nextScenarioStep()` and `previousScenarioStep()` complete the step camera transition before starting its animation. A step without `cameraViewId` keeps the current view. Manual public camera commands remain available for host overrides.
+
 ## Instruction sequence
 
 The host can combine camera commands with regular animation or scenario commands without changing the component for each product:

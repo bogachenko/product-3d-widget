@@ -202,6 +202,19 @@
                 <RULE>An empty structural whitelist disables the animation.</RULE>
             </RULES>
         </DATA_CONTRACT>
+        <DATA_CONTRACT id="CFC-TYPE-SCENARIO-STEP-CONFIG" visibility="PUBLIC" kind="readonly interface">
+  <NAME>ScenarioStepConfig</NAME>
+  <FIELDS>
+      <FIELD name="id" type="string" required="YES">Unique non-empty step identifier within the scenario.</FIELD>
+      <FIELD name="description" type="string" required="YES">Host-facing step description.</FIELD>
+      <FIELD name="animationId" type="string" required="YES">Enabled configured animation played by the step.</FIELD>
+      <FIELD name="cameraViewId" type="string" required="NO">Optional enabled named camera view completed before step animation starts.</FIELD>
+  </FIELDS>
+  <RULES>
+      <RULE>An unknown cameraViewId disables only the containing scenario.</RULE>
+      <RULE>Absence of cameraViewId preserves the current camera view.</RULE>
+  </RULES>
+        </DATA_CONTRACT>
         <DATA_CONTRACT id="CFC-TYPE-SCENARIO-CONFIG" visibility="PUBLIC" kind="readonly interface">
             <NAME>ScenarioConfig</NAME>
             <FIELDS>
@@ -210,7 +223,7 @@
                 <FIELD name="steps" type="readonly ScenarioStepConfig[]" required="YES">Non-empty ordered steps.</FIELD>
             </FIELDS>
             <RULES>
-                <RULE>Each step has stable id, description and animationId referencing a configured regular animation definition.</RULE>
+                <RULE>Each step has stable id, description and animationId referencing a configured regular animation definition, plus an optional cameraViewId referencing a configured named camera view.</RULE>
                 <RULE>Scenario-compatible structural variants are the exact intersection of all referenced step animation whitelists.</RULE>
                 <RULE>An invalid or empty-intersection scenario is disabled without disabling unrelated capabilities.</RULE>
             </RULES>
@@ -278,6 +291,7 @@
                 <FIELD name="glbUrl" type="string" required="YES">Required primary GLB URL.</FIELD>
                 <FIELD name="usdzUrl" type="string | null" required="YES">Optional separate USDZ before model-viewer usability check.</FIELD>
                 <FIELD name="restPose" type="NormalizedRestPose | null" required="YES">Validated optional animation endpoint reference or null for the GLB base pose fallback.</FIELD>
+                <FIELD name="cameraViewsById" type="ReadonlyMap&lt;string, NormalizedCameraView&gt;" required="YES">Structurally valid named camera views used by public commands and optional scenario step references.</FIELD>
                 <FIELD name="colorsById" type="ReadonlyMap&lt;string, NormalizedColorVariant&gt;" required="YES">Enabled structurally valid colors.</FIELD>
                 <FIELD name="variantsById" type="ReadonlyMap&lt;string, NormalizedStructuralVariant&gt;" required="YES">Enabled structurally valid variants.</FIELD>
                 <FIELD name="animationsById" type="ReadonlyMap&lt;string, NormalizedAnimation&gt;" required="YES">Enabled structurally valid animations.</FIELD>
@@ -602,6 +616,7 @@
                 <REQUIREMENT ref="FR-ANIMATION-COMPATIBILITY-STRUCTURAL-VARIANTS-ONLY" />
                 <REQUIREMENT ref="FR-ONLY-PRIMARY-GLB-REQUIRED" />
                 <REQUIREMENT ref="FR-OPTIONAL-USDZ-ASSET" />
+            <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
             </REQUIREMENTS>
             <MINIMUM_RUNNABLE_CHECK>Same deeply equal input yields structurally equal result; input remains unchanged; all 14 configuration requirements have focused cases in the minimum Vitest file.</MINIMUM_RUNNABLE_CHECK>
         </FUNCTION_CONTRACT>
@@ -866,6 +881,7 @@
                         <REQUIREMENT ref="FR-ACTIVE-SCENARIO-RESTART" />
                         <REQUIREMENT ref="FR-SCENARIO-ACCEPTED-START-FAILURE" />
                         <REQUIREMENT ref="FR-PRE-READY-COMMAND-REJECTION" />
+                    <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>An invalid replacement preserves the current scenario; an accepted first-step failure does not restore it.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
@@ -893,6 +909,7 @@
                 <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />
                 <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />
                         <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                    <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>Boundary rejection leaves current step/playback unchanged.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
@@ -918,6 +935,7 @@
                     <REQUIREMENTS>
                         <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
                         <REQUIREMENT ref="FR-ATOMIC-STATE-OBSERVATION" />
+                    <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>Navigation remains available during step playback and starts the target step from zero.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
@@ -1293,6 +1311,7 @@
                         <REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME" />
                         <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
                         <REQUIREMENT ref="FR-SCENARIO-ALLOW-VIEW-INTERACTION" />
+                    <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>First-step failure leaves ordinary pose and no active scenario.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>
@@ -1323,6 +1342,7 @@
                         <REQUIREMENT ref="FR-SCENARIO-BOUNDARY-NAVIGATION" />
                         <REQUIREMENT ref="FR-SCENARIO-STEP-FINAL-FRAME" />
                         <REQUIREMENT ref="FR-SCENARIO-PRESERVE-CAMERA-VIEW" />
+                    <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
                     </REQUIREMENTS>
                     <MINIMUM_RUNNABLE_CHECK>Navigation during playback starts adjacent step at zero without camera reset.</MINIMUM_RUNNABLE_CHECK>
                 </FUNCTION_CONTRACT>

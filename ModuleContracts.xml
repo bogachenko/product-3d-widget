@@ -294,6 +294,7 @@
             <REQUIREMENTS>
                 <REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE" />
                 <REQUIREMENT ref="FR-CAMERA-VIEW-CONFIGURATION" />
+                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
                 <REQUIREMENT ref="FR-COLOR-SWATCH-REQUIRED" />
                 <REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY" />
                 <REQUIREMENT ref="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION" />
@@ -319,6 +320,7 @@
                 <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-04">Scenario compatibility равна точному пересечению structural variants шагов.</PROPERTY>
                 <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-05">Цветовые варианты не влияют на structural compatibility.</PROPERTY>
                 <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-06">Одинаковый input всегда даёт структурно одинаковый result.</PROPERTY>
+                <PROPERTY id="CONTRACT-MOD-CONFIGURATION-PROP-07">Неизвестный cameraViewId отключает только содержащий его сценарий.</PROPERTY>
             </TEST_PROPERTIES>
             <LAZY_IMPLEMENTATION_CONSTRAINTS>
                 <RULE>Предпочитать небольшие чистые функции и встроенные Array/Set/Map только там, где они уменьшают код.</RULE>
@@ -338,7 +340,7 @@
                 <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-04">Проверять model-bound ссылки необязательных вариантов, анимаций, restPose и сценариев после загрузки GLB.</RESPONSIBILITY>
                 <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-05">Применять подтверждённые color и structural variant selections к основной scene.</RESPONSIBILITY>
                 <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-06">Воспроизводить именованные clips и утверждённые временные диапазоны через Three.js AnimationMixer.</RESPONSIBILITY>
-                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-07">Управлять обычной анимацией и шагами сценария, включая final-frame, back, next, stop и replacement.</RESPONSIBILITY>
+                <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-07">Управлять обычной анимацией и шагами сценария, включая необязательный cameraViewId перед playback, final-frame, back, next, stop и replacement.</RESPONSIBILITY>
                 <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-08">Вычислять и хранить настроенную ordinary pose, сохранять camera view и выбор при утверждённых операциях восстановления и замены, а также выполнять именованные и node-bound camera transitions с одним restore snapshot.</RESPONSIBILITY>
                 <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-09">Обеспечивать resize по фактическому контейнеру и fallback aspect ratio 4/3.</RESPONSIBILITY>
                 <RESPONSIBILITY id="CONTRACT-MOD-THREE-VIEWER-RESP-10">Обработать WebGL context loss одной автоматической попыткой восстановления.</RESPONSIBILITY>
@@ -452,6 +454,7 @@
             <REQUIREMENTS>
                 <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
                 <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />
+                <REQUIREMENT ref="FR-SCENARIO-CAMERA-VIEW" />
                 <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS" />
                 <REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL" />
                 <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />

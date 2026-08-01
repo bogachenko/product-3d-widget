@@ -383,6 +383,7 @@ const normalizeRestPose = (
 const normalizeScenarios = (
   value: unknown,
   animationsById: ReadonlyMap<string, NormalizedAnimation>,
+  cameraViewsById: ReadonlyMap<string, NormalizedCameraView>,
   localErrors: WidgetError[],
 ): ReadonlyMap<string, NormalizedScenario> => {
   if (value === undefined) return new Map();
@@ -408,6 +409,7 @@ const normalizeScenarios = (
         || !nonEmptyString(rawStep.id)
         || !nonEmptyString(rawStep.description)
         || !nonEmptyString(rawStep.animationId)
+        || (rawStep.cameraViewId !== undefined && !nonEmptyString(rawStep.cameraViewId))
         || stepIds.has(rawStep.id.trim())) {
         valid = false;
         continue;
@@ -417,10 +419,20 @@ const normalizeScenarios = (
         valid = false;
         continue;
       }
-      const step = Object.freeze({
+      const cameraViewId = rawStep.cameraViewId === undefined ? undefined : rawStep.cameraViewId.trim();
+      if (cameraViewId !== undefined && !cameraViewsById.has(cameraViewId)) {
+        valid = false;
+        continue;
+      }
+      const step: ScenarioStepConfig = Object.freeze(cameraViewId === undefined ? {
         id: rawStep.id.trim(),
         description: rawStep.description.trim(),
         animationId: rawStep.animationId.trim(),
+      } : {
+        id: rawStep.id.trim(),
+        description: rawStep.description.trim(),
+        animationId: rawStep.animationId.trim(),
+        cameraViewId,
       });
       stepIds.add(step.id);
       steps.push(step);
@@ -475,7 +487,7 @@ export function normalizeProductConfiguration(input: unknown): ConfigurationVali
   const animationsById = normalizeAnimations(input.animations, variantsById, localErrors);
   const restPose = normalizeRestPose(input.restPose, animationsById, localErrors);
   const cameraViewsById = normalizeCameraViews(input.cameraViews, localErrors);
-  const scenariosById = normalizeScenarios(input.scenarios, animationsById, localErrors);
+  const scenariosById = normalizeScenarios(input.scenarios, animationsById, cameraViewsById, localErrors);
 
   let usdzUrl: string | null = null;
   if (input.usdzUrl !== undefined) {

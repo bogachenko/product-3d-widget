@@ -1,22 +1,10 @@
 {
   "status": "PASS",
-  "scope": "public-camera-control-api",
-  "generated_at": "2026-08-01T09:38:22.427312+00:00",
+  "scope": "scenario-camera-view",
+  "generated_at": "2026-08-01T14:47:08.304826+00:00",
   "checks": [
     {
       "id": "requirements-propagation",
-      "status": "PASS"
-    },
-    {
-      "id": "architecture-propagation",
-      "status": "PASS"
-    },
-    {
-      "id": "module-contract-propagation",
-      "status": "PASS"
-    },
-    {
-      "id": "class-function-contract-propagation",
       "status": "PASS"
     },
     {
@@ -28,7 +16,7 @@
       "status": "PASS"
     },
     {
-      "id": "build",
+      "id": "production-build",
       "status": "PASS"
     },
     {
@@ -40,19 +28,19 @@
       "status": "PASS"
     },
     {
-      "id": "unit",
+      "id": "unit-tests",
+      "status": "PASS"
+    },
+    {
+      "id": "scenario-camera-e2e",
+      "status": "PASS"
+    },
+    {
+      "id": "full-playwright-matrix",
       "status": "PASS"
     },
     {
       "id": "single-three",
-      "status": "PASS"
-    },
-    {
-      "id": "camera-e2e-chromium",
-      "status": "PASS"
-    },
-    {
-      "id": "rest-pose-regression-chromium",
       "status": "PASS"
     }
   ]
