@@ -675,12 +675,16 @@ export class ThreeViewer {
         for (const material of this.#materialsByName.get(name) ?? []) {
           material.color.setStyle(loaded?.baseColorTexture === null || loaded === undefined ? color.swatch : '#ffffff');
           if (loaded !== undefined) {
-            material.map = loaded.baseColorTexture;
-            material.normalMap = loaded.normalTexture;
-            material.roughnessMap = loaded.metallicRoughnessTexture;
-            material.metalnessMap = loaded.metallicRoughnessTexture;
-            material.aoMap = loaded.occlusionTexture;
-            if (color.surface !== null) material.normalScale.set(color.surface.normalScale[0], color.surface.normalScale[1]);
+            if (loaded.baseColorTexture !== null) material.map = loaded.baseColorTexture;
+            if (loaded.normalTexture !== null) material.normalMap = loaded.normalTexture;
+            if (loaded.metallicRoughnessTexture !== null) {
+              material.roughnessMap = loaded.metallicRoughnessTexture;
+              material.metalnessMap = loaded.metallicRoughnessTexture;
+            }
+            if (loaded.occlusionTexture !== null) material.aoMap = loaded.occlusionTexture;
+            if (color.surface !== null && loaded.normalTexture !== null) {
+              material.normalScale.set(color.surface.normalScale[0], color.surface.normalScale[1]);
+            }
           }
           material.needsUpdate = true;
         }
@@ -1194,6 +1198,14 @@ export class ThreeViewer {
         }
       });
     } catch { /* cleanup continues */ }
+    for (const surface of this.#loadedSurfaces.values()) {
+      for (const texture of [surface.baseColorTexture, surface.normalTexture, surface.metallicRoughnessTexture, surface.occlusionTexture]) {
+        if (texture !== null && !disposedTextures.has(texture)) {
+          disposedTextures.add(texture);
+          try { texture.dispose(); } catch { /* cleanup continues */ }
+        }
+      }
+    }
     try { this.#mixer?.stopAllAction(); } catch { /* cleanup continues */ }
     if (this.#root !== null) {
       try { this.#mixer?.uncacheRoot(this.#root); } catch { /* cleanup continues */ }
