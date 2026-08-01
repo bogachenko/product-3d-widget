@@ -619,7 +619,7 @@ export class ThreeViewer {
 
   async #loadConfiguredSurfaces(): Promise<void> {
     const loader = new TextureLoader();
-    const load = async (url: string | null, srgb: boolean, surface: NonNullable<ReturnType<typeof this.#config.colorsById.get>>['surface']): Promise<Texture | null> => {
+    const load = async (url: string | null, srgb: boolean, surface: { readonly repeat: readonly [number, number]; readonly offset: readonly [number, number]; readonly rotation: number } | null): Promise<Texture | null> => {
       if (url === null || surface === null) return null;
       const texture = await loader.loadAsync(url);
       texture.flipY = false;
