@@ -100,7 +100,7 @@
     <MODULES>
         <MODULE id="MOD-WIDGET-CONTROLLER">
             <NAME>Контроллер Web Component</NAME>
-            <RESPONSIBILITY>Владеть жизненным циклом Custom Element, подтверждённым публичным состоянием, gate публичных команд, оркестрацией операций, порядком событий и cleanup.</RESPONSIBILITY>
+            <RESPONSIBILITY>Владеть жизненным циклом Custom Element, подтверждённым публичным состоянием, gate публичных команд, включая camera-команды, оркестрацией операций, порядком событий и cleanup.</RESPONSIBILITY>
             <NON_RESPONSIBILITIES>
                 <RULE>Не загружает и не рендерит GLB напрямую.</RULE>
                 <RULE>Не анализирует внутреннюю Three.js-сцену model-viewer.</RULE>
@@ -116,6 +116,8 @@
             </IMPLEMENTS>
             <REQUIREMENTS>
                 <REQUIREMENT ref="FR-PUBLIC-CONTROL-METHODS" />
+                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />
+                <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />
                 <REQUIREMENT ref="FR-HOST-STATE-EVENTS" />
                 <REQUIREMENT ref="FR-HOST-STATE-OBSERVABILITY" />
                 <REQUIREMENT ref="FR-COMMAND-ACCEPTANCE-SEMANTICS" />
@@ -172,7 +174,7 @@
         </MODULE>
         <MODULE id="MOD-CONFIGURATION">
             <NAME>Проверка и нормализация конфигурации</NAME>
-            <RESPONSIBILITY>Проверять внешнюю конфигурацию, нормализовать необязательную rest pose, отделять блокирующие ошибки от локально отключаемых возможностей и вычислять неизменяемые производные данные совместимости.</RESPONSIBILITY>
+            <RESPONSIBILITY>Проверять внешнюю конфигурацию, нормализовать необязательные rest pose и именованные camera views, отделять блокирующие ошибки от локально отключаемых возможностей и вычислять неизменяемые производные данные совместимости.</RESPONSIBILITY>
             <NON_RESPONSIBILITIES>
                 <RULE>Не создаёт DOM и не отправляет события.</RULE>
                 <RULE>Не загружает GLB или USDZ.</RULE>
@@ -184,6 +186,7 @@
             </IMPLEMENTS>
             <REQUIREMENTS>
                 <REQUIREMENT ref="FR-CONFIGURATION-ACCEPTANCE" />
+                <REQUIREMENT ref="FR-CAMERA-VIEW-CONFIGURATION" />
                 <REQUIREMENT ref="FR-COLOR-SWATCH-REQUIRED" />
                 <REQUIREMENT ref="FR-SCENARIO-VARIANT-COMPATIBILITY" />
                 <REQUIREMENT ref="FR-SCENARIO-COMPATIBLE-VARIANTS-INTERSECTION" />
@@ -213,7 +216,7 @@
         </MODULE>
         <MODULE id="MOD-THREE-VIEWER">
             <NAME>Основной Three.js viewer</NAME>
-            <RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, GLB-ресурсами, базовой и настроенной обычной позами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>
+            <RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, OrbitControls, программными camera transitions и restore snapshot, GLB-ресурсами, базовой и настроенной обычной позами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>
             <NON_RESPONSIBILITIES>
                 <RULE>Не является владельцем подтверждённого состояния хост-страницы.</RULE>
                 <RULE>Не отправляет публичные CustomEvent напрямую.</RULE>
@@ -228,6 +231,10 @@
             </IMPLEMENTS>
             <REQUIREMENTS>
                 <REQUIREMENT ref="FR-GLB-MODEL-LOADING" />
+                <REQUIREMENT ref="FR-CAMERA-PUBLIC-CONTROLS" />
+                <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS" />
+                <REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL" />
+                <REQUIREMENT ref="FR-CAMERA-TRANSITION-ISOLATION" />
                 <REQUIREMENT ref="FR-MODEL-INTERACTION" />
                 <REQUIREMENT ref="FR-COLOR-SELECTION" />
                 <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION" />

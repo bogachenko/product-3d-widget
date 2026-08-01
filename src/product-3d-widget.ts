@@ -1,5 +1,5 @@
 import { normalizeProductConfiguration, type NormalizedProductConfiguration } from './configuration.js';
-import { ThreeViewer, type ViewerInitializationResult, type ViewerRecoveryResult } from './three-viewer.js';
+import { ThreeViewer, type ViewerCameraResult, type ViewerInitializationResult, type ViewerRecoveryResult } from './three-viewer.js';
 import { ModelViewerArAdapter } from './ar-adapter.js';
 
 export interface ClipSource {
@@ -17,6 +17,23 @@ export interface RangeSource {
 export interface RestPoseConfig {
   readonly kind: 'animation-end';
   readonly animationId: string;
+}
+
+export interface CameraViewConfig {
+  readonly id: string;
+  readonly positionNodeName: string;
+  readonly targetNodeName: string;
+  readonly durationMs?: number;
+}
+
+export interface CameraTransitionOptions {
+  readonly durationMs?: number;
+}
+
+export interface CameraFocusOptions extends CameraTransitionOptions {
+  readonly positionNodeName?: string;
+  readonly distance?: number;
+  readonly padding?: number;
 }
 
 export interface ColorVariantConfig {
@@ -61,6 +78,7 @@ export interface ProductConfiguration {
   readonly glbUrl: string;
   readonly usdzUrl?: string;
   readonly restPose?: RestPoseConfig;
+  readonly cameraViews?: readonly CameraViewConfig[];
   readonly colors?: readonly ColorVariantConfig[];
   readonly variants?: readonly StructuralVariantConfig[];
   readonly animations?: readonly AnimationConfig[];
@@ -101,6 +119,7 @@ export interface CapabilityState {
   readonly variants: readonly Readonly<{ id: string; label: string }>[];
   readonly animations: readonly Readonly<{ id: string; label: string; compatibleVariantIds: readonly string[] }>[];
   readonly scenarios: readonly Readonly<{ id: string; label: string; compatibleVariantIds: readonly string[] }>[];
+  readonly cameraViews: readonly Readonly<{ id: string }>[];
   readonly arConfigured: boolean;
   readonly localErrors: readonly WidgetError[];
 }
@@ -111,6 +130,7 @@ export type WidgetErrorCode =
   | 'VARIANT_DISABLED'
   | 'ANIMATION_DISABLED'
   | 'REST_POSE_DISABLED'
+  | 'CAMERA_VIEW_DISABLED'
   | 'SCENARIO_DISABLED'
   | 'USDZ_UNUSABLE'
   | 'WEBGL2_UNAVAILABLE'
@@ -124,7 +144,7 @@ export type WidgetErrorCode =
 
 export interface WidgetError {
   readonly code: WidgetErrorCode;
-  readonly scope: 'blocking' | 'color' | 'variant' | 'animation' | 'scenario' | 'ar';
+  readonly scope: 'blocking' | 'color' | 'variant' | 'animation' | 'scenario' | 'camera' | 'ar';
   readonly message: string;
   readonly entityId?: string;
 }
@@ -156,6 +176,11 @@ export type CommandRejectionReason =
   | 'unknown-variant'
   | 'unknown-animation'
   | 'unknown-scenario'
+  | 'unknown-camera-view'
+  | 'unknown-node'
+  | 'invalid-camera-target'
+  | 'no-camera-view-to-restore'
+  | 'camera-transition-active'
   | 'scenario-active'
   | 'no-active-scenario'
   | 'scenario-boundary'
@@ -175,6 +200,7 @@ export type CommandResult =
       compatibleVariantIds?: readonly string[];
     }>
   | Readonly<{ accepted: true; outcome: 'completed'; state: Product3DWidgetState }>
+  | Readonly<{ accepted: true; outcome: 'cancelled'; state: Product3DWidgetState }>
   | Readonly<{ accepted: true; outcome: 'initiated'; state: Product3DWidgetState }>
   | Readonly<{ accepted: true; outcome: 'failed'; error: WidgetError; state: Product3DWidgetState }>;
 
@@ -206,6 +232,7 @@ const EMPTY_CAPABILITIES: CapabilityState = Object.freeze({
   variants: Object.freeze([]),
   animations: Object.freeze([]),
   scenarios: Object.freeze([]),
+  cameraViews: Object.freeze([]),
   arConfigured: false,
   localErrors: Object.freeze([]),
 });
@@ -240,6 +267,7 @@ const freezeSnapshot = (state: Product3DWidgetState): Product3DWidgetState => Ob
       ...item,
       compatibleVariantIds: Object.freeze([...item.compatibleVariantIds]),
     }))),
+    cameraViews: Object.freeze(state.capabilities.cameraViews.map((item) => Object.freeze({ ...item }))),
     localErrors: Object.freeze(state.capabilities.localErrors.map((item) => Object.freeze({ ...item }))),
   }),
   ar: Object.freeze({ ...state.ar }),
@@ -696,6 +724,65 @@ export class Product3DWidget extends HTMLElement {
   }
   // </SEMANTIC_BLOCK>
 
+  #cameraCommandResult(result: ViewerCameraResult): CommandResult {
+    if (result.ok) return Object.freeze({ accepted: true, outcome: result.outcome, state: this.#state });
+    if (result.rejected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: result.reason, state: this.#state });
+    this.dispatchEvent(new CustomEvent('product-3d-error', {
+      detail: Object.freeze({ state: this.#state, error: result.error }),
+      bubbles: true,
+      composed: true,
+    }));
+    return Object.freeze({ accepted: true, outcome: 'failed', error: result.error, state: this.#state });
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-SET-CAMERA-VIEW">
+  async setCameraView(viewId: string): Promise<CommandResult> {
+    if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
+    if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
+    if (this.#viewer === null || !['STATE-READY', 'STATE-ANIMATION-PLAYING', 'STATE-SCENARIO-ACTIVE'].includes(this.#state.lifecycle)) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'not-ready', state: this.#state });
+    if (!this.#state.capabilities.cameraViews.some((item) => item.id === viewId)) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'unknown-camera-view', state: this.#state });
+    return this.#cameraCommandResult(await this.#viewer.setCameraView(viewId));
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-FOCUS-NODE">
+  async focusOnNode(nodeName: string, options?: CameraFocusOptions): Promise<CommandResult> {
+    return this.focusOnNodes([nodeName], options);
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-FOCUS-NODES">
+  async focusOnNodes(nodeNames: readonly string[], options?: CameraFocusOptions): Promise<CommandResult> {
+    if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
+    if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
+    if (this.#viewer === null || !['STATE-READY', 'STATE-ANIMATION-PLAYING', 'STATE-SCENARIO-ACTIVE'].includes(this.#state.lifecycle)) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'not-ready', state: this.#state });
+    return this.#cameraCommandResult(await this.#viewer.focusOnNodes(nodeNames, options));
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-RESTORE-CAMERA-VIEW">
+  async restoreCameraView(options?: CameraTransitionOptions): Promise<CommandResult> {
+    if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
+    if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
+    if (this.#viewer === null || !['STATE-READY', 'STATE-ANIMATION-PLAYING', 'STATE-SCENARIO-ACTIVE'].includes(this.#state.lifecycle)) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'not-ready', state: this.#state });
+    return this.#cameraCommandResult(await this.#viewer.restoreCameraView(options));
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-CANCEL-CAMERA-TRANSITION">
+  async cancelCameraTransition(): Promise<CommandResult> {
+    if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
+    if (this.#terminalPrimaryGlbFailure) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'terminal-error', state: this.#state });
+    if (this.#viewer === null || !['STATE-READY', 'STATE-ANIMATION-PLAYING', 'STATE-SCENARIO-ACTIVE'].includes(this.#state.lifecycle)) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'not-ready', state: this.#state });
+    const result = this.#viewer.cancelCameraTransition();
+    if (!result.ok) {
+      this.dispatchEvent(new CustomEvent('product-3d-error', { detail: Object.freeze({ state: this.#state, error: result.error }), bubbles: true, composed: true }));
+      return Object.freeze({ accepted: true, outcome: 'failed', error: result.error, state: this.#state });
+    }
+    return Object.freeze({ accepted: true, outcome: 'completed', state: this.#state });
+  }
+  // </SEMANTIC_BLOCK>
+
   // <SEMANTIC_BLOCK id="CFC-FN-WIDGET-LAUNCH-AR">
   async launchAR(): Promise<CommandResult> {
     if (!this.isConnected) return Object.freeze({ accepted: false, outcome: 'rejected', reason: 'disconnected', state: this.#state });
@@ -844,6 +931,7 @@ export class Product3DWidget extends HTMLElement {
     const enabledVariants = new Set(result.enabledVariantIds);
     const enabledAnimations = new Set(result.enabledAnimationIds);
     const enabledScenarios = new Set(result.enabledScenarioIds);
+    const enabledCameraViews = new Set(result.enabledCameraViewIds);
     const localErrors: WidgetError[] = [...config.localErrors, ...result.localErrors];
     let arAvailable = false;
 
@@ -905,6 +993,7 @@ export class Product3DWidget extends HTMLElement {
           variants: [...config.variantsById.values()].filter((item) => enabledVariants.has(item.id)).map(({ id, label }) => ({ id, label })),
           animations: [...config.animationsById.values()].filter((item) => enabledAnimations.has(item.id)).map((item) => ({ id: item.id, label: item.label, compatibleVariantIds: [...item.compatibleVariantIds].filter((id) => enabledVariants.has(id)) })),
           scenarios: [...config.scenariosById.values()].filter((item) => enabledScenarios.has(item.id)).map((item) => ({ id: item.id, label: item.label, compatibleVariantIds: [...item.compatibleVariantIds].filter((id) => enabledVariants.has(id)) })),
+          cameraViews: [...config.cameraViewsById.values()].filter((item) => enabledCameraViews.has(item.id)).map(({ id }) => ({ id })),
           arConfigured: true,
           localErrors: errors,
         };
@@ -938,6 +1027,7 @@ export class Product3DWidget extends HTMLElement {
         label: item.label,
         compatibleVariantIds: [...item.compatibleVariantIds].filter((id) => enabledVariants.has(id)),
       })),
+      cameraViews: [...config.cameraViewsById.values()].filter((item) => enabledCameraViews.has(item.id)).map(({ id }) => ({ id })),
       arConfigured: config.arEnabled,
       localErrors,
     };

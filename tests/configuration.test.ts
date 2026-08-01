@@ -5,6 +5,9 @@ import type { ProductConfiguration } from '../src/product-3d-widget.js';
 const validConfiguration = (): ProductConfiguration => ({
   productId: 'product-1',
   glbUrl: '/tests/fixtures/product.gltf',
+  cameraViews: [
+    { id: 'front', positionNodeName: 'CAM_Front', targetNodeName: 'FOCUS_Product', durationMs: 500 },
+  ],
   colors: [
     { id: 'original', label: 'Original', swatch: '#3366cc', isDefault: true, isBase: true, materialNames: [] },
     { id: 'red', label: 'Red', swatch: 'red', isDefault: false, isBase: false, materialNames: ['Body'] },
@@ -61,6 +64,27 @@ describe('normalizeProductConfiguration', () => {
     const result = normalizeProductConfiguration({ ...validConfiguration(), unknown: { nested: true } });
     expect(result.ok).toBe(true);
     if (result.ok) expect('unknown' in result.configuration).toBe(false);
+  });
+
+  it('normalizes camera views without mutating the input', () => {
+    const result = normalizeProductConfiguration(validConfiguration());
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.cameraViewsById.get('front')).toEqual({
+      id: 'front', positionNodeName: 'CAM_Front', targetNodeName: 'FOCUS_Product', durationMs: 500,
+    });
+  });
+
+  it('disables only an invalid camera view', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      cameraViews: [...input.cameraViews!, { id: 'bad', positionNodeName: '', targetNodeName: 'FOCUS_Product' }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect([...result.configuration.cameraViewsById.keys()]).toEqual(['front']);
+      expect(result.configuration.localErrors.some((item) => item.code === 'CAMERA_VIEW_DISABLED' && item.entityId === 'bad')).toBe(true);
+    }
   });
 
   it('disables only an invalid non-default color', () => {

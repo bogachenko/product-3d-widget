@@ -1,7 +1,7 @@
 {
   "status": "PASS",
-  "scope": "configurable-rest-pose",
-  "generated_at": "2026-08-01T08:33:37+00:00",
+  "scope": "public-camera-control-api",
+  "generated_at": "2026-08-01T09:38:22.427312+00:00",
   "checks": [
     {
       "id": "requirements-propagation",
@@ -48,7 +48,11 @@
       "status": "PASS"
     },
     {
-      "id": "e2e-chromium",
+      "id": "camera-e2e-chromium",
+      "status": "PASS"
+    },
+    {
+      "id": "rest-pose-regression-chromium",
       "status": "PASS"
     }
   ]

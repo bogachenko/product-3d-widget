@@ -24,6 +24,8 @@ import {
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type {
+  CameraFocusOptions,
+  CameraTransitionOptions,
   ConfirmedSelection,
   WidgetError,
 } from './product-3d-widget.js';
@@ -41,6 +43,7 @@ export type ViewerInitializationResult =
       enabledVariantIds: readonly string[];
       enabledAnimationIds: readonly string[];
       enabledScenarioIds: readonly string[];
+      enabledCameraViewIds: readonly string[];
       localErrors: readonly WidgetError[];
     }>
   | Readonly<{ ok: false; terminal: boolean; error: WidgetError }>;
@@ -59,6 +62,10 @@ export type ViewerScenarioResult =
       canGoNext: boolean;
     }>
   | Readonly<{ ok: false; error: WidgetError }>;
+export type ViewerCameraResult =
+  | Readonly<{ ok: true; outcome: 'completed' | 'cancelled' }>
+  | Readonly<{ ok: false; rejected: true; reason: 'unknown-camera-view' | 'unknown-node' | 'invalid-camera-target' | 'no-camera-view-to-restore' | 'camera-transition-active' }>
+  | Readonly<{ ok: false; rejected: false; error: WidgetError }>;
 export type ViewerRecoveryResult = Readonly<{ ok: true }> | Readonly<{ ok: false; error: WidgetError }>;
 
 type ViewerCallbacks = Readonly<{
@@ -79,6 +86,16 @@ type CameraSnapshot = Readonly<{
   quaternion: Quaternion;
   target: Vector3;
 }>;
+
+type CameraTransition = {
+  fromPosition: Vector3;
+  fromTarget: Vector3;
+  toPosition: Vector3;
+  toTarget: Vector3;
+  startTime: number;
+  durationMs: number;
+  resolve(result: Extract<ViewerCameraResult, { ok: true }>): void;
+};
 
 type Playback = {
   kind: 'animation' | 'scenario';
@@ -108,6 +125,20 @@ const localError = (
 const animationTimeTolerance = (duration: number): number =>
   Math.max(1e-6, Math.abs(duration) * 1e-7);
 
+const cameraDuration = (value: unknown, fallback = 700): number | null => {
+  const duration = value === undefined ? fallback : value;
+  return typeof duration === 'number' && Number.isFinite(duration) && duration >= 0 && duration <= 60_000
+    ? duration
+    : null;
+};
+
+const cameraPadding = (value: unknown): number | null => {
+  const padding = value === undefined ? 1.25 : value;
+  return typeof padding === 'number' && Number.isFinite(padding) && padding >= 1 && padding <= 10
+    ? padding
+    : null;
+};
+
 // <SEMANTIC_BLOCK id="CFC-CLASS-THREE-VIEWER">
 // <INTENT>Own exactly one Three.js viewer and all of its resources.</INTENT>
 // <LINKS><MODULE ref="MOD-THREE-VIEWER"/><MODULE_CONTRACT ref="CONTRACT-MOD-THREE-VIEWER"/><FUNCTION_CONTRACT ref="CFC-FN-VIEWER-INITIALIZE"/></LINKS>
@@ -127,6 +158,9 @@ export class ThreeViewer {
   #mixer: AnimationMixer | null = null;
   #resizeObserver: ResizeObserver | null = null;
   #rafId: number | null = null;
+  #cameraRafId: number | null = null;
+  #cameraTransition: CameraTransition | null = null;
+  #savedCameraView: CameraSnapshot | null = null;
   #lastFrameTime = 0;
   #playback: Playback | null = null;
   #disposed = false;
@@ -144,6 +178,7 @@ export class ThreeViewer {
   readonly #enabledVariants = new Set<string>();
   readonly #enabledAnimations = new Set<string>();
   readonly #enabledScenarios = new Set<string>();
+  readonly #enabledCameraViews = new Set<string>();
 
   readonly #handleControlsChange = (): void => {
     this.#render();
@@ -351,6 +386,7 @@ export class ThreeViewer {
     this.#enabledVariants.clear();
     this.#enabledAnimations.clear();
     this.#enabledScenarios.clear();
+    this.#enabledCameraViews.clear();
 
     for (const color of this.#config!.colorsById.values()) {
       if (color.isBase || color.materialNames.every((name) => this.#materialsByName.has(name))) {
@@ -402,6 +438,14 @@ export class ThreeViewer {
       ));
     }
 
+    for (const view of this.#config!.cameraViewsById.values()) {
+      if (this.#nodesByName.has(view.positionNodeName) && this.#nodesByName.has(view.targetNodeName)) {
+        this.#enabledCameraViews.add(view.id);
+      } else {
+        localErrors.push(localError('CAMERA_VIEW_DISABLED', 'camera', `Camera view "${view.id}" references a missing node.`, view.id));
+      }
+    }
+
     for (const scenario of this.#config!.scenariosById.values()) {
       const allAnimationsEnabled = scenario.steps.every((step) => this.#enabledAnimations.has(step.animationId));
       const hasCompatibleVariant = [...scenario.compatibleVariantIds].some((id) => this.#enabledVariants.has(id));
@@ -427,6 +471,7 @@ export class ThreeViewer {
       enabledVariantIds: Object.freeze([...this.#enabledVariants]),
       enabledAnimationIds: Object.freeze([...this.#enabledAnimations]),
       enabledScenarioIds: Object.freeze([...this.#enabledScenarios]),
+      enabledCameraViewIds: Object.freeze([...this.#enabledCameraViews]),
       localErrors: Object.freeze(localErrors),
     });
   }
@@ -559,6 +604,174 @@ export class ThreeViewer {
       }
     }
   }
+
+  #cameraRejected(reason: Extract<ViewerCameraResult, { ok: false; rejected: true }>['reason']): ViewerCameraResult {
+    return Object.freeze({ ok: false, rejected: true, reason });
+  }
+
+  #cameraFailed(cause: unknown): ViewerCameraResult {
+    return Object.freeze({
+      ok: false,
+      rejected: false,
+      error: Object.freeze({
+        code: 'VIEWER_OPERATION_FAILED',
+        scope: 'camera',
+        message: `The camera operation failed: ${cause instanceof Error ? cause.message : String(cause)}.`,
+      }),
+    });
+  }
+
+  #completeCameraTransition(outcome: 'completed' | 'cancelled'): void {
+    const transition = this.#cameraTransition;
+    if (transition === null) return;
+    this.#cameraTransition = null;
+    if (this.#cameraRafId !== null) cancelAnimationFrame(this.#cameraRafId);
+    this.#cameraRafId = null;
+    if (this.#controls !== null) this.#controls.enabled = true;
+    transition.resolve(Object.freeze({ ok: true, outcome }));
+  }
+
+  readonly #tickCameraTransition = (now: number): void => {
+    this.#cameraRafId = null;
+    const transition = this.#cameraTransition;
+    if (transition === null || this.#camera === null || this.#controls === null || this.#disposed) return;
+    const linear = transition.durationMs === 0 ? 1 : Math.min(Math.max((now - transition.startTime) / transition.durationMs, 0), 1);
+    const progress = 1 - Math.pow(1 - linear, 3);
+    this.#camera.position.lerpVectors(transition.fromPosition, transition.toPosition, progress);
+    this.#controls.target.lerpVectors(transition.fromTarget, transition.toTarget, progress);
+    this.#camera.lookAt(this.#controls.target);
+    this.#controls.update();
+    this.#render();
+    if (linear >= 1) {
+      this.#completeCameraTransition('completed');
+      return;
+    }
+    this.#cameraRafId = requestAnimationFrame(this.#tickCameraTransition);
+  };
+
+  #transitionCamera(position: Vector3, target: Vector3, durationMs: number, remember: boolean): Promise<ViewerCameraResult> {
+    if (this.#cameraTransition !== null) return Promise.resolve(this.#cameraRejected('camera-transition-active'));
+    if (this.#camera === null || this.#controls === null) return Promise.resolve(this.#cameraFailed(new Error('Camera is unavailable')));
+    if (remember && this.#savedCameraView === null) this.#savedCameraView = this.#captureCamera();
+    if (durationMs === 0) {
+      this.#camera.position.copy(position);
+      this.#controls.target.copy(target);
+      this.#camera.lookAt(target);
+      this.#controls.update();
+      this.#render();
+      return Promise.resolve(Object.freeze({ ok: true, outcome: 'completed' }));
+    }
+    this.#controls.enabled = false;
+    return new Promise((resolve) => {
+      this.#cameraTransition = {
+        fromPosition: this.#camera!.position.clone(),
+        fromTarget: this.#controls!.target.clone(),
+        toPosition: position.clone(),
+        toTarget: target.clone(),
+        startTime: performance.now(),
+        durationMs,
+        resolve,
+      };
+      this.#cameraRafId = requestAnimationFrame(this.#tickCameraTransition);
+    });
+  }
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-SET-CAMERA-VIEW">
+  async setCameraView(viewId: string): Promise<ViewerCameraResult> {
+    if (this.#cameraTransition !== null) return this.#cameraRejected('camera-transition-active');
+    const view = this.#config?.cameraViewsById.get(viewId);
+    if (view === undefined || !this.#enabledCameraViews.has(viewId)) return this.#cameraRejected('unknown-camera-view');
+    try {
+      this.#root!.updateMatrixWorld(true);
+      const position = this.#nodesByName.get(view.positionNodeName)!.getWorldPosition(new Vector3());
+      const target = this.#nodesByName.get(view.targetNodeName)!.getWorldPosition(new Vector3());
+      return await this.#transitionCamera(position, target, view.durationMs, true);
+    } catch (cause) {
+      return this.#cameraFailed(cause);
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-FOCUS-NODES">
+  async focusOnNodes(nodeNames: readonly string[], options?: CameraFocusOptions): Promise<ViewerCameraResult> {
+    if (this.#cameraTransition !== null) return this.#cameraRejected('camera-transition-active');
+    const durationMs = cameraDuration(options?.durationMs);
+    const padding = cameraPadding(options?.padding);
+    const distance = options?.distance;
+    const positionNodeName = options?.positionNodeName;
+    if (!Array.isArray(nodeNames)
+      || nodeNames.length === 0
+      || nodeNames.some((name) => typeof name !== 'string' || name.trim().length === 0)
+      || durationMs === null
+      || padding === null
+      || (distance !== undefined && (typeof distance !== 'number' || !Number.isFinite(distance) || distance <= 0))
+      || (positionNodeName !== undefined && (typeof positionNodeName !== 'string' || positionNodeName.trim().length === 0))) {
+      return this.#cameraRejected('invalid-camera-target');
+    }
+    const names = [...new Set(nodeNames.map((name) => name.trim()))];
+    if (names.some((name) => !this.#nodesByName.has(name))) return this.#cameraRejected('unknown-node');
+    if (positionNodeName !== undefined && !this.#nodesByName.has(positionNodeName.trim())) return this.#cameraRejected('unknown-node');
+    try {
+      this.#root!.updateMatrixWorld(true);
+      const bounds = new Box3().makeEmpty();
+      for (const name of names) {
+        const node = this.#nodesByName.get(name)!;
+        const nodeBounds = new Box3().setFromObject(node);
+        if (nodeBounds.isEmpty()) bounds.expandByPoint(node.getWorldPosition(new Vector3()));
+        else bounds.union(nodeBounds);
+      }
+      if (bounds.isEmpty()) return this.#cameraRejected('invalid-camera-target');
+      const target = bounds.getCenter(new Vector3());
+      let position: Vector3;
+      if (positionNodeName !== undefined) {
+        position = this.#nodesByName.get(positionNodeName.trim())!.getWorldPosition(new Vector3());
+      } else {
+        const sphere = bounds.getBoundingSphere(new Sphere());
+        const radius = Math.max(sphere.radius, 0.01);
+        const verticalFov = this.#camera!.fov * Math.PI / 180;
+        const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * this.#camera!.aspect);
+        const limitingFov = Math.max(Math.min(verticalFov, horizontalFov), 0.1);
+        const currentDistance = Math.max(this.#camera!.position.distanceTo(this.#controls!.target), 0.1);
+        const targetDistance = distance ?? Math.max(radius / Math.sin(limitingFov / 2) * padding, sphere.radius <= 0.01 ? currentDistance * 0.35 : 0.05);
+        const direction = this.#camera!.position.clone().sub(this.#controls!.target);
+        if (direction.lengthSq() < 1e-12) direction.set(1.15, 0.72, 1.35);
+        position = target.clone().addScaledVector(direction.normalize(), targetDistance);
+      }
+      const targetDistance = Math.max(position.distanceTo(target), 0.01);
+      this.#controls!.minDistance = Math.min(this.#controls!.minDistance, targetDistance * 0.1);
+      this.#camera!.near = Math.max(Math.min(this.#camera!.near, targetDistance / 100), 0.001);
+      this.#camera!.far = Math.max(this.#camera!.far, targetDistance * 100);
+      this.#camera!.updateProjectionMatrix();
+      return await this.#transitionCamera(position, target, durationMs, true);
+    } catch (cause) {
+      return this.#cameraFailed(cause);
+    }
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-RESTORE-CAMERA-VIEW">
+  async restoreCameraView(options?: CameraTransitionOptions): Promise<ViewerCameraResult> {
+    if (this.#cameraTransition !== null) return this.#cameraRejected('camera-transition-active');
+    if (this.#savedCameraView === null) return this.#cameraRejected('no-camera-view-to-restore');
+    const durationMs = cameraDuration(options?.durationMs);
+    if (durationMs === null) return this.#cameraRejected('invalid-camera-target');
+    const snapshot = this.#savedCameraView;
+    const result = await this.#transitionCamera(snapshot.position, snapshot.target, durationMs, false);
+    if (result.ok && result.outcome === 'completed') this.#savedCameraView = null;
+    return result;
+  }
+  // </SEMANTIC_BLOCK>
+
+  // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-CANCEL-CAMERA-TRANSITION">
+  cancelCameraTransition(): ViewerOperationResult {
+    try {
+      this.#completeCameraTransition('cancelled');
+      return Object.freeze({ ok: true });
+    } catch (cause) {
+      return this.#operationFailure('camera', 'active-camera-transition', cause);
+    }
+  }
+  // </SEMANTIC_BLOCK>
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-APPLY-COLOR">
   async applyColor(colorId: string): Promise<ViewerOperationResult> {
@@ -849,6 +1062,9 @@ export class ThreeViewer {
       try { cancelAnimationFrame(this.#rafId); } catch { /* cleanup continues */ }
     }
     this.#rafId = null;
+    try { this.#completeCameraTransition('cancelled'); } catch { /* cleanup continues */ }
+    this.#cameraRafId = null;
+    this.#savedCameraView = null;
     try { this.#playback?.action.stop(); } catch { /* cleanup continues */ }
     this.#playback = null;
     try { this.#resizeObserver?.disconnect(); } catch { /* cleanup continues */ }
@@ -915,6 +1131,7 @@ export class ThreeViewer {
     this.#enabledVariants.clear();
     this.#enabledAnimations.clear();
     this.#enabledScenarios.clear();
+    this.#enabledCameraViews.clear();
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-VIEWER-DISPOSE">

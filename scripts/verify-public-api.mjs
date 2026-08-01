@@ -2,14 +2,19 @@ import { readdir, readFile } from 'node:fs/promises';
 import ts from 'typescript';
 
 const expectedMethods = [
+  'cancelCameraTransition',
   'configure',
+  'focusOnNode',
+  'focusOnNodes',
   'getState',
   'launchAR',
   'nextScenarioStep',
   'playAnimation',
   'previousScenarioStep',
+  'restoreCameraView',
   'selectColor',
   'selectVariant',
+  'setCameraView',
   'startScenario',
   'stopScenario',
 ].sort();
@@ -75,4 +80,4 @@ if (JSON.stringify([...new Set(properties)]) !== JSON.stringify(['--product-3d-a
   throw new Error(`Unexpected CSS custom properties: ${[...new Set(properties)].join(', ')}`);
 }
 
-console.log('PASS exact runtime layout, ten public methods, eight events and approved styling surface');
+console.log('PASS exact runtime layout, fifteen public methods, eight events and approved styling surface');
