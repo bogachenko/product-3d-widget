@@ -14,6 +14,11 @@ export interface RangeSource {
   readonly endSeconds: number;
 }
 
+export interface RestPoseConfig {
+  readonly kind: 'animation-end';
+  readonly animationId: string;
+}
+
 export interface ColorVariantConfig {
   readonly id: string;
   readonly label: string;
@@ -55,6 +60,7 @@ export interface ProductConfiguration {
   readonly productId: string;
   readonly glbUrl: string;
   readonly usdzUrl?: string;
+  readonly restPose?: RestPoseConfig;
   readonly colors?: readonly ColorVariantConfig[];
   readonly variants?: readonly StructuralVariantConfig[];
   readonly animations?: readonly AnimationConfig[];
@@ -104,6 +110,7 @@ export type WidgetErrorCode =
   | 'COLOR_DISABLED'
   | 'VARIANT_DISABLED'
   | 'ANIMATION_DISABLED'
+  | 'REST_POSE_DISABLED'
   | 'SCENARIO_DISABLED'
   | 'USDZ_UNUSABLE'
   | 'WEBGL2_UNAVAILABLE'

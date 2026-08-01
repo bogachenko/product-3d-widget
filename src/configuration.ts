@@ -5,6 +5,7 @@ import type {
   ConfirmedSelection,
   ProductConfiguration,
   RangeSource,
+  RestPoseConfig,
   ScenarioStepConfig,
   StructuralVariantConfig,
   WidgetError,
@@ -35,6 +36,8 @@ export interface NormalizedAnimation {
   readonly compatibleVariantIds: ReadonlySet<string>;
 }
 
+export interface NormalizedRestPose extends RestPoseConfig {}
+
 export interface NormalizedScenario {
   readonly id: string;
   readonly label: string;
@@ -46,6 +49,7 @@ export interface NormalizedProductConfiguration {
   readonly productId: string;
   readonly glbUrl: string;
   readonly usdzUrl: string | null;
+  readonly restPose: NormalizedRestPose | null;
   readonly colorsById: ReadonlyMap<string, NormalizedColorVariant>;
   readonly variantsById: ReadonlyMap<string, NormalizedStructuralVariant>;
   readonly animationsById: ReadonlyMap<string, NormalizedAnimation>;
@@ -309,6 +313,30 @@ const normalizeAnimations = (
   return result;
 };
 
+const normalizeRestPose = (
+  value: unknown,
+  animationsById: ReadonlyMap<string, NormalizedAnimation>,
+  localErrors: WidgetError[],
+): NormalizedRestPose | null => {
+  if (value === undefined) return null;
+  if (!isObject(value)
+    || value.kind !== 'animation-end'
+    || !nonEmptyString(value.animationId)
+    || !animationsById.has(value.animationId.trim())) {
+    localErrors.push(error(
+      'REST_POSE_DISABLED',
+      'animation',
+      'restPose must reference the endpoint of an enabled configured animation.',
+      isObject(value) && nonEmptyString(value.animationId) ? value.animationId.trim() : undefined,
+    ));
+    return null;
+  }
+  return Object.freeze({
+    kind: 'animation-end',
+    animationId: value.animationId.trim(),
+  });
+};
+
 const normalizeScenarios = (
   value: unknown,
   animationsById: ReadonlyMap<string, NormalizedAnimation>,
@@ -402,6 +430,7 @@ export function normalizeProductConfiguration(input: unknown): ConfigurationVali
   const colorsById = normalizeColorGroup(input.colors, localErrors);
   const variantsById = normalizeVariantGroup(input.variants, localErrors);
   const animationsById = normalizeAnimations(input.animations, variantsById, localErrors);
+  const restPose = normalizeRestPose(input.restPose, animationsById, localErrors);
   const scenariosById = normalizeScenarios(input.scenarios, animationsById, localErrors);
 
   let usdzUrl: string | null = null;
@@ -422,6 +451,7 @@ export function normalizeProductConfiguration(input: unknown): ConfigurationVali
     productId: (input.productId as string).trim(),
     glbUrl: (input.glbUrl as string).trim(),
     usdzUrl,
+    restPose,
     colorsById,
     variantsById,
     animationsById,
