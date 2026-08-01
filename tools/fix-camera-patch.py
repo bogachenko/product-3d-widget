@@ -11,6 +11,10 @@ replacements = {
     "<RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, GLB-ресурсами, базовой и настроенной обычной позами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>",
     "<RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, OrbitControls, программными camera transitions и restore snapshot, GLB-ресурсами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>":
     "<RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, OrbitControls, программными camera transitions и restore snapshot, GLB-ресурсами, базовой и настроенной обычной позами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>",
+    "<RESPONSIBILITY id=\"CONTRACT-MOD-THREE-VIEWER-RESP-08\">Сохранять camera view и выбор при утверждённых операциях восстановления и замены.</RESPONSIBILITY>":
+    "<RESPONSIBILITY id=\"CONTRACT-MOD-THREE-VIEWER-RESP-08\">Вычислять и хранить настроенную ordinary pose, а также сохранять camera view и выбор при утверждённых операциях восстановления и замены.</RESPONSIBILITY>",
+    "<RESPONSIBILITY id=\"CONTRACT-MOD-THREE-VIEWER-RESP-08\">Сохранять camera view и выбор при утверждённых операциях восстановления и замены; выполнять именованные и node-bound camera transitions с одним restore snapshot.</RESPONSIBILITY>":
+    "<RESPONSIBILITY id=\"CONTRACT-MOD-THREE-VIEWER-RESP-08\">Вычислять и хранить настроенную ordinary pose, сохранять camera view и выбор при утверждённых операциях восстановления и замены, а также выполнять именованные и node-bound camera transitions с одним restore snapshot.</RESPONSIBILITY>",
 }
 for old, new in replacements.items():
     if old not in text:
