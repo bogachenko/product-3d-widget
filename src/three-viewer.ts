@@ -14,10 +14,13 @@ import {
   Object3D,
   PerspectiveCamera,
   Quaternion,
+  RepeatWrapping,
   Scene,
   Sphere,
   SRGBColorSpace,
   Texture,
+  TextureLoader,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -79,6 +82,23 @@ type TransformSnapshot = Readonly<{
   quaternion: Quaternion;
   scale: Vector3;
   morphTargetInfluences: readonly number[] | null;
+}>;
+
+type MaterialSnapshot = Readonly<{
+  color: Color;
+  map: Texture | null;
+  normalMap: Texture | null;
+  roughnessMap: Texture | null;
+  metalnessMap: Texture | null;
+  aoMap: Texture | null;
+  normalScale: Vector2;
+}>;
+
+type LoadedSurface = Readonly<{
+  baseColorTexture: Texture | null;
+  normalTexture: Texture | null;
+  metallicRoughnessTexture: Texture | null;
+  occlusionTexture: Texture | null;
 }>;
 
 type CameraSnapshot = Readonly<{
@@ -172,7 +192,8 @@ export class ThreeViewer {
   readonly #baseTransforms = new Map<Object3D, TransformSnapshot>();
   readonly #ordinaryTransforms = new Map<Object3D, TransformSnapshot>();
   readonly #baseVisibility = new Map<Object3D, boolean>();
-  readonly #baseMaterialColors = new Map<MeshStandardMaterial, Color>();
+  readonly #baseMaterialStates = new Map<MeshStandardMaterial, MaterialSnapshot>();
+  readonly #loadedSurfaces = new Map<string, LoadedSurface>();
   readonly #clipsByName = new Map<string, AnimationClip>();
   readonly #enabledColors = new Set<string>();
   readonly #enabledVariants = new Set<string>();
@@ -293,6 +314,7 @@ export class ThreeViewer {
       this.#mixer = new AnimationMixer(this.#root);
       this.#indexModel();
       const result = this.#validateModelBoundCapabilities();
+      await this.#loadConfiguredSurfaces();
       this.#captureOrdinaryPose();
       this.#currentSelection = result.selection;
       this.#restoreOrdinaryTransforms();
@@ -324,7 +346,8 @@ export class ThreeViewer {
     this.#baseTransforms.clear();
     this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
-    this.#baseMaterialColors.clear();
+    this.#baseMaterialStates.clear();
+    this.#loadedSurfaces.clear();
     this.#clipsByName.clear();
 
     this.#root!.traverse((object) => {
@@ -346,7 +369,15 @@ export class ThreeViewer {
           const name = material.name;
           if (!this.#materialsByName.has(name)) this.#materialsByName.set(name, []);
           this.#materialsByName.get(name)!.push(material);
-          if (!this.#baseMaterialColors.has(material)) this.#baseMaterialColors.set(material, material.color.clone());
+          if (!this.#baseMaterialStates.has(material)) this.#baseMaterialStates.set(material, Object.freeze({
+            color: material.color.clone(),
+            map: material.map,
+            normalMap: material.normalMap,
+            roughnessMap: material.roughnessMap,
+            metalnessMap: material.metalnessMap,
+            aoMap: material.aoMap,
+            normalScale: material.normalScale.clone(),
+          }));
         }
       }
     });
@@ -586,6 +617,35 @@ export class ThreeViewer {
     this.#restoreTransforms(this.#baseTransforms);
   }
 
+  async #loadConfiguredSurfaces(): Promise<void> {
+    const loader = new TextureLoader();
+    const load = async (url: string | null, srgb: boolean, surface: NonNullable<ReturnType<typeof this.#config.colorsById.get>>['surface']): Promise<Texture | null> => {
+      if (url === null || surface === null) return null;
+      const texture = await loader.loadAsync(url);
+      texture.flipY = false;
+      texture.wrapS = RepeatWrapping;
+      texture.wrapT = RepeatWrapping;
+      texture.repeat.set(surface.repeat[0], surface.repeat[1]);
+      texture.offset.set(surface.offset[0], surface.offset[1]);
+      texture.rotation = surface.rotation;
+      texture.center.set(0.5, 0.5);
+      if (srgb) texture.colorSpace = SRGBColorSpace;
+      texture.needsUpdate = true;
+      return texture;
+    };
+    this.#loadedSurfaces.clear();
+    for (const color of this.#config!.colorsById.values()) {
+      if (!this.#enabledColors.has(color.id) || color.surface === null) continue;
+      const surface = color.surface;
+      this.#loadedSurfaces.set(color.id, Object.freeze({
+        baseColorTexture: await load(surface.baseColorTextureUrl, true, surface),
+        normalTexture: await load(surface.normalTextureUrl, false, surface),
+        metallicRoughnessTexture: await load(surface.metallicRoughnessTextureUrl, false, surface),
+        occlusionTexture: await load(surface.occlusionTextureUrl, false, surface),
+      }));
+    }
+  }
+
   #applySelectionDirect(): void {
     for (const [object, visible] of this.#baseVisibility) object.visible = visible;
     const variant = this.#currentSelection.variantId === null
@@ -596,13 +656,34 @@ export class ThreeViewer {
       for (const name of variant.hiddenNodeNames) this.#nodesByName.get(name)!.visible = false;
     }
 
-    for (const [material, color] of this.#baseMaterialColors) material.color.copy(color);
+    for (const [material, state] of this.#baseMaterialStates) {
+      material.color.copy(state.color);
+      material.map = state.map;
+      material.normalMap = state.normalMap;
+      material.roughnessMap = state.roughnessMap;
+      material.metalnessMap = state.metalnessMap;
+      material.aoMap = state.aoMap;
+      material.normalScale.copy(state.normalScale);
+      material.needsUpdate = true;
+    }
     const color = this.#currentSelection.colorId === null
       ? undefined
       : this.#config!.colorsById.get(this.#currentSelection.colorId);
     if (color !== undefined && !color.isBase) {
+      const loaded = this.#loadedSurfaces.get(color.id);
       for (const name of color.materialNames) {
-        for (const material of this.#materialsByName.get(name) ?? []) material.color.setStyle(color.swatch);
+        for (const material of this.#materialsByName.get(name) ?? []) {
+          material.color.setStyle(loaded?.baseColorTexture === null || loaded === undefined ? color.swatch : '#ffffff');
+          if (loaded !== undefined) {
+            material.map = loaded.baseColorTexture;
+            material.normalMap = loaded.normalTexture;
+            material.roughnessMap = loaded.metallicRoughnessTexture;
+            material.metalnessMap = loaded.metallicRoughnessTexture;
+            material.aoMap = loaded.occlusionTexture;
+            if (color.surface !== null) material.normalScale.set(color.surface.normalScale[0], color.surface.normalScale[1]);
+          }
+          material.needsUpdate = true;
+        }
       }
     }
   }
@@ -1134,7 +1215,8 @@ export class ThreeViewer {
     this.#baseTransforms.clear();
     this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
-    this.#baseMaterialColors.clear();
+    this.#baseMaterialStates.clear();
+    this.#loadedSurfaces.clear();
     this.#clipsByName.clear();
     this.#enabledColors.clear();
     this.#enabledVariants.clear();

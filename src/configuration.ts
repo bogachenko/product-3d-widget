@@ -4,6 +4,7 @@ import type {
   ClipSource,
   ColorVariantConfig,
   ConfirmedSelection,
+  MaterialSurfaceConfig,
   ProductConfiguration,
   RangeSource,
   RestPoseConfig,
@@ -14,6 +15,17 @@ import type {
 
 export interface NormalizedCameraView extends Required<CameraViewConfig> {}
 
+export interface NormalizedMaterialSurface {
+  readonly baseColorTextureUrl: string | null;
+  readonly normalTextureUrl: string | null;
+  readonly metallicRoughnessTextureUrl: string | null;
+  readonly occlusionTextureUrl: string | null;
+  readonly repeat: readonly [number, number];
+  readonly offset: readonly [number, number];
+  readonly rotation: number;
+  readonly normalScale: readonly [number, number];
+}
+
 export interface NormalizedColorVariant {
   readonly id: string;
   readonly label: string;
@@ -21,6 +33,7 @@ export interface NormalizedColorVariant {
   readonly isDefault: boolean;
   readonly isBase: boolean;
   readonly materialNames: readonly string[];
+  readonly surface: NormalizedMaterialSurface | null;
 }
 
 export interface NormalizedStructuralVariant {
@@ -106,6 +119,37 @@ const usableAssetUrl = (value: unknown): value is string => {
   } catch {
     return false;
   }
+};
+
+const finitePair = (value: unknown, positive: boolean): readonly [number, number] | null => {
+  if (!Array.isArray(value) || value.length !== 2) return null;
+  const [x, y] = value;
+  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  if (positive && (x <= 0 || y <= 0)) return null;
+  return Object.freeze([x, y] as const);
+};
+
+const normalizeMaterialSurface = (value: unknown): NormalizedMaterialSurface | null | false => {
+  if (value === undefined) return null;
+  if (!isObject(value)) return false;
+  const keys = ['baseColorTextureUrl', 'normalTextureUrl', 'metallicRoughnessTextureUrl', 'occlusionTextureUrl'] as const;
+  const urls = Object.fromEntries(keys.map((key) => [key, value[key] === undefined ? null : usableAssetUrl(value[key]) ? (value[key] as string).trim() : false]));
+  if (Object.values(urls).some((item) => item === false) || !Object.values(urls).some((item) => typeof item === 'string')) return false;
+  const repeat = value.repeat === undefined ? Object.freeze([1, 1] as const) : finitePair(value.repeat, true);
+  const offset = value.offset === undefined ? Object.freeze([0, 0] as const) : finitePair(value.offset, false);
+  const normalScale = value.normalScale === undefined ? Object.freeze([1, 1] as const) : finitePair(value.normalScale, false);
+  const rotation = value.rotation === undefined ? 0 : value.rotation;
+  if (repeat === null || offset === null || normalScale === null || typeof rotation !== 'number' || !Number.isFinite(rotation)) return false;
+  return Object.freeze({
+    baseColorTextureUrl: urls.baseColorTextureUrl as string | null,
+    normalTextureUrl: urls.normalTextureUrl as string | null,
+    metallicRoughnessTextureUrl: urls.metallicRoughnessTextureUrl as string | null,
+    occlusionTextureUrl: urls.occlusionTextureUrl as string | null,
+    repeat,
+    offset,
+    rotation,
+    normalScale,
+  });
 };
 
 const uniqueStrings = (value: unknown): readonly string[] | null => {
@@ -206,7 +250,8 @@ const normalizeColorGroup = (
     }
     const id = item.id.trim();
     const materialNames = uniqueStrings(item.materialNames);
-    if (seen.has(id) || materialNames === null || (!item.isBase && materialNames.length === 0) || !isSolidCssColor(item.swatch)) {
+    const surface = normalizeMaterialSurface(item.surface as MaterialSurfaceConfig | undefined);
+    if (seen.has(id) || materialNames === null || (!item.isBase && materialNames.length === 0) || !isSolidCssColor(item.swatch) || surface === false) {
       localErrors.push(error('COLOR_DISABLED', 'color', `Color variant "${id}" is invalid.`, id));
       seen.add(id);
       continue;
@@ -219,6 +264,7 @@ const normalizeColorGroup = (
       isDefault: item.isDefault,
       isBase: item.isBase,
       materialNames,
+      surface,
     }));
   }
 

@@ -100,6 +100,52 @@ describe('normalizeProductConfiguration', () => {
     }
   });
 
+  it('normalizes an optional PBR surface on a color variant', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: input.colors!.map((color) => color.id === 'red' ? {
+        ...color,
+        surface: {
+          baseColorTextureUrl: '/textures/fabric-color.webp',
+          normalTextureUrl: '/textures/fabric-normal.webp',
+          metallicRoughnessTextureUrl: '/textures/fabric-mr.webp',
+          repeat: [3, 4] as const,
+          offset: [0.1, 0.2] as const,
+          rotation: 0.25,
+          normalScale: [0.8, 0.9] as const,
+        },
+      } : color),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.colorsById.get('red')!.surface).toEqual({
+      baseColorTextureUrl: '/textures/fabric-color.webp',
+      normalTextureUrl: '/textures/fabric-normal.webp',
+      metallicRoughnessTextureUrl: '/textures/fabric-mr.webp',
+      occlusionTextureUrl: null,
+      repeat: [3, 4],
+      offset: [0.1, 0.2],
+      rotation: 0.25,
+      normalScale: [0.8, 0.9],
+    });
+  });
+
+  it('disables only a color variant with an invalid PBR surface', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: [...input.colors!, {
+        id: 'bad-surface', label: 'Bad surface', swatch: '#fff', isDefault: false, isBase: false,
+        materialNames: ['Body'], surface: { normalTextureUrl: 'javascript:bad' },
+      }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.configuration.colorsById.has('bad-surface')).toBe(false);
+      expect(result.configuration.localErrors.some((error) => error.entityId === 'bad-surface')).toBe(true);
+    }
+  });
+
   it('disables the color group when its declared default is invalid', () => {
     const input = validConfiguration();
     const result = normalizeProductConfiguration({
