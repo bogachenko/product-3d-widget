@@ -20,13 +20,19 @@ jobs:
       - name: Apply pending PBR implementation
         if: ${{ hashFiles('scripts/apply-pbr-texture-variants.mjs') != '' }}
         run: |
+          echo 'XML artifacts:'
+          find . -type f -name '*.xml' -print | sort
           for name in DevelopmentPlan.xml ModuleContracts.xml ClassFunctionContracts.xml MentalScenarios.xml VerificationCriteria.xml; do
             path=$(find . -type f -name "$name" -print -quit)
+            if [ -z "$path" ] && [ "$name" = 'MentalScenarios.xml' ]; then
+              path=$(find . -type f \( -iname '*mental*scenario*.xml' -o -iname '*scenario*.xml' \) -print -quit)
+            fi
             if [ -z "$path" ]; then
               echo "Missing GRACE artifact: $name" >&2
               exit 1
             fi
             path=${path#./}
+            echo "$name -> $path"
             sed -i "s|'$name'|'$path'|g" scripts/apply-pbr-texture-variants.mjs
           done
           node scripts/apply-pbr-texture-variants.mjs
