@@ -1,0 +1,21 @@
+name: Inspect surface implementation
+
+on:
+  push:
+    branches:
+      - agent/surface-texture-variants
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: List files
+        run: find . -maxdepth 3 -type f | sort
+      - name: Show color contracts and implementation
+        run: |
+          grep -RIn -C 8 "CFC-TYPE-COLOR-VARIANT-CONFIG\|FR-COLOR-SELECTION\|EXCL-MATERIAL-VARIANT-CATEGORY" RequirementsAnalysis.xml Technology.xml DevelopmentPlan.xml ModuleContracts.xml ClassFunctionContracts.xml || true
+          grep -RIn -C 12 "ColorVariantConfig\|NormalizedColorVariant\|#applySelectionDirect\|syncSelection" src tests examples scripts || true
