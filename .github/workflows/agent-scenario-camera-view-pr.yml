@@ -24,13 +24,15 @@ jobs:
         run: |
           python <<'EXTRACT'
           from pathlib import Path
-          from textwrap import dedent
           workflow = Path('.github/workflows/agent-scenario-camera-view.yml').read_text()
           start_marker = "          python <<'PY'\n"
           end_marker = "\n          PY\n      - run: npm ci"
           start = workflow.index(start_marker) + len(start_marker)
           end = workflow.index(end_marker, start)
-          script = dedent(workflow[start:end])
+          script = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in workflow[start:end].splitlines()
+          )
           exec(compile(script, 'scenario-camera-view-patch.py', 'exec'))
           EXTRACT
       - run: npm ci
