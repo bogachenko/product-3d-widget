@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   implement-and-verify:
-    if: github.event.head_commit.message == 'Run configurable rest pose implementation'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
