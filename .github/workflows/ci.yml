@@ -21,7 +21,29 @@ jobs:
           cache: npm
 
       - name: Apply rest pose implementation
-        run: python3 tools/apply-rest-pose.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("tools/apply-rest-pose.py")
+          text = path.read_text()
+          old = '''viewer = replace_once(
+              viewer,
+              "    this.#baseTransforms.clear();\\n    this.#baseVisibility.clear();",
+              "    this.#baseTransforms.clear();\\n    this.#ordinaryTransforms.clear();\\n    this.#baseVisibility.clear();",
+              "clear ordinary transforms while indexing",
+          )'''
+          new = '''viewer = replace_once(
+              viewer,
+              "    this.#nodesByName.clear();\\n    this.#materialsByName.clear();\\n    this.#baseTransforms.clear();\\n    this.#baseVisibility.clear();",
+              "    this.#nodesByName.clear();\\n    this.#materialsByName.clear();\\n    this.#baseTransforms.clear();\\n    this.#ordinaryTransforms.clear();\\n    this.#baseVisibility.clear();",
+              "clear ordinary transforms while indexing",
+          )'''
+          if text.count(old) != 1:
+              raise SystemExit(f"expected one patch block, found {text.count(old)}")
+          path.write_text(text.replace(old, new))
+          PY
+          python3 tools/apply-rest-pose.py
 
       - run: npm ci
       - run: npm run typecheck
