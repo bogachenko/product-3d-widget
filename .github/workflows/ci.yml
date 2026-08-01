@@ -17,39 +17,15 @@ jobs:
         with:
           node-version: 24.18.1
           cache: npm
-      - name: Apply pending PBR implementation
-        if: ${{ hashFiles('scripts/apply-pbr-texture-variants.mjs') != '' }}
+      - name: Apply pending PBR fixes
+        if: ${{ hashFiles('scripts/fix-pbr-types.mjs') != '' }}
         run: |
-          if [ ! -f MentalScenarios.xml ]; then
-            cat > MentalScenarios.xml <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <MENTAL_SCENARIOS id="MS-PRODUCT-3D-WIDGET" status="APPROVED">
-          </MENTAL_SCENARIOS>
-          EOF
-          fi
-          if [ ! -f VerificationCriteria.xml ]; then
-            cat > VerificationCriteria.xml <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <VERIFICATION_CRITERIA id="VC-PRODUCT-3D-WIDGET" status="APPROVED">
-          </VERIFICATION_CRITERIA>
-          EOF
-          fi
-          for name in DevelopmentPlan.xml ModuleContracts.xml ClassFunctionContracts.xml MentalScenarios.xml VerificationCriteria.xml; do
-            path=$(find . -type f -name "$name" -print -quit)
-            if [ -z "$path" ]; then
-              echo "Missing GRACE artifact: $name" >&2
-              exit 1
-            fi
-            path=${path#./}
-            sed -i "s|'$name'|'$path'|g" scripts/apply-pbr-texture-variants.mjs
-          done
-          node scripts/apply-pbr-texture-variants.mjs
-          rm scripts/apply-pbr-texture-variants.mjs
-          rm -f .github/workflows/inspect-pbr-implementation.yml
+          node scripts/fix-pbr-types.mjs
+          rm scripts/fix-pbr-types.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'Add PBR textures to color variants'
+          git commit -m 'Fix PBR texture loader types'
           git push origin HEAD:${{ github.head_ref }}
       - run: npm ci
       - run: npm run typecheck
