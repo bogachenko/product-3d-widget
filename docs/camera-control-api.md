@@ -49,6 +49,25 @@ await widget.focusOnNodes(
 );
 ```
 
+## Instruction sequence
+
+The host can combine camera commands with regular animation or scenario commands without changing the component for each product:
+
+```js
+await widget.setCameraView("shelf-bolts");
+await widget.playAnimation("attach-shelf");
+
+await widget.setCameraView("back-cross");
+await widget.playAnimation("attach-back-cross");
+
+await widget.focusOnNodes(["LegSocket_Left", "LegSocket_Right"], {
+  positionNodeName: "CAM_Legs_Bottom"
+});
+await widget.playAnimation("attach-legs");
+
+await widget.restoreCameraView();
+```
+
 ## Restore and cancel
 
 The viewer saves the user camera before the first accepted programmatic camera command. Further camera commands keep the same restore origin until restoration completes.
