@@ -83,7 +83,7 @@
         </DECISION>
         <DECISION id="DP-DECISION-PURE-CONFIGURATION">
             <TITLE>Чистая конфигурационная логика</TITLE>
-            <CHOICE>Статическая проверка и вычисление совместимости выполняются чистыми функциями без DOM, fetch и Three.js.</CHOICE>
+            <CHOICE>Статическая проверка, нормализация необязательной rest pose и вычисление совместимости выполняются чистыми функциями без DOM, fetch и Three.js.</CHOICE>
             <RATIONALE>Это минимизирует побочные эффекты и позволяет одному небольшому Vitest check проверять каждое нетривиальное правило.</RATIONALE>
         </DECISION>
         <DECISION id="DP-DECISION-NO-VIEWER-AR-COUPLING">
@@ -172,7 +172,7 @@
         </MODULE>
         <MODULE id="MOD-CONFIGURATION">
             <NAME>Проверка и нормализация конфигурации</NAME>
-            <RESPONSIBILITY>Проверять внешнюю конфигурацию, отделять блокирующие ошибки от локально отключаемых возможностей и вычислять неизменяемые производные данные совместимости.</RESPONSIBILITY>
+            <RESPONSIBILITY>Проверять внешнюю конфигурацию, нормализовать необязательную rest pose, отделять блокирующие ошибки от локально отключаемых возможностей и вычислять неизменяемые производные данные совместимости.</RESPONSIBILITY>
             <NON_RESPONSIBILITIES>
                 <RULE>Не создаёт DOM и не отправляет события.</RULE>
                 <RULE>Не загружает GLB или USDZ.</RULE>
@@ -213,7 +213,7 @@
         </MODULE>
         <MODULE id="MOD-THREE-VIEWER">
             <NAME>Основной Three.js viewer</NAME>
-            <RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, GLB-ресурсами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>
+            <RESPONSIBILITY>Владеть WebGLRenderer, сценой, камерой, GLB-ресурсами, базовой и настроенной обычной позами, применением выбора, воспроизведением анимаций и сценариев, resize и единственной попыткой восстановления WebGL-контекста.</RESPONSIBILITY>
             <NON_RESPONSIBILITIES>
                 <RULE>Не является владельцем подтверждённого состояния хост-страницы.</RULE>
                 <RULE>Не отправляет публичные CustomEvent напрямую.</RULE>
@@ -776,6 +776,12 @@
         <CHECK id="DP-VALIDATE-NO-UNRESOLVED">UNRESOLVED_DECISIONS пуст перед утверждением.</CHECK>
     </VALIDATION_EXPECTATIONS>
     <UNRESOLVED_DECISIONS />
+    <APPROVED_CHANGE id="DP-CHANGE-CONFIGURABLE-REST-POSE" approved_at="2026-08-01T10:58:00+03:00">
+        <MODULE_ASSIGNMENT module="MOD-CONFIGURATION">Проверяет форму restPose и ссылку на настроенную анимацию; ошибка локальна.</MODULE_ASSIGNMENT>
+        <MODULE_ASSIGNMENT module="MOD-THREE-VIEWER">После model-bound validation вычисляет конечный кадр указанной анимации, сохраняет immutable transform snapshot и использует его как ordinary pose.</MODULE_ASSIGNMENT>
+        <MODULE_ASSIGNMENT module="MOD-WIDGET-CONTROLLER">Публичные методы, события и lifecycle не меняются.</MODULE_ASSIGNMENT>
+        <CONSTRAINT>Новые runtime-модули и зависимости не добавляются.</CONSTRAINT>
+    </APPROVED_CHANGE>
     <APPROVAL_GATE status="APPROVED">
         <APPROVED_REVISION>bf444f172b1be14f2e5877fcbe3cff95ff0a6772</APPROVED_REVISION>
         <APPROVED_AT>2026-07-31T15:06:00+03:00</APPROVED_AT>
