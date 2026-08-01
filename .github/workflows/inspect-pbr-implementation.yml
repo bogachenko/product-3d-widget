@@ -1,0 +1,24 @@
+name: Inspect PBR implementation targets
+
+on:
+  push:
+    branches:
+      - agent/pbr-texture-variants
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repository files
+        run: find . -maxdepth 3 -type f | sort
+      - name: Relevant tests
+        run: |
+          grep -RIl "normalizeProductConfiguration\|applyColor\|COLOR_DISABLED" test tests src 2>/dev/null || true
+      - name: Validation tools
+        run: |
+          find tools scripts -maxdepth 3 -type f -print 2>/dev/null | sort
+          cat package.json
