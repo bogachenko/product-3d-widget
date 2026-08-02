@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MENTAL_SCENARIOS id="MS-PRODUCT-3D-WIDGET" status="APPROVED">
+    <MENTAL_SCENARIO id="MS-COLOR-PBR-SWITCH"><GIVEN>Загружена модель с UV и два цветовых варианта с разными PBR-наборами.</GIVEN><WHEN>Хост последовательно выбирает варианты.</WHEN><THEN>Viewer восстанавливает базовый материал, применяет соответствующие карты и не сохраняет карты предыдущего варианта.</THEN></MENTAL_SCENARIO>
+</MENTAL_SCENARIOS>

@@ -100,7 +100,7 @@
             <NAME>Three.js</NAME>
             <STATUS>SELECTED</STATUS>
             <VERSION>0.183.2</VERSION>
-            <RESPONSIBILITY>Основной встроенный 3D-просмотр: загрузка GLB, WebGLRenderer, сцена, камера, OrbitControls, программные переходы к именованным ракурсам и узлам, материалы и цвета, видимость узлов структурных вариантов, AnimationMixer, именованные клипы, временные диапазоны, восстановление состояния и обработка потери WebGL-контекста.</RESPONSIBILITY>
+            <RESPONSIBILITY>Основной встроенный 3D-просмотр: загрузка GLB, WebGLRenderer, сцена, камера, OrbitControls, программные переходы к именованным ракурсам и узлам, материалы, цвета и PBR-текстуры, видимость узлов структурных вариантов, AnimationMixer, именованные клипы, временные диапазоны, восстановление состояния и обработка потери WebGL-контекста.</RESPONSIBILITY>
             <CONSTRAINT>Three.js является единственным средством основного 3D-рендеринга. WebGPU renderer и альтернативный renderer в первой версии не используются.</CONSTRAINT>
             <LINKS>
                 <REQUIREMENT ref="FR-GLB-MODEL-LOADING"/>
@@ -110,6 +110,7 @@
                 <REQUIREMENT ref="FR-CAMERA-MULTI-NODE-FOCUS"/>
                 <REQUIREMENT ref="FR-CAMERA-RESTORE-AND-CANCEL"/>
                 <REQUIREMENT ref="FR-COLOR-SELECTION"/>
+                <REQUIREMENT ref="FR-COLOR-PBR-SURFACE"/>
                 <REQUIREMENT ref="FR-PRODUCT-VARIANT-SELECTION"/>
                 <REQUIREMENT ref="FR-ANIMATION-SOURCE-SUPPORT"/>
                 <REQUIREMENT ref="FR-WEBGL-CONTEXT-LOSS-RECOVERY"/>
