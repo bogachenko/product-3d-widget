@@ -1,0 +1,35 @@
+name: Fix color geometry UV test
+
+on:
+  push:
+    branches:
+      - agent/color-geometry-uv-channel
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/color-geometry-uv-channel
+      - name: Fix assertion and commit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/product-3d-widget.spec.ts')
+          text = path.read_text()
+          old = "expect(state.localErrors).toContainEqual(expect.objectContaining({ code: 'COLOR_DISABLED', entityId: 'uv2-missing' }));"
+          new = "expect(state.capabilities.localErrors).toContainEqual(expect.objectContaining({ code: 'COLOR_DISABLED', entityId: 'uv2-missing' }));"
+          if old not in text:
+              raise SystemExit('target assertion not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm .github/workflows/fix-color-geometry-uv-test.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Исправить проверку локальной UV-ошибки'
+          git push origin HEAD:agent/color-geometry-uv-channel
