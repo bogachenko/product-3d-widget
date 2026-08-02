@@ -4,8 +4,9 @@ const configuration = {
   productId: 'product-1',
   glbUrl: '/tests/fixtures/product.gltf',
   colors: [
-    { id: 'original', label: 'Original', swatch: '#3366cc', isDefault: true, isBase: true, materialNames: [] },
-    { id: 'red', label: 'Red', swatch: '#ff0000', isDefault: false, isBase: false, materialNames: ['Body'] },
+    { id: 'original', label: 'Original', swatch: '#3366cc', isDefault: true, isBase: true, materialNames: [], hiddenNodeNames: ['RibsNode'] },
+    { id: 'red', label: 'Red', swatch: '#ff0000', isDefault: false, isBase: false, materialNames: ['Body'], hiddenNodeNames: ['RibsNode'] },
+    { id: 'ribbed', label: 'Ribbed', swatch: '#3366cc', isDefault: false, isBase: false, materialNames: ['Body'], visibleNodeNames: ['RibsNode'] },
   ],
   variants: [
     { id: 'base', label: 'Base', isDefault: true, isBase: true, visibleNodeNames: [], hiddenNodeNames: [] },
@@ -127,6 +128,56 @@ test('lifecycle, exact host API, immutable state and styling surface', async ({ 
     widget.style.height = '180px';
   });
   await expect.poll(() => page.locator('#widget').evaluate((element) => element.getBoundingClientRect().height)).toBe(180);
+});
+
+test('color geometry is composed independently with structural variants', async ({ page }) => {
+  await openFixture(page);
+  await configureWidget(page);
+
+  const topScreenshot = async (): Promise<Buffer> => {
+    const box = await page.locator('#widget').boundingBox();
+    if (box === null) throw new Error('widget bounds are unavailable');
+    return page.screenshot({
+      clip: { x: box.x, y: box.y, width: box.width, height: box.height * 0.38 },
+    });
+  };
+
+  const original = await topScreenshot();
+  await page.locator('#widget').evaluate(async (widget: any) => widget.selectVariant('alt'));
+  const originalAfterVariant = await topScreenshot();
+  await page.locator('#widget').evaluate(async (widget: any) => widget.selectColor('ribbed'));
+  const ribbed = await topScreenshot();
+  const stateAfterRibbed = await page.locator('#widget').evaluate((widget: any) => widget.getState());
+  await page.locator('#widget').evaluate(async (widget: any) => widget.selectVariant('base'));
+  const ribbedAfterVariant = await topScreenshot();
+  await page.locator('#widget').evaluate(async (widget: any) => widget.selectColor('original'));
+  const restored = await topScreenshot();
+
+  expect(originalAfterVariant.equals(original)).toBe(true);
+  expect(ribbed.equals(original)).toBe(false);
+  expect(ribbedAfterVariant.equals(ribbed)).toBe(true);
+  expect(restored.equals(original)).toBe(true);
+  expect(stateAfterRibbed.selection).toEqual({ colorId: 'ribbed', variantId: 'alt' });
+});
+
+test('configured UV channel is validated against target meshes', async ({ page }) => {
+  await openFixture(page);
+  const texture = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z6pQAAAAASUVORK5CYII=';
+  const result = await configureWidget(page, {
+    productId: 'uv-product',
+    glbUrl: '/tests/fixtures/product.gltf',
+    colors: [
+      { id: 'original', label: 'Original', swatch: '#3366cc', isDefault: true, isBase: true, materialNames: [] },
+      { id: 'uv1', label: 'UV 1', swatch: '#ffffff', isDefault: false, isBase: false, materialNames: ['Body'], surface: { baseColorTextureUrl: texture, uvChannel: 1 } },
+      { id: 'uv2-missing', label: 'UV 2', swatch: '#ffffff', isDefault: false, isBase: false, materialNames: ['Body'], surface: { baseColorTextureUrl: texture, uvChannel: 2 } },
+    ],
+  });
+  expect(result.outcome).toBe('ready');
+  const state = await page.locator('#widget').evaluate((widget: any) => widget.getState());
+  expect(state.capabilities.colors.map((color: any) => color.id)).toEqual(['original', 'uv1']);
+  expect(state.capabilities.localErrors).toContainEqual(expect.objectContaining({ code: 'COLOR_DISABLED', entityId: 'uv2-missing' }));
+  const selected = await page.locator('#widget').evaluate(async (widget: any) => widget.selectColor('uv1'));
+  expect(selected).toMatchObject({ accepted: true, outcome: 'completed' });
 });
 
 test('mandatory rejection is correctable once and accepted assignment is immutable', async ({ page }) => {

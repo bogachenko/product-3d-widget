@@ -110,6 +110,7 @@ describe('normalizeProductConfiguration', () => {
           baseColorTextureUrl: '/textures/fabric-color.webp',
           normalTextureUrl: '/textures/fabric-normal.webp',
           metallicRoughnessTextureUrl: '/textures/fabric-mr.webp',
+          uvChannel: 1,
           repeat: [3, 4] as const,
           offset: [0.1, 0.2] as const,
           rotation: 0.25,
@@ -123,11 +124,73 @@ describe('normalizeProductConfiguration', () => {
       normalTextureUrl: '/textures/fabric-normal.webp',
       metallicRoughnessTextureUrl: '/textures/fabric-mr.webp',
       occlusionTextureUrl: null,
+      uvChannel: 1,
       repeat: [3, 4],
       offset: [0.1, 0.2],
       rotation: 0.25,
       normalScale: [0.8, 0.9],
     });
+  });
+
+  it('defaults color geometry lists and the UV channel', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: input.colors!.map((color) => color.id === 'red' ? {
+        ...color,
+        surface: { baseColorTextureUrl: '/textures/plain.webp' },
+      } : color),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const red = result.configuration.colorsById.get('red')!;
+      expect(red.visibleNodeNames).toEqual([]);
+      expect(red.hiddenNodeNames).toEqual([]);
+      expect(red.surface?.uvChannel).toBe(0);
+    }
+  });
+
+  it('normalizes color-controlled node visibility', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: input.colors!.map((color) => color.id === 'red' ? {
+        ...color,
+        visibleNodeNames: ['RibsNode', 'RibsNode'],
+        hiddenNodeNames: ['SmoothNode'],
+      } : color),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.colorsById.get('red')).toMatchObject({
+      visibleNodeNames: ['RibsNode'],
+      hiddenNodeNames: ['SmoothNode'],
+    });
+  });
+
+  it('disables only a color with overlapping node visibility lists', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: [...input.colors!, {
+        id: 'bad-nodes', label: 'Bad nodes', swatch: '#fff', isDefault: false, isBase: false,
+        materialNames: ['Body'], visibleNodeNames: ['RibsNode'], hiddenNodeNames: ['RibsNode'],
+      }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.colorsById.has('bad-nodes')).toBe(false);
+  });
+
+  it('disables only a color with an invalid UV channel', () => {
+    const input = validConfiguration();
+    const result = normalizeProductConfiguration({
+      ...input,
+      colors: [...input.colors!, {
+        id: 'bad-uv', label: 'Bad UV', swatch: '#fff', isDefault: false, isBase: false,
+        materialNames: ['Body'], surface: { baseColorTextureUrl: '/textures/plain.webp', uvChannel: 4 },
+      }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.configuration.colorsById.has('bad-uv')).toBe(false);
   });
 
   it('disables only a color variant with an invalid PBR surface', () => {

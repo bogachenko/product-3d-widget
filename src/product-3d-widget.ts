@@ -41,6 +41,7 @@ export interface MaterialSurfaceConfig {
   readonly normalTextureUrl?: string;
   readonly metallicRoughnessTextureUrl?: string;
   readonly occlusionTextureUrl?: string;
+  readonly uvChannel?: 0 | 1 | 2 | 3;
   readonly repeat?: readonly [number, number];
   readonly offset?: readonly [number, number];
   readonly rotation?: number;
@@ -54,6 +55,8 @@ export interface ColorVariantConfig {
   readonly isDefault: boolean;
   readonly isBase: boolean;
   readonly materialNames: readonly string[];
+  readonly visibleNodeNames?: readonly string[];
+  readonly hiddenNodeNames?: readonly string[];
   readonly surface?: MaterialSurfaceConfig;
 }
 

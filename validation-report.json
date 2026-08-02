@@ -1,7 +1,7 @@
 {
   "status": "PASS",
-  "scope": "scenario-camera-view",
-  "generated_at": "2026-08-01T14:47:08.304826+00:00",
+  "scope": "color-geometry-uv-channel",
+  "generated_at": "2026-08-02T08:46:00+00:00",
   "checks": [
     {
       "id": "requirements-propagation",
@@ -32,7 +32,11 @@
       "status": "PASS"
     },
     {
-      "id": "scenario-camera-e2e",
+      "id": "color-geometry-e2e",
+      "status": "PASS"
+    },
+    {
+      "id": "uv-channel-e2e",
       "status": "PASS"
     },
     {

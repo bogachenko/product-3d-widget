@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <VERIFICATION_CRITERIA id="VC-PRODUCT-3D-WIDGET" status="APPROVED">
     <CRITERION id="VC-COLOR-PBR-SURFACE"><REQUIREMENT ref="FR-COLOR-PBR-SURFACE"/><VERIFY>Валидный набор нормализуется; недопустимый URL отключает только вариант; сборка и типы проходят; texture maps восстанавливаются и освобождаются.</VERIFY></CRITERION>
+    <CRITERION id="VC-COLOR-GEOMETRY-VISIBILITY"><REQUIREMENT ref="FR-COLOR-GEOMETRY-VISIBILITY"/><VERIFY>Списки узлов нормализуются, пересечение отклоняется, отсутствующий узел локально отключает цвет, а браузерный тест подтверждает сохранение видимости ткани при смене конструкции.</VERIFY></CRITERION>
+    <CRITERION id="VC-COLOR-UV-CHANNEL"><REQUIREMENT ref="FR-COLOR-UV-CHANNEL"/><VERIFY>Допустимы только целые 0..3, default равен 0, Texture.channel получает выбранное значение, uv1 проходит модельную проверку, отсутствующий uv2 локально отключает вариант.</VERIFY></CRITERION>
 </VERIFICATION_CRITERIA>
