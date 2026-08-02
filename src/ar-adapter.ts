@@ -20,12 +20,6 @@ type ArCallbacks = Readonly<{
 
 type ArStatusEvent = CustomEvent<Readonly<{ status: string }>>;
 
-const arSelectionKey = (selection: ConfirmedSelection): string =>
-  JSON.stringify([selection.colorId, selection.variantId]);
-
-const resolvedUrl = (value: string | null): string | null =>
-  value === null ? null : new URL(value, document.baseURI).href;
-
 const arError = (
   code: Extract<WidgetError['code'], 'USDZ_UNUSABLE' | 'AR_INITIALIZATION_FAILED' | 'AR_SYNC_FAILED' | 'AR_REQUEST_FAILED'>,
   message: string,
@@ -44,16 +38,13 @@ export class ModelViewerArAdapter {
   #disposed = false;
   #available = false;
   #loaded: Promise<void> | null = null;
-  #sourceLoaded = false;
   readonly #baseColors = new Map<string, readonly number[]>();
 
   readonly #handleLoad = (): void => {
-    this.#sourceLoaded = true;
     this.#updateAvailability();
   };
 
   readonly #handleError = (): void => {
-    this.#sourceLoaded = false;
     this.#updateAvailability();
   };
 
@@ -88,28 +79,17 @@ export class ModelViewerArAdapter {
       element.style.clipPath = 'inset(50%)';
       element.style.overflow = 'hidden';
       element.loading = 'eager';
-      const initialAsset = config.arSelectionAssetsByKey?.get(arSelectionKey(config.initialSelection));
-      if (config.arSelectionAssetsByKey !== null && initialAsset === undefined) {
-        return Object.freeze({
-          ok: false,
-          error: arError('AR_INITIALIZATION_FAILED', 'No AR selection asset matches the initial confirmed selection.'),
-        });
-      }
-      element.src = initialAsset?.glbUrl ?? config.glbUrl;
+      element.src = config.glbUrl;
       element.ar = true;
-      const initialUsdzUrl = initialAsset?.usdzUrl ?? (initialAsset === undefined ? config.usdzUrl : null);
-      if (initialUsdzUrl !== null) {
+      if (config.usdzUrl !== null) {
         try {
-          new URL(initialUsdzUrl, document.baseURI);
-          element.iosSrc = initialUsdzUrl;
+          new URL(config.usdzUrl, document.baseURI);
+          element.iosSrc = config.usdzUrl;
         } catch {
           element.iosSrc = null;
           localErrors.push(arError('USDZ_UNUSABLE', 'The optional USDZ URL is unusable; Quick Look will use GLB conversion fallback.'));
         }
-      } else {
-        element.iosSrc = null;
       }
-      this.#selection = Object.freeze({ ...config.initialSelection });
 
       element.addEventListener('load', this.#handleLoad);
       element.addEventListener('error', this.#handleError);
@@ -144,14 +124,11 @@ export class ModelViewerArAdapter {
   }
   // </SEMANTIC_BLOCK>
 
-  #setAvailability(available: boolean): void {
+  #updateAvailability(): void {
+    const available = this.#element?.canActivateAR === true;
     if (available === this.#available) return;
     this.#available = available;
     this.#callbacks.onAvailabilityChange(available);
-  }
-
-  #updateAvailability(): void {
-    this.#setAvailability(this.#sourceLoaded && this.#selection !== null && this.#element?.canActivateAR === true);
   }
 
   // <SEMANTIC_BLOCK id="CFC-FN-AR-SYNC-SELECTION">
@@ -160,47 +137,6 @@ export class ModelViewerArAdapter {
       return Object.freeze({ ok: false, error: arError('AR_SYNC_FAILED', 'AR selection cannot be synchronized before initialization.') });
     }
     try {
-      const assets = this.#config.arSelectionAssetsByKey;
-      if (assets !== null) {
-        const asset = assets.get(arSelectionKey(selection));
-        if (asset === undefined) {
-          this.#selection = null;
-          this.#sourceLoaded = false;
-          this.#setAvailability(false);
-          return Object.freeze({
-            ok: false,
-            error: arError('AR_SYNC_FAILED', 'No AR selection asset matches the current confirmed selection.'),
-          });
-        }
-
-        const sameSource = resolvedUrl(this.#element.src) === resolvedUrl(asset.glbUrl)
-          && resolvedUrl(this.#element.iosSrc) === resolvedUrl(asset.usdzUrl);
-        this.#selection = Object.freeze({ ...selection });
-        if (!sameSource) {
-          this.#sourceLoaded = false;
-          this.#setAvailability(false);
-          this.#loaded = new Promise<void>((resolve, reject) => {
-            const loaded = (): void => {
-              this.#element?.removeEventListener('error', failed);
-              resolve();
-            };
-            const failed = (): void => {
-              this.#element?.removeEventListener('load', loaded);
-              reject(new Error('model-viewer could not load the selected AR source.'));
-            };
-            this.#element?.addEventListener('load', loaded, { once: true });
-            this.#element?.addEventListener('error', failed, { once: true });
-          });
-          this.#element.iosSrc = asset.usdzUrl;
-          this.#element.src = asset.glbUrl;
-          void this.#loaded.catch(() => undefined);
-        }
-        await this.#loaded;
-        this.#sourceLoaded = true;
-        this.#updateAvailability();
-        return Object.freeze({ ok: true });
-      }
-
       await this.#loaded;
       this.#selection = Object.freeze({ ...selection });
       const model = this.#element.model;
@@ -295,7 +231,6 @@ export class ModelViewerArAdapter {
     this.#selection = null;
     this.#loaded = null;
     this.#available = false;
-    this.#sourceLoaded = false;
     this.#webxrObserved = false;
     this.#baseColors.clear();
   }

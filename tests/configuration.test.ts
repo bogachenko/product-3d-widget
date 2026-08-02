@@ -60,38 +60,6 @@ describe('normalizeProductConfiguration', () => {
     expect(first).toEqual(second);
   });
 
-  it('normalizes exact AR selection assets without choosing duplicate or invalid pairs', () => {
-    const input = validConfiguration();
-    const result = normalizeProductConfiguration({
-      ...input,
-      ar: {
-        enabled: true,
-        selectionAssets: [
-          { colorId: 'original', variantId: 'base', glbUrl: '/ar/original-base.glb' },
-          { colorId: 'original', variantId: 'base', glbUrl: '/ar/duplicate.glb' },
-          { colorId: 'red', variantId: 'alt', glbUrl: 'https://cdn.example/ar/red-alt.glb', usdzUrl: '/ar/red-alt.usdz' },
-          { colorId: 'missing', variantId: 'base', glbUrl: '/ar/missing.glb' },
-          { colorId: 'red', variantId: 'base', glbUrl: 'blob:https://example.invalid/not-public' },
-        ],
-      },
-    });
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      const assets = result.configuration.arSelectionAssetsByKey;
-      expect(assets).not.toBeNull();
-      expect([...assets!.entries()]).toEqual([
-        ['["red","alt"]', {
-          colorId: 'red',
-          variantId: 'alt',
-          glbUrl: 'https://cdn.example/ar/red-alt.glb',
-          usdzUrl: '/ar/red-alt.usdz',
-        }],
-      ]);
-      expect(result.configuration.localErrors.filter((item) => item.code === 'AR_INITIALIZATION_FAILED')).toHaveLength(3);
-    }
-  });
-
   it('ignores unknown fields', () => {
     const result = normalizeProductConfiguration({ ...validConfiguration(), unknown: { nested: true } });
     expect(result.ok).toBe(true);

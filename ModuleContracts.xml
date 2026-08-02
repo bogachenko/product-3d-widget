@@ -687,12 +687,4 @@
     </APPROVAL_GATE>
     <CONTRACT_EXTENSION id="CONTRACT-EXT-PBR-COLOR-SURFACE"><REQUIREMENT ref="FR-COLOR-PBR-SURFACE"/><MODULE ref="MOD-CONFIGURATION"/><MODULE ref="MOD-THREE-VIEWER"/><INVARIANT>Смена цветового варианта атомарно восстанавливает базовые карты материала перед применением выбранного PBR-набора.</INVARIANT></CONTRACT_EXTENSION>
     <CONTRACT_EXTENSION id="CONTRACT-EXT-COLOR-GEOMETRY-UV"><REQUIREMENT ref="FR-COLOR-GEOMETRY-VISIBILITY"/><REQUIREMENT ref="FR-COLOR-UV-CHANNEL"/><MODULE ref="MOD-CONFIGURATION"/><MODULE ref="MOD-THREE-VIEWER"/><INVARIANT>Viewer сначала восстанавливает базовую видимость, затем применяет структурный вариант, после него видимость цветового варианта и только затем материал; выборы остаются независимыми.</INVARIANT><ERROR_BEHAVIOR>Отсутствующий материал, узел или UV-атрибут отключает только соответствующий цветовой вариант, кроме недоступного default, который отключает группу по существующему правилу.</ERROR_BEHAVIOR></CONTRACT_EXTENSION>
-
-    <CONTRACT_EXTENSION id="CONTRACT-EXT-AR-SELECTION-ASSETS" approved_at="2026-08-02T14:32:25+03:00">
-        <REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/>
-        <MODULE ref="MOD-CONFIGURATION"><INPUT>Необязательные ar.selectionAssets.</INPUT><OUTPUT>Неизменяемая карта уникальных пар colorId+variantId к публичным GLB и необязательным USDZ.</OUTPUT><ERROR_BEHAVIOR>Некорректная запись локально отключается; дубликат пары не может молча выбрать один из ресурсов.</ERROR_BEHAVIOR></MODULE>
-        <MODULE ref="MOD-WIDGET-CONTROLLER"><RESPONSIBILITY>После commit успешного выбора передать новый confirmed selection MOD-AR-ADAPTER; ошибка AR sync не откатывает основной выбор.</RESPONSIBILITY></MODULE>
-        <MODULE ref="MOD-AR-ADAPTER"><RESPONSIBILITY>При наличии карты выбрать точный selection asset, присвоить public src/iosSrc, дождаться load и только после этого сообщить availability.</RESPONSIBILITY><INVARIANT>Launch никогда не использует stale selection asset.</INVARIANT><FAILURE_BEHAVIOR>Отсутствующая текущая пара при непустой карте возвращает AR_SYNC_FAILED и оставляет AR unavailable.</FAILURE_BEHAVIOR></MODULE>
-        <PRESERVES><INVARIANT ref="INV-AR-LAUNCH-DOES-NOT-REQUIRE-MODE"/><INVARIANT ref="INV-EXTERNAL-AR-LIFECYCLE-IS-NOT-INFERRED"/></PRESERVES>
-    </CONTRACT_EXTENSION>
 </MODULE_CONTRACTS>

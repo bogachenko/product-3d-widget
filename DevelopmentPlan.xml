@@ -799,13 +799,4 @@
     </APPROVAL_GATE>
     <APPROVED_EXTENSION id="EXT-PBR-COLOR-SURFACE"><REQUIREMENT ref="FR-COLOR-PBR-SURFACE"/><MODULE ref="MOD-CONFIGURATION"/><MODULE ref="MOD-THREE-VIEWER"/><DESCRIPTION>Добавить необязательный PBR-набор текстур в существующий цветовой вариант с кешированием, восстановлением базового материала и освобождением ресурсов.</DESCRIPTION></APPROVED_EXTENSION>
     <APPROVED_EXTENSION id="EXT-COLOR-GEOMETRY-UV"><REQUIREMENT ref="FR-COLOR-GEOMETRY-VISIBILITY"/><REQUIREMENT ref="FR-COLOR-UV-CHANNEL"/><MODULE ref="MOD-CONFIGURATION"/><MODULE ref="MOD-THREE-VIEWER"/><DESCRIPTION>Расширить существующий цветовой вариант необязательной видимостью узлов и выбором UV-канала без новой категории вариантов и без изменения публичных команд.</DESCRIPTION></APPROVED_EXTENSION>
-
-    <APPROVED_CHANGE id="DP-CHANGE-AR-SELECTION-ASSETS" approved_at="2026-08-02T14:32:25+03:00">
-        <CONFIGURATION module="MOD-CONFIGURATION">Чисто валидирует необязательные ar.selectionAssets, ссылки на существующие colorId/variantId, уникальность пары и публично пригодные GLB/USDZ URL.</CONFIGURATION>
-        <CONTROLLER module="MOD-WIDGET-CONTROLLER">После успешного commit цветового или структурного выбора синхронизирует AR adapter с новым подтверждённым snapshot. AR-сбой не откатывает основной viewer или confirmed selection.</CONTROLLER>
-        <AR_ADAPTER module="MOD-AR-ADAPTER">Для точной пары выбирает selection asset, публично обновляет src/iosSrc, сообщает unavailable до завершения load и разрешает launch только для загруженного ресурса текущего confirmed selection.</AR_ADAPTER>
-        <FLOW>confirmed viewer selection → controller commit/events → AR selection source sync/load → availability event → mode-neutral launch.</FLOW>
-        <FAILURE_BEHAVIOR>При объявленной неполной таблице отсутствующая текущая пара блокирует только AR-запуск и исключает использование предыдущего либо primary source как ложного точного состояния.</FAILURE_BEHAVIOR>
-        <ARCHITECTURE>Новые runtime-модули, классы, файлы, channel-specific adapters и зависимости не создаются.</ARCHITECTURE>
-    </APPROVED_CHANGE>
 </DEVELOPMENT_PLAN>

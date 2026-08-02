@@ -89,18 +89,6 @@ export interface ScenarioConfig {
   readonly steps: readonly ScenarioStepConfig[];
 }
 
-export interface ArSelectionAssetConfig {
-  readonly colorId: string | null;
-  readonly variantId: string | null;
-  readonly glbUrl: string;
-  readonly usdzUrl?: string;
-}
-
-export interface ArConfiguration {
-  readonly enabled: boolean;
-  readonly selectionAssets?: readonly ArSelectionAssetConfig[];
-}
-
 export interface ProductConfiguration {
   readonly productId: string;
   readonly glbUrl: string;
@@ -111,7 +99,7 @@ export interface ProductConfiguration {
   readonly variants?: readonly StructuralVariantConfig[];
   readonly animations?: readonly AnimationConfig[];
   readonly scenarios?: readonly ScenarioConfig[];
-  readonly ar?: ArConfiguration;
+  readonly ar?: Readonly<{ enabled: boolean }>;
 }
 
 export type LifecycleState =
@@ -519,21 +507,11 @@ export class Product3DWidget extends HTMLElement {
       }));
       return Object.freeze({ accepted: true, outcome: 'failed', error: result.error, state: this.#state });
     }
-    this.#commitAndNotify({
+    const state = this.#commitAndNotify({
       ...this.#state,
       selection: { ...this.#state.selection, colorId },
     }, 'product-3d-selection-change');
-    if (this.#arAdapter !== null) {
-      const synced = await this.#arAdapter.syncSelection(this.#state.selection);
-      if (!synced.ok) {
-        this.dispatchEvent(new CustomEvent('product-3d-error', {
-          detail: Object.freeze({ state: this.#state, error: synced.error }),
-          bubbles: true,
-          composed: true,
-        }));
-      }
-    }
-    return Object.freeze({ accepted: true, outcome: 'completed', state: this.#state });
+    return Object.freeze({ accepted: true, outcome: 'completed', state });
   }
   // </SEMANTIC_BLOCK>
 
@@ -567,21 +545,11 @@ export class Product3DWidget extends HTMLElement {
       }));
       return Object.freeze({ accepted: true, outcome: 'failed', error: result.error, state: this.#state });
     }
-    this.#commitAndNotify({
+    const state = this.#commitAndNotify({
       ...this.#state,
       selection: { ...this.#state.selection, variantId },
     }, 'product-3d-selection-change');
-    if (this.#arAdapter !== null) {
-      const synced = await this.#arAdapter.syncSelection(this.#state.selection);
-      if (!synced.ok) {
-        this.dispatchEvent(new CustomEvent('product-3d-error', {
-          detail: Object.freeze({ state: this.#state, error: synced.error }),
-          bubbles: true,
-          composed: true,
-        }));
-      }
-    }
-    return Object.freeze({ accepted: true, outcome: 'completed', state: this.#state });
+    return Object.freeze({ accepted: true, outcome: 'completed', state });
   }
   // </SEMANTIC_BLOCK>
 
