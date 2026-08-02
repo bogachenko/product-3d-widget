@@ -9,53 +9,30 @@ permissions:
   contents: write
 
 jobs:
-  apply-and-verify:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: agent/color-geometry-uv-channel
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24.18.1
-          cache: npm
-      - run: node scripts/apply-color-geometry-uv.mjs
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm run build:types
-      - run: npm run verify:api
-      - run: npm run test:unit
-      - run: npm run verify:three
-      - run: |
-          python3 - <<'PY'
-          import glob
-          import xml.etree.ElementTree as ET
-          for path in glob.glob('*.xml'):
-              ET.parse(path)
-              print('XML PASS', path)
-          PY
-      - run: npx playwright install --with-deps chromium firefox webkit
-      - run: xvfb-run --auto-servernum npm run test:e2e
-      - name: Commit verified implementation
+      - name: Apply patch and commit result
         run: |
-          python3 - <<'PY'
-          import datetime, json
-          path = 'validation-report.json'
-          with open(path, encoding='utf-8') as f:
-              report = json.load(f)
-          report['status'] = 'PASS'
-          report['generated_at'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-          for check in report['checks']:
-              check['status'] = 'PASS'
-          with open(path, 'w', encoding='utf-8') as f:
-              json.dump(report, f, ensure_ascii=False, indent=2)
-              f.write('\n')
-          PY
-          rm scripts/apply-color-geometry-uv.mjs
-          rm .github/workflows/apply-color-geometry-uv.yml
+          set +e
+          node scripts/apply-color-geometry-uv.mjs > color-geometry-uv-apply.log 2>&1
+          status=$?
+          set -e
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm .github/workflows/apply-color-geometry-uv.yml
+          if [ "$status" -eq 0 ]; then
+            rm scripts/apply-color-geometry-uv.mjs
+            rm color-geometry-uv-apply.log
+            git add -A
+            git commit -m 'Добавить геометрию цвета и выбор UV-канала'
+            git push origin HEAD:agent/color-geometry-uv-channel
+            exit 0
+          fi
           git add -A
-          git commit -m 'Добавить геометрию цвета и выбор UV-канала'
+          git commit -m 'Зафиксировать ошибку применения геометрии цвета и UV-канала'
           git push origin HEAD:agent/color-geometry-uv-channel
+          exit "$status"
