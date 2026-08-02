@@ -3,4 +3,6 @@
     <CRITERION id="VC-COLOR-PBR-SURFACE"><REQUIREMENT ref="FR-COLOR-PBR-SURFACE"/><VERIFY>Валидный набор нормализуется; недопустимый URL отключает только вариант; сборка и типы проходят; texture maps восстанавливаются и освобождаются.</VERIFY></CRITERION>
     <CRITERION id="VC-COLOR-GEOMETRY-VISIBILITY"><REQUIREMENT ref="FR-COLOR-GEOMETRY-VISIBILITY"/><VERIFY>Списки узлов нормализуются, пересечение отклоняется, отсутствующий узел локально отключает цвет, а браузерный тест подтверждает сохранение видимости ткани при смене конструкции.</VERIFY></CRITERION>
     <CRITERION id="VC-COLOR-UV-CHANNEL"><REQUIREMENT ref="FR-COLOR-UV-CHANNEL"/><VERIFY>Допустимы только целые 0..3, default равен 0, Texture.channel получает выбранное значение, uv1 проходит модельную проверку, отсутствующий uv2 локально отключает вариант.</VERIFY></CRITERION>
+
+    <CRITERION id="VC-AR-SELECTION-ASSET"><REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/><VERIFY>Vitest проверяет нормализацию, ссылки, дубликаты и missing pair. Браузерный тест подтверждает exact src/iosSrc после каждого confirmed выбора, unavailable во время load, запрет stale launch и неизменность viewer selection при AR_SYNC_FAILED. Реальные устройства отдельно подтверждают WebXR, Scene Viewer и Quick Look.</VERIFY></CRITERION>
 </VERIFICATION_CRITERIA>

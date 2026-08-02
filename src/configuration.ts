@@ -57,6 +57,13 @@ export interface NormalizedAnimation {
 
 export interface NormalizedRestPose extends RestPoseConfig {}
 
+export interface NormalizedArSelectionAsset {
+  readonly colorId: string | null;
+  readonly variantId: string | null;
+  readonly glbUrl: string;
+  readonly usdzUrl: string | null;
+}
+
 export interface NormalizedScenario {
   readonly id: string;
   readonly label: string;
@@ -77,6 +84,7 @@ export interface NormalizedProductConfiguration {
   readonly initialSelection: ConfirmedSelection;
   readonly localErrors: readonly WidgetError[];
   readonly arEnabled: boolean;
+  readonly arSelectionAssetsByKey: ReadonlyMap<string, NormalizedArSelectionAsset> | null;
 }
 
 export type ConfigurationValidationResult =
@@ -123,6 +131,18 @@ const usableAssetUrl = (value: unknown): value is string => {
     return false;
   }
 };
+
+const usableExternalArAssetUrl = (value: unknown): value is string => {
+  if (!nonEmptyString(value)) return false;
+  try {
+    return ['http:', 'https:'].includes(new URL(value, 'https://product-3d-widget.invalid/').protocol);
+  } catch {
+    return false;
+  }
+};
+
+const arSelectionKey = (colorId: string | null, variantId: string | null): string =>
+  JSON.stringify([colorId, variantId]);
 
 const finitePair = (value: unknown, positive: boolean): readonly [number, number] | null => {
   if (!Array.isArray(value) || value.length !== 2) return null;
@@ -538,6 +558,64 @@ const normalizeScenarios = (
   return result;
 };
 
+const normalizeArSelectionAssets = (
+  value: unknown,
+  colorsById: ReadonlyMap<string, NormalizedColorVariant>,
+  variantsById: ReadonlyMap<string, NormalizedStructuralVariant>,
+  localErrors: WidgetError[],
+): ReadonlyMap<string, NormalizedArSelectionAsset> | null => {
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) {
+    localErrors.push(error('AR_INITIALIZATION_FAILED', 'ar', 'ar.selectionAssets must be an array when provided.'));
+    return new Map();
+  }
+
+  const result = new Map<string, NormalizedArSelectionAsset>();
+  const duplicateKeys = new Set<string>();
+  for (const item of value) {
+    const colorId = isObject(item) && (item.colorId === null || nonEmptyString(item.colorId))
+      ? (item.colorId === null ? null : item.colorId.trim())
+      : undefined;
+    const variantId = isObject(item) && (item.variantId === null || nonEmptyString(item.variantId))
+      ? (item.variantId === null ? null : item.variantId.trim())
+      : undefined;
+    const entityId = colorId !== undefined && variantId !== undefined
+      ? arSelectionKey(colorId, variantId)
+      : undefined;
+    const colorValid = colorId !== undefined
+      && (colorsById.size === 0 ? colorId === null : colorId !== null && colorsById.has(colorId));
+    const variantValid = variantId !== undefined
+      && (variantsById.size === 0 ? variantId === null : variantId !== null && variantsById.has(variantId));
+    const glbUrl = isObject(item) && usableExternalArAssetUrl(item.glbUrl) ? item.glbUrl.trim() : null;
+    const usdzUrl = isObject(item) && item.usdzUrl === undefined
+      ? null
+      : isObject(item) && usableExternalArAssetUrl(item.usdzUrl)
+        ? item.usdzUrl.trim()
+        : undefined;
+
+    if (!colorValid || !variantValid || glbUrl === null || usdzUrl === undefined) {
+      localErrors.push(error(
+        'AR_INITIALIZATION_FAILED',
+        'ar',
+        'An AR selection asset has invalid selection references or a non-public GLB/USDZ URL.',
+        entityId,
+      ));
+      continue;
+    }
+
+    const key = arSelectionKey(colorId, variantId);
+    if (duplicateKeys.has(key)) continue;
+    if (result.has(key)) {
+      result.delete(key);
+      duplicateKeys.add(key);
+      localErrors.push(error('AR_INITIALIZATION_FAILED', 'ar', 'An AR selection pair is duplicated and was disabled.', key));
+      continue;
+    }
+    result.set(key, Object.freeze({ colorId, variantId, glbUrl, usdzUrl }));
+  }
+  return result;
+};
+
 // <SEMANTIC_BLOCK id="CFC-FN-NORMALIZE-CONFIG">
 // <INTENT>Validate one untrusted product configuration without runtime side effects.</INTENT>
 // <LINKS><MODULE ref="MOD-CONFIGURATION"/><MODULE_CONTRACT ref="CONTRACT-MOD-CONFIGURATION"/><FUNCTION_CONTRACT ref="CFC-FN-NORMALIZE-CONFIG"/></LINKS>
@@ -572,9 +650,14 @@ export function normalizeProductConfiguration(input: unknown): ConfigurationVali
   }
 
   let arEnabled = false;
+  let arSelectionAssetsByKey: ReadonlyMap<string, NormalizedArSelectionAsset> | null = null;
   if (input.ar !== undefined) {
-    if (isObject(input.ar) && typeof input.ar.enabled === 'boolean') arEnabled = input.ar.enabled;
-    else localErrors.push(error('AR_INITIALIZATION_FAILED', 'ar', 'The optional AR configuration is invalid and AR is disabled.'));
+    if (isObject(input.ar) && typeof input.ar.enabled === 'boolean') {
+      arEnabled = input.ar.enabled;
+      arSelectionAssetsByKey = normalizeArSelectionAssets(input.ar.selectionAssets, colorsById, variantsById, localErrors);
+    } else {
+      localErrors.push(error('AR_INITIALIZATION_FAILED', 'ar', 'The optional AR configuration is invalid and AR is disabled.'));
+    }
   }
 
   const defaultColor = [...colorsById.values()].find((item) => item.isDefault)?.id ?? null;
@@ -592,6 +675,7 @@ export function normalizeProductConfiguration(input: unknown): ConfigurationVali
     initialSelection: Object.freeze({ colorId: defaultColor, variantId: defaultVariant }),
     localErrors: Object.freeze(localErrors),
     arEnabled,
+    arSelectionAssetsByKey,
   });
   return Object.freeze({ ok: true, configuration });
 }

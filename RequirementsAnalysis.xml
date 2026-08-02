@@ -694,4 +694,13 @@
         <APPROVED_SCOPE>Полная редакция RequirementsAnalysis.xml с режим-нейтральным запуском AR: компонент не определяет выбранный AR-канал; отдельное состояние запуска отсутствует; Scene Viewer и Quick Look не создают lifecycle-событий компонента; только фактически наблюдаемые начало и завершение WebXR изменяют AR-состояние.</APPROVED_SCOPE>
     </APPROVAL_GATE>
     <GRAPH_EXTENSION id="GRAPH-COLOR-GEOMETRY-UV"><BUSINESS_PROCESS ref="BP-PRODUCT-EXPLORATION"/><REQUIREMENT ref="FR-COLOR-SELECTION"/><REQUIREMENT ref="FR-COLOR-GEOMETRY-VISIBILITY"/><REQUIREMENT ref="FR-COLOR-PBR-SURFACE"/><REQUIREMENT ref="FR-COLOR-UV-CHANNEL"/><INVARIANT ref="INV-SELECTION-INDEPENDENCE"/></GRAPH_EXTENSION>
+
+    <APPROVED_CHANGE id="RA-CHANGE-AR-SELECTION-ASSETS" approved_at="2026-08-02T14:32:25+03:00">
+        <DECISION>Для точной синхронизации подтверждённых colorId и variantId конфигурация AR может содержать selectionAssets: публично доступные GLB и необязательные USDZ, адресованные точной парой выбранных идентификаторов.</DECISION>
+        <CHANNEL_LIMITATION>Android Scene Viewer повторно загружает модель по публичному src и не переносит runtime-изменения материалов или видимости узлов основной browser-сцены.</CHANNEL_LIMITATION>
+        <FAILURE_BEHAVIOR>Если selectionAssets объявлены, но для текущей подтверждённой пары нет корректного ресурса, AR-синхронизация завершается явной channel-neutral ошибкой и не запускает устаревший либо неверный ресурс.</FAILURE_BEHAVIOR>
+        <PROPAGATION requirement="FR-AR-SELECTION-SYNCHRONIZATION">Перед запуском AR выбранная пара представляется точным selection asset; при отсутствии selectionAssets сохраняется существующий best-effort перенос через публичные возможности model-viewer.</PROPAGATION>
+        <PUBLIC_API>Количество и сигнатуры десяти публичных методов не меняются.</PUBLIC_API>
+    </APPROVED_CHANGE>
+    <GRAPH_EXTENSION id="GRAPH-AR-SELECTION-ASSETS"><BUSINESS_PROCESS ref="BP-AR-PLACEMENT"/><REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/><REQUIREMENT ref="FR-AR-ASSET-MAPPING"/><ENTITY ref="ENTITY-CURRENT-SELECTION"/><ENTITY ref="ENTITY-GLB-MODEL"/></GRAPH_EXTENSION>
 </REQUIREMENTS_ANALYSIS>

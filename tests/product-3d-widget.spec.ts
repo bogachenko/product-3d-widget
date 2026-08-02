@@ -506,6 +506,133 @@ test('mode-neutral AR exposes only availability and publicly observed WebXR life
   expect(JSON.stringify(publicState)).not.toMatch(/scene-viewer|quick-look|selectedMode|arMode/i);
 });
 
+test('AR selection assets preload the exact confirmed color and structural source before launch', async ({ page }) => {
+  await openFixture(page);
+  await page.evaluate(() => {
+    const ctor = customElements.get('model-viewer')!;
+    let activations = 0;
+    Object.defineProperty(ctor.prototype, 'canActivateAR', {
+      configurable: true,
+      get: () => true,
+    });
+    Object.defineProperty(ctor.prototype, 'activateAR', {
+      configurable: true,
+      value: async () => { activations += 1; },
+    });
+    Object.assign(window, { __arActivations: () => activations });
+  });
+
+  await configureWidget(page, {
+    ...configuration,
+    ar: {
+      enabled: true,
+      selectionAssets: [
+        { colorId: 'original', variantId: 'base', glbUrl: '/tests/fixtures/product.gltf?ar=original-base' },
+        { colorId: 'red', variantId: 'base', glbUrl: '/tests/fixtures/product.gltf?ar=red-base' },
+        {
+          colorId: 'red',
+          variantId: 'alt',
+          glbUrl: '/tests/fixtures/product.gltf?ar=red-alt',
+          usdzUrl: '/tests/fixtures/product.usdz?ar=red-alt',
+        },
+      ],
+    },
+  });
+  await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().ar.available)).toBe(true);
+
+  const initial = await page.locator('#widget').evaluate((widget) => {
+    const element = widget.shadowRoot!.querySelector('model-viewer') as any;
+    return { src: element.src, iosSrc: element.iosSrc };
+  });
+  expect(initial.src).toContain('product.gltf?ar=original-base');
+  expect(initial.iosSrc).toBeNull();
+
+  expect(await page.locator('#widget').evaluate(async (widget: any) => (await widget.selectColor('red')).outcome)).toBe('completed');
+  await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().ar.available)).toBe(true);
+  const redBase = await page.locator('#widget').evaluate((widget) => {
+    const element = widget.shadowRoot!.querySelector('model-viewer') as any;
+    return { src: element.src, iosSrc: element.iosSrc };
+  });
+  expect(redBase.src).toContain('product.gltf?ar=red-base');
+  expect(redBase.iosSrc).toBeNull();
+
+  expect(await page.locator('#widget').evaluate(async (widget: any) => (await widget.selectVariant('alt')).outcome)).toBe('completed');
+  const redAlt = await page.locator('#widget').evaluate((widget) => {
+    const element = widget.shadowRoot!.querySelector('model-viewer') as any;
+    return { src: element.src, iosSrc: element.iosSrc, selection: (widget as any).getState().selection };
+  });
+  expect(redAlt.src).toContain('product.gltf?ar=red-alt');
+  expect(redAlt.iosSrc).toContain('product.usdz?ar=red-alt');
+  expect(redAlt.selection).toEqual({ colorId: 'red', variantId: 'alt' });
+
+  await page.evaluate(() => {
+    const widget = document.querySelector('#widget') as any;
+    const button = document.createElement('button');
+    button.id = 'launch-selection-asset';
+    button.addEventListener('click', async () => {
+      (window as any).__selectionAssetLaunch = await widget.launchAR();
+    });
+    document.body.append(button);
+  });
+  await page.click('#launch-selection-asset');
+  await expect.poll(() => page.evaluate(() => (window as any).__selectionAssetLaunch?.outcome)).toBe('initiated');
+  expect(await page.evaluate(() => (window as any).__arActivations())).toBe(1);
+});
+
+test('missing exact AR selection asset preserves the viewer selection and blocks stale launch', async ({ page }) => {
+  await openFixture(page);
+  await page.evaluate(() => {
+    const ctor = customElements.get('model-viewer')!;
+    let activations = 0;
+    Object.defineProperty(ctor.prototype, 'canActivateAR', {
+      configurable: true,
+      get: () => true,
+    });
+    Object.defineProperty(ctor.prototype, 'activateAR', {
+      configurable: true,
+      value: async () => { activations += 1; },
+    });
+    Object.assign(window, { __arActivations: () => activations });
+  });
+
+  await configureWidget(page, {
+    ...configuration,
+    ar: {
+      enabled: true,
+      selectionAssets: [
+        { colorId: 'original', variantId: 'base', glbUrl: '/tests/fixtures/product.gltf?ar=original-base' },
+        { colorId: 'red', variantId: 'base', glbUrl: '/tests/fixtures/product.gltf?ar=red-base' },
+      ],
+    },
+  });
+  await expect.poll(() => page.locator('#widget').evaluate((widget: any) => widget.getState().ar.available)).toBe(true);
+  await page.locator('#widget').evaluate((widget) => {
+    (widget as any).__arErrors = [];
+    widget.addEventListener('product-3d-error', (event: Event) => {
+      (widget as any).__arErrors.push((event as CustomEvent).detail.error.code);
+    });
+  });
+
+  expect(await page.locator('#widget').evaluate(async (widget: any) => (await widget.selectColor('red')).outcome)).toBe('completed');
+  const outcome = await page.locator('#widget').evaluate(async (widget: any) => (await widget.selectVariant('alt')).outcome);
+  expect(outcome).toBe('completed');
+
+  const state = await page.locator('#widget').evaluate((widget: any) => ({
+    selection: widget.getState().selection,
+    ar: widget.getState().ar,
+    errors: widget.__arErrors,
+    src: widget.shadowRoot.querySelector('model-viewer').src,
+  }));
+  expect(state.selection).toEqual({ colorId: 'red', variantId: 'alt' });
+  expect(state.ar.available).toBe(false);
+  expect(state.errors).toContain('AR_SYNC_FAILED');
+  expect(state.src).toContain('product.gltf?ar=red-base');
+
+  const launch = await page.locator('#widget').evaluate(async (widget: any) => widget.launchAR());
+  expect(launch).toMatchObject({ accepted: false, outcome: 'rejected', reason: 'ar-unavailable' });
+  expect(await page.evaluate(() => (window as any).__arActivations())).toBe(0);
+});
+
 test('WebGL2 absence and primary GLB failure produce exact blocking outcomes', async ({ page }) => {
   await openFixture(page);
   const webgl = await page.evaluate(async (config) => {

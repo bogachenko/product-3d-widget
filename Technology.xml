@@ -419,4 +419,14 @@
         <APPROVAL_STATEMENT>Утверждаю Technology.xml в редакции commit 2fed2843ee692abf401e1999c5bba1e0550245ba, включая точные версии зависимостей, ESM-only library build, отдельную генерацию .d.ts через tsc, требование единственной копии Three.js, использование Node.js только для разработки, сборки, тестов и CI, Three.js как основной 3D-рендерер, &lt;model-viewer&gt; как режим-нейтральный публичный AR-адаптер, WebGL 2 как обязательное условие, Playwright для браузерных интеграционных тестов и проверки AR на реальных устройствах.</APPROVAL_STATEMENT>
         <APPROVED_SCOPE>Полная редакция Technology.xml: точные версии зависимостей; ESM-only library build; отдельная генерация деклараций через tsc; единственная копия Three.js; Node.js только как build/test/CI runtime; Three.js как основной 3D-рендерер; model-viewer только как режим-нейтральный публичный AR-адаптер; обязательный WebGL 2; Playwright и проверки AR на реальных устройствах.</APPROVED_SCOPE>
     </APPROVAL_GATE>
+
+    <APPROVED_CHANGE id="TECH-CHANGE-AR-SELECTION-ASSETS" approved_at="2026-08-02T14:32:25+03:00">
+        <DECISION>Для exact selection transfer используется необязательная таблица публичных GLB/USDZ URL по паре colorId и variantId; ModelViewerArAdapter выбирает URL и присваивает его только публичным src/iosSrc.</DECISION>
+        <RATIONALE>Публичный model-viewer переносит runtime-изменения в WebXR и частично в автоматически сформированный Quick Look, но Android Scene Viewer повторно скачивает исходный src; поэтому один runtime-mutated source не гарантирует выбранную конструкцию во всех самостоятельно выбранных каналах.</RATIONALE>
+        <CONSTRAINT>Selection-specific GLB должен быть доступен Scene Viewer по absolute либо document-resolved HTTPS URL; blob и data URL не используются для внешнего канала.</CONSTRAINT>
+        <CONSTRAINT>При selection-specific GLB без selection-specific USDZ iosSrc очищается, чтобы Quick Look формировал USDZ из выбранного GLB.</CONSTRAINT>
+        <NO_NEW_DEPENDENCY>Используются существующий model-viewer 4.3.1, Web Platform URL resolution и статические GLB/USDZ; новая runtime-зависимость не добавляется.</NO_NEW_DEPENDENCY>
+        <SOURCE id="TECH-SOURCE-MODEL-VIEWER-SCENEGRAPH-AR">https://modelviewer.dev/examples/scenegraph/</SOURCE>
+        <LINKS><REQUIREMENT ref="FR-AR-SELECTION-SYNCHRONIZATION"/><REQUIREMENT ref="FR-AR-ASSET-MAPPING"/></LINKS>
+    </APPROVED_CHANGE>
 </TECHNOLOGY_SELECTION>

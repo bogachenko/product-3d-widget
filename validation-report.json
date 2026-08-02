@@ -1,7 +1,7 @@
 {
   "status": "PASS",
-  "scope": "color-geometry-uv-channel",
-  "generated_at": "2026-08-02T08:46:00+00:00",
+  "scope": "ar-selection-assets",
+  "generated_at": "2026-08-02T11:52:54+00:00",
   "checks": [
     {
       "id": "requirements-propagation",
@@ -32,11 +32,15 @@
       "status": "PASS"
     },
     {
-      "id": "color-geometry-e2e",
+      "id": "ar-selection-assets-normalization",
       "status": "PASS"
     },
     {
-      "id": "uv-channel-e2e",
+      "id": "ar-selection-assets-e2e",
+      "status": "PASS"
+    },
+    {
+      "id": "stale-ar-launch-blocking",
       "status": "PASS"
     },
     {
