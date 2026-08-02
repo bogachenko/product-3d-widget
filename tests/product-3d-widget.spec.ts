@@ -175,7 +175,7 @@ test('configured UV channel is validated against target meshes', async ({ page }
   expect(result.outcome).toBe('ready');
   const state = await page.locator('#widget').evaluate((widget: any) => widget.getState());
   expect(state.capabilities.colors.map((color: any) => color.id)).toEqual(['original', 'uv1']);
-  expect(state.localErrors).toContainEqual(expect.objectContaining({ code: 'COLOR_DISABLED', entityId: 'uv2-missing' }));
+  expect(state.capabilities.localErrors).toContainEqual(expect.objectContaining({ code: 'COLOR_DISABLED', entityId: 'uv2-missing' }));
   const selected = await page.locator('#widget').evaluate(async (widget: any) => widget.selectColor('uv1'));
   expect(selected).toMatchObject({ accepted: true, outcome: 'completed' });
 });
