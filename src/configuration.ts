@@ -20,6 +20,7 @@ export interface NormalizedMaterialSurface {
   readonly normalTextureUrl: string | null;
   readonly metallicRoughnessTextureUrl: string | null;
   readonly occlusionTextureUrl: string | null;
+  readonly uvChannel: 0 | 1 | 2 | 3;
   readonly repeat: readonly [number, number];
   readonly offset: readonly [number, number];
   readonly rotation: number;
@@ -33,6 +34,8 @@ export interface NormalizedColorVariant {
   readonly isDefault: boolean;
   readonly isBase: boolean;
   readonly materialNames: readonly string[];
+  readonly visibleNodeNames: readonly string[];
+  readonly hiddenNodeNames: readonly string[];
   readonly surface: NormalizedMaterialSurface | null;
 }
 
@@ -135,16 +138,26 @@ const normalizeMaterialSurface = (value: unknown): NormalizedMaterialSurface | n
   const keys = ['baseColorTextureUrl', 'normalTextureUrl', 'metallicRoughnessTextureUrl', 'occlusionTextureUrl'] as const;
   const urls = Object.fromEntries(keys.map((key) => [key, value[key] === undefined ? null : usableAssetUrl(value[key]) ? (value[key] as string).trim() : false]));
   if (Object.values(urls).some((item) => item === false) || !Object.values(urls).some((item) => typeof item === 'string')) return false;
+  const uvChannel = value.uvChannel === undefined ? 0 : value.uvChannel;
   const repeat = value.repeat === undefined ? Object.freeze([1, 1] as const) : finitePair(value.repeat, true);
   const offset = value.offset === undefined ? Object.freeze([0, 0] as const) : finitePair(value.offset, false);
   const normalScale = value.normalScale === undefined ? Object.freeze([1, 1] as const) : finitePair(value.normalScale, false);
   const rotation = value.rotation === undefined ? 0 : value.rotation;
-  if (repeat === null || offset === null || normalScale === null || typeof rotation !== 'number' || !Number.isFinite(rotation)) return false;
+  if (repeat === null
+    || offset === null
+    || normalScale === null
+    || typeof rotation !== 'number'
+    || !Number.isFinite(rotation)
+    || typeof uvChannel !== 'number'
+    || !Number.isInteger(uvChannel)
+    || uvChannel < 0
+    || uvChannel > 3) return false;
   return Object.freeze({
     baseColorTextureUrl: urls.baseColorTextureUrl as string | null,
     normalTextureUrl: urls.normalTextureUrl as string | null,
     metallicRoughnessTextureUrl: urls.metallicRoughnessTextureUrl as string | null,
     occlusionTextureUrl: urls.occlusionTextureUrl as string | null,
+    uvChannel: uvChannel as 0 | 1 | 2 | 3,
     repeat,
     offset,
     rotation,
@@ -250,8 +263,23 @@ const normalizeColorGroup = (
     }
     const id = item.id.trim();
     const materialNames = uniqueStrings(item.materialNames);
+    const visibleNodeNames = item.visibleNodeNames === undefined
+      ? Object.freeze([] as string[])
+      : uniqueStrings(item.visibleNodeNames);
+    const hiddenNodeNames = item.hiddenNodeNames === undefined
+      ? Object.freeze([] as string[])
+      : uniqueStrings(item.hiddenNodeNames);
+    const overlap = visibleNodeNames !== null && hiddenNodeNames !== null
+      && visibleNodeNames.some((name) => hiddenNodeNames.includes(name));
     const surface = normalizeMaterialSurface(item.surface as MaterialSurfaceConfig | undefined);
-    if (seen.has(id) || materialNames === null || (!item.isBase && materialNames.length === 0) || !isSolidCssColor(item.swatch) || surface === false) {
+    if (seen.has(id)
+      || materialNames === null
+      || visibleNodeNames === null
+      || hiddenNodeNames === null
+      || overlap
+      || (!item.isBase && materialNames.length === 0)
+      || !isSolidCssColor(item.swatch)
+      || surface === false) {
       localErrors.push(error('COLOR_DISABLED', 'color', `Color variant "${id}" is invalid.`, id));
       seen.add(id);
       continue;
@@ -264,6 +292,8 @@ const normalizeColorGroup = (
       isDefault: item.isDefault,
       isBase: item.isBase,
       materialNames,
+      visibleNodeNames,
+      hiddenNodeNames,
       surface,
     }));
   }

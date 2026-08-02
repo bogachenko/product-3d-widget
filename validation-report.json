@@ -1,47 +1,51 @@
 {
-  "status": "PASS",
-  "scope": "scenario-camera-view",
-  "generated_at": "2026-08-01T14:47:08.304826+00:00",
+  "status": "PENDING",
+  "scope": "color-geometry-uv-channel",
+  "generated_at": null,
   "checks": [
     {
       "id": "requirements-propagation",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
       "id": "xml-well-formed",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
       "id": "typecheck",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
       "id": "production-build",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
       "id": "declarations",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
       "id": "public-api",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
       "id": "unit-tests",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
-      "id": "scenario-camera-e2e",
-      "status": "PASS"
+      "id": "color-geometry-e2e",
+      "status": "PENDING"
+    },
+    {
+      "id": "uv-channel-e2e",
+      "status": "PENDING"
     },
     {
       "id": "full-playwright-matrix",
-      "status": "PASS"
+      "status": "PENDING"
     },
     {
       "id": "single-three",
-      "status": "PASS"
+      "status": "PENDING"
     }
   ]
 }

@@ -145,6 +145,8 @@ const localError = (
 const animationTimeTolerance = (duration: number): number =>
   Math.max(1e-6, Math.abs(duration) * 1e-7);
 
+const uvAttributeName = (channel: number): string => channel === 0 ? 'uv' : `uv${channel}`;
+
 const cameraDuration = (value: unknown, fallback = 700): number | null => {
   const duration = value === undefined ? fallback : value;
   return typeof duration === 'number' && Number.isFinite(duration) && duration >= 0 && duration <= 60_000
@@ -189,6 +191,7 @@ export class ThreeViewer {
 
   readonly #nodesByName = new Map<string, Object3D>();
   readonly #materialsByName = new Map<string, MeshStandardMaterial[]>();
+  readonly #meshesByMaterialName = new Map<string, Mesh[]>();
   readonly #baseTransforms = new Map<Object3D, TransformSnapshot>();
   readonly #ordinaryTransforms = new Map<Object3D, TransformSnapshot>();
   readonly #baseVisibility = new Map<Object3D, boolean>();
@@ -343,6 +346,7 @@ export class ThreeViewer {
   #indexModel(): void {
     this.#nodesByName.clear();
     this.#materialsByName.clear();
+    this.#meshesByMaterialName.clear();
     this.#baseTransforms.clear();
     this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
@@ -369,6 +373,8 @@ export class ThreeViewer {
           const name = material.name;
           if (!this.#materialsByName.has(name)) this.#materialsByName.set(name, []);
           this.#materialsByName.get(name)!.push(material);
+          if (!this.#meshesByMaterialName.has(name)) this.#meshesByMaterialName.set(name, []);
+          this.#meshesByMaterialName.get(name)!.push(object);
           if (!this.#baseMaterialStates.has(material)) this.#baseMaterialStates.set(material, Object.freeze({
             color: material.color.clone(),
             map: material.map,
@@ -420,10 +426,24 @@ export class ThreeViewer {
     this.#enabledCameraViews.clear();
 
     for (const color of this.#config!.colorsById.values()) {
-      if (color.isBase || color.materialNames.every((name) => this.#materialsByName.has(name))) {
+      const nodeNames = [...color.visibleNodeNames, ...color.hiddenNodeNames];
+      const materialsAvailable = color.isBase || color.materialNames.every((name) => this.#materialsByName.has(name));
+      const nodesAvailable = nodeNames.every((name) => this.#nodesByName.has(name));
+      const requiredUvAttribute = color.isBase || color.surface === null
+        ? null
+        : uvAttributeName(color.surface.uvChannel);
+      const uvChannelAvailable = requiredUvAttribute === null || color.materialNames.every((name) =>
+        (this.#meshesByMaterialName.get(name) ?? []).every((mesh) =>
+          mesh.geometry.getAttribute(requiredUvAttribute) !== undefined));
+      if (materialsAvailable && nodesAvailable && uvChannelAvailable) {
         this.#enabledColors.add(color.id);
       } else {
-        localErrors.push(localError('COLOR_DISABLED', 'color', `Color "${color.id}" references a missing material.`, color.id));
+        localErrors.push(localError(
+          'COLOR_DISABLED',
+          'color',
+          `Color "${color.id}" references a missing material, node or UV channel.`,
+          color.id,
+        ));
       }
     }
     const defaultColor = [...this.#config!.colorsById.values()].find((color) => color.isDefault)?.id ?? null;
@@ -619,10 +639,11 @@ export class ThreeViewer {
 
   async #loadConfiguredSurfaces(): Promise<void> {
     const loader = new TextureLoader();
-    const load = async (url: string | null, srgb: boolean, surface: { readonly repeat: readonly [number, number]; readonly offset: readonly [number, number]; readonly rotation: number } | null): Promise<Texture | null> => {
+    const load = async (url: string | null, srgb: boolean, surface: { readonly uvChannel: number; readonly repeat: readonly [number, number]; readonly offset: readonly [number, number]; readonly rotation: number } | null): Promise<Texture | null> => {
       if (url === null || surface === null) return null;
       const texture = await loader.loadAsync(url);
       texture.flipY = false;
+      texture.channel = surface.uvChannel;
       texture.wrapS = RepeatWrapping;
       texture.wrapT = RepeatWrapping;
       texture.repeat.set(surface.repeat[0], surface.repeat[1]);
@@ -656,6 +677,14 @@ export class ThreeViewer {
       for (const name of variant.hiddenNodeNames) this.#nodesByName.get(name)!.visible = false;
     }
 
+    const color = this.#currentSelection.colorId === null
+      ? undefined
+      : this.#config!.colorsById.get(this.#currentSelection.colorId);
+    if (color !== undefined) {
+      for (const name of color.visibleNodeNames) this.#nodesByName.get(name)!.visible = true;
+      for (const name of color.hiddenNodeNames) this.#nodesByName.get(name)!.visible = false;
+    }
+
     for (const [material, state] of this.#baseMaterialStates) {
       material.color.copy(state.color);
       material.map = state.map;
@@ -666,9 +695,6 @@ export class ThreeViewer {
       material.normalScale.copy(state.normalScale);
       material.needsUpdate = true;
     }
-    const color = this.#currentSelection.colorId === null
-      ? undefined
-      : this.#config!.colorsById.get(this.#currentSelection.colorId);
     if (color !== undefined && !color.isBase) {
       const loaded = this.#loadedSurfaces.get(color.id);
       for (const name of color.materialNames) {
@@ -1224,6 +1250,7 @@ export class ThreeViewer {
     this.#mixer = null;
     this.#nodesByName.clear();
     this.#materialsByName.clear();
+    this.#meshesByMaterialName.clear();
     this.#baseTransforms.clear();
     this.#ordinaryTransforms.clear();
     this.#baseVisibility.clear();
